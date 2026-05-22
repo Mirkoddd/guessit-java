@@ -3,11 +3,8 @@ package io.guessit.engine;
 import com.mirkoddd.sift.core.dsl.Fragment;
 import com.mirkoddd.sift.core.dsl.SiftPattern;
 
-import java.util.ArrayList;
-import java.util.List;
-
+import static com.mirkoddd.sift.core.Sift.exactly;
 import static com.mirkoddd.sift.core.SiftPatterns.anyOf;
-import static com.mirkoddd.sift.core.SiftPatterns.literal;
 
 /**
  * Mirrors Python rebulk's pattern-source rewriting helpers.
@@ -20,23 +17,23 @@ import static com.mirkoddd.sift.core.SiftPatterns.literal;
  * alone.
  */
 public final class Abbreviations {
+
     private Abbreviations() {}
 
     /** Python `seps_no_fs` (seps with '/' and '\\' removed) escaped for a regex char class. */
     public static final SiftPattern<Fragment> SEPS_NO_FS_PATTERN = buildSepsPattern();
 
     private static SiftPattern<Fragment> buildSepsPattern() {
-        List<SiftPattern<Fragment>> chars = new ArrayList<>();
-        for (char c : Seps.CHARS.toCharArray()) {
-            if (c != '/' && c != '\\') {
-                chars.add(literal(String.valueOf(c)));
-            }
-        }
+        var chars = Seps.CHARS.chars()
+                .filter(c -> c != '/' && c != '\\')
+                .mapToObj(c -> exactly(1).character((char) c))
+                .toList();
+
         return anyOf(chars);
     }
 
     /** Replace every unescaped, non-class `-` in the source with `[<seps_no_fs>]`.
-     *  Mirrors Python rebulk's dash abbreviation: a single separator character (not zero-or-more). */
+     * Mirrors Python rebulk's dash abbreviation: a single separator character (not zero-or-more). */
     public static String dash(String src) {
         return rewriteLiteral(src, SEPS_NO_FS_PATTERN.shake());
     }
@@ -45,15 +42,29 @@ public final class Abbreviations {
         var sb = new StringBuilder(src.length() + 16);
         boolean escaped = false;
         int classDepth = 0;
+
         for (int i = 0; i < src.length(); i++) {
             char c = src.charAt(i);
-            if (escaped) { sb.append(c); escaped = false; continue; }
-            if (c == '\\') { sb.append(c); escaped = true; continue; }
-            if (c == '[') { classDepth++; sb.append(c); continue; }
-            if (c == ']' && classDepth > 0) { classDepth--; sb.append(c); continue; }
-            if (c == '-' && classDepth == 0) { sb.append(replacement); continue; }
-            sb.append(c);
+
+            if (escaped) {
+                sb.append(c);
+                escaped = false;
+            } else if (c == '\\') {
+                sb.append(c);
+                escaped = true;
+            } else if (c == '[') {
+                sb.append(c);
+                classDepth++;
+            } else if (c == ']' && classDepth > 0) {
+                sb.append(c);
+                classDepth--;
+            } else if (c == '-' && classDepth == 0) {
+                sb.append(replacement);
+            } else {
+                sb.append(c);
+            }
         }
+
         return sb.toString();
     }
 }
