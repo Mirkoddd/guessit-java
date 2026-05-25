@@ -4,7 +4,6 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
-import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Validators;
 import com.mirkoddd.sift.core.NamedCapture;
@@ -213,7 +212,7 @@ public final class EpisodeWordExtractor implements Extractor {
     private void processSeasonMatch(ParseContext ctx, Matcher seasonMatcher,
                                     Predicate<Match> seasonHeadValidator) {
         var raw = seasonMatcher.group();
-        var headMatch = new Match(MatchName.SEASON, null, seasonMatcher.start(), seasonMatcher.end(), raw, Priority.DEFAULT, Set.of(), true);
+        var headMatch = new Match(MatchName.SEASON, null, seasonMatcher.start(), seasonMatcher.end(), raw, 1000, Set.of(), true);
         if (!seasonHeadValidator.test(headMatch)) return;
 
         ctx.matches.add(headMatch);
@@ -232,7 +231,7 @@ public final class EpisodeWordExtractor implements Extractor {
         if (n < 0) return -1;
 
         ctx.matches.add(new Match(MatchName.SEASON, n, valStart, valEnd,
-                ctx.input.substring(valStart, valEnd), Priority.DEFAULT, Set.of(TAG_SEASON_WORD), false));
+                ctx.input.substring(valStart, valEnd), 1000, Set.of(TAG_SEASON_WORD), false));
         return n;
     }
 
@@ -244,7 +243,7 @@ public final class EpisodeWordExtractor implements Extractor {
         int c = parseSafe(seasonMatcher.group(GRP_COUNT));
         if (c >= 0) {
             ctx.matches.add(new Match(MatchName.SEASON_COUNT, c, countStart, countEnd,
-                    seasonMatcher.group(GRP_COUNT), Priority.DEFAULT, Set.of(), false));
+                    seasonMatcher.group(GRP_COUNT), 1000, Set.of(), false));
         }
     }
 
@@ -309,7 +308,7 @@ public final class EpisodeWordExtractor implements Extractor {
         }
 
         ctx.matches.add(new Match(MatchName.SEASON, v, tStart, tEnd,
-                ctx.input.substring(tStart, tEnd), Priority.DEFAULT, Set.of(TAG_SEASON_WORD), false));
+                ctx.input.substring(tStart, tEnd), 1000, Set.of(TAG_SEASON_WORD), false));
 
         return new TailResult(true, v);
     }
@@ -321,7 +320,7 @@ public final class EpisodeWordExtractor implements Extractor {
     private void addRangeSeasons(ParseContext ctx, int prevVal, int v, int tStart) {
         for (int x = prevVal + 1; x < v; x++) {
             ctx.matches.add(new Match(MatchName.SEASON, x, tStart, tStart, "",
-                    Priority.DEFAULT, Set.of(TAG_SEASON_WORD), false));
+                    1000, Set.of(TAG_SEASON_WORD), false));
         }
     }
 
@@ -341,7 +340,7 @@ public final class EpisodeWordExtractor implements Extractor {
     private void processEpisodeMatch(ParseContext ctx, Matcher epMatcher,
                                      Predicate<Match> seps, boolean episodeType) {
         var raw = epMatcher.group();
-        var headMatch = new Match(MatchName.EPISODE, null, epMatcher.start(), epMatcher.end(), raw, Priority.DEFAULT, Set.of(), true);
+        var headMatch = new Match(MatchName.EPISODE, null, epMatcher.start(), epMatcher.end(), raw, 1000, Set.of(), true);
 
         if (!seps.test(headMatch)) {
             handleInvalidEpisodeHead(ctx, epMatcher);
@@ -365,7 +364,7 @@ public final class EpisodeWordExtractor implements Extractor {
                 && markerEnd < ctx.input.length()
                 && Seps.isSep(ctx.input.charAt(markerEnd))) {
             ctx.matches.add(new Match(MatchName.EPISODE_WORD_MARKER, null,
-                    markerStart, markerEnd, mw, Priority.DEFAULT, Set.of(), true));
+                    markerStart, markerEnd, mw, 1000, Set.of(), true));
         }
     }
 
@@ -389,7 +388,7 @@ public final class EpisodeWordExtractor implements Extractor {
             if (ep < 0) return null;
 
             if (!isPureDigits(epToken)) {
-                var token = new Match(MatchName.EPISODE, ep, epStart, epEnd, epToken, Priority.DEFAULT, Set.of(), false);
+                var token = new Match(MatchName.EPISODE, ep, epStart, epEnd, epToken, 1000, Set.of(), false);
                 if (!seps.test(token)) return null;
             }
             return ep;
@@ -404,7 +403,7 @@ public final class EpisodeWordExtractor implements Extractor {
         int epStart = epMatcher.start(GRP_EP_VAL);
         int epEnd = epMatcher.end(GRP_EP_VAL);
         ctx.matches.add(new Match(MatchName.EPISODE, ep, epStart, epEnd,
-                ctx.input.substring(epStart, epEnd), Priority.DEFAULT, Set.of(TAG_EPISODE_WORD), false));
+                ctx.input.substring(epStart, epEnd), 1000, Set.of(TAG_EPISODE_WORD), false));
 
         addEpisodeVersion(ctx, epMatcher);
         addEpisodeCountFromMatch(ctx, epMatcher);
@@ -414,7 +413,7 @@ public final class EpisodeWordExtractor implements Extractor {
         if (epMatcher.group(GRP_VERSION) != null) {
             int v = Integer.parseInt(epMatcher.group(GRP_VERSION));
             ctx.matches.add(new Match(MatchName.VERSION, v, epMatcher.start(GRP_VERSION), epMatcher.end(GRP_VERSION),
-                    epMatcher.group(GRP_VERSION), Priority.DEFAULT, Set.of(), false));
+                    epMatcher.group(GRP_VERSION), 1000, Set.of(), false));
         }
     }
 
@@ -422,7 +421,7 @@ public final class EpisodeWordExtractor implements Extractor {
         if (epMatcher.group(GRP_COUNT) != null) {
             int c = Integer.parseInt(epMatcher.group(GRP_COUNT));
             ctx.matches.add(new Match(MatchName.EPISODE_COUNT, c, epMatcher.start(GRP_COUNT), epMatcher.end(GRP_COUNT),
-                    epMatcher.group(GRP_COUNT), Priority.DEFAULT, Set.of(), false));
+                    epMatcher.group(GRP_COUNT), 1000, Set.of(), false));
         }
     }
 
@@ -439,7 +438,7 @@ public final class EpisodeWordExtractor implements Extractor {
     private void processDetachedMatch(ParseContext ctx, Matcher dm,
                                       Predicate<Match> seps) {
         var raw = dm.group();
-        var headMatch = new Match(MatchName.EPISODE, null, dm.start(), dm.end(), raw, Priority.DEFAULT, Set.of(), false);
+        var headMatch = new Match(MatchName.EPISODE, null, dm.start(), dm.end(), raw, 1000, Set.of(), false);
         if (!seps.test(headMatch)) return;
 
         int dStart = dm.start(GRP_EP_VAL);
@@ -452,11 +451,11 @@ public final class EpisodeWordExtractor implements Extractor {
         int c = Integer.parseInt(dm.group(GRP_COUNT));
 
         ctx.matches.add(new Match(MatchName.EPISODE, e, dm.start(GRP_EP_VAL), dm.end(GRP_EP_VAL),
-                dm.group(GRP_EP_VAL), Priority.DEFAULT, Set.of(TAG_EPISODE_WORD), false));
+                dm.group(GRP_EP_VAL), 1000, Set.of(TAG_EPISODE_WORD), false));
         ctx.matches.add(new Match(MatchName.EPISODE_COUNT, c, dm.start(GRP_COUNT), dm.end(GRP_COUNT),
-                dm.group(GRP_COUNT), Priority.DEFAULT, Set.of(), false));
+                dm.group(GRP_COUNT), 1000, Set.of(), false));
         ctx.matches.add(new Match(MatchName.EP_COUNT_SPAN, null, dm.start(), dm.end(),
-                raw, Priority.DEFAULT, Set.of(), true));
+                raw, 1000, Set.of(), true));
     }
 
     @Override

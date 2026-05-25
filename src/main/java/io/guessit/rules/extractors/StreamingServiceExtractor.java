@@ -4,7 +4,6 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
-import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Abbreviations;
 import io.guessit.core.text.Seps;
 
@@ -111,7 +110,7 @@ public final class StreamingServiceExtractor implements Extractor {
             int e = i + n.length();
             if (boundsOk(ctx, input, i, e)) {
                 ctx.matches.add(new Match(MatchName.STREAMING_SERVICE, value, i, e,
-                        input.substring(i, e), Priority.DEFAULT, Set.of("source-prefix"), false));
+                        input.substring(i, e), 1000, Set.of("source-prefix"), false));
             }
             from = i + 1;
         }
@@ -130,7 +129,7 @@ public final class StreamingServiceExtractor implements Extractor {
             int e = matchResult.end();
             if (boundsOk(ctx, input, s, e)) {
                 ctx.matches.add(new Match(MatchName.STREAMING_SERVICE, value, s, e,
-                        input.substring(s, e), Priority.DEFAULT, Set.of("source-prefix"), false));
+                        input.substring(s, e), 1000, Set.of("source-prefix"), false));
             }
         });
     }

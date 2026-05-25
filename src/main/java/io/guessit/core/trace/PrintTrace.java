@@ -2,7 +2,6 @@ package io.guessit.core.trace;
 
 import io.guessit.api.GuessResult;
 import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.Priority;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -22,7 +21,7 @@ public final class PrintTrace implements Trace {
         sb.append(m.raw()).append(':').append('(').append(m.start()).append(',').append(m.end()).append(')');
         if (m.isPrivate()) sb.append("+private");
         sb.append("+name=").append(m.name().name().toLowerCase(java.util.Locale.ROOT));
-        if (m.priority() != Priority.DEFAULT) sb.append("+priority=").append(m.priority().getScore());
+        if (m.priority() != 1000) sb.append("+priority=").append(m.priority());
         if (!m.tags().isEmpty()) {
             var sorted = new java.util.ArrayList<>(m.tags());
             java.util.Collections.sort(sorted);

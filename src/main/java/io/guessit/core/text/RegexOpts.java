@@ -1,7 +1,6 @@
 package io.guessit.core.text;
 
 import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.Priority;
 
 import java.util.Set;
 import java.util.function.Function;
@@ -18,26 +17,21 @@ import java.util.function.Predicate;
  * the value against context (e.g. separator surroundings, numeric range).
  */
 public record RegexOpts(
-        Priority priority,
-        Set<String> tags,
-        boolean isPrivate,
-        Function<String, Object> valueExtractor,
-        Function<Object, Object> valueFormatter,
-        Predicate<Match> validator
+    int priority,
+    Set<String> tags,
+    boolean isPrivate,
+    Function<String, Object> valueExtractor,
+    Function<Object, Object> valueFormatter,
+    Predicate<Match> validator
 ) {
     public RegexOpts {
         tags = tags == null ? Set.of() : Set.copyOf(tags);
         if (validator == null) validator = _ -> true;
     }
-
     public static RegexOpts defaults() {
-        return new RegexOpts(Priority.DEFAULT, Set.of(), false, s -> s, v -> v, _ -> true);
+        return new RegexOpts(1000, Set.of(), false, s -> s, v -> v, _ -> true);
     }
-
-    public RegexOpts withPriority(Priority p) {
-        return new RegexOpts(p, tags, isPrivate, valueExtractor, valueFormatter, validator);
-    }
-
+    public RegexOpts withPriority(int p) { return new RegexOpts(p, tags, isPrivate, valueExtractor, valueFormatter, validator); }
     public RegexOpts withTags(Set<String> t) { return new RegexOpts(priority, t, isPrivate, valueExtractor, valueFormatter, validator); }
     public RegexOpts withValue(Function<String, Object> ex) { return new RegexOpts(priority, tags, isPrivate, ex, valueFormatter, validator); }
     public RegexOpts withValidator(Predicate<Match> v) { return new RegexOpts(priority, tags, isPrivate, valueExtractor, valueFormatter, v); }

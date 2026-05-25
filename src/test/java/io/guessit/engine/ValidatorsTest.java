@@ -1,7 +1,6 @@
 package io.guessit.engine;
 
 import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Validators;
 import org.junit.jupiter.api.Test;
 
@@ -13,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ValidatorsTest {
     private static Match m(int s, int e, String input) {
-        return new Match(G, null, s, e, input.substring(s, e), Priority.DEFAULT, java.util.Set.of(), false);
+        return new Match(G, null, s, e, input.substring(s, e), 1000, java.util.Set.of(), false);
     }
 
     @Test void sepsSurround_atStartOfString() {

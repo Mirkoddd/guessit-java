@@ -1,7 +1,6 @@
 package io.guessit.engine;
 
 import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.trace.PrintTrace;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -24,14 +23,14 @@ class PrintTraceTest {
 
     @Test
     void includesPrivateBeforeName() {
-        var m = new Match(WEAK, 2020, 11, 15, "2020", Priority.DEFAULT, Set.of(), true);
+        var m = new Match(WEAK, 2020, 11, 15, "2020", 1000, Set.of(), true);
         Assertions.assertThat(formatMatch(m)).isEqualTo("2020:(11,15)+private+name=weak");
     }
 
     @Test
     void includesPriorityWhenNotDefault() {
-        var m = of(SOURCE, "Blu-ray", 22, 28, "Blu-ray").withPriority(Priority.EXPECTED);
-        Assertions.assertThat(formatMatch(m)).isEqualTo("Blu-ray:(22,28)+name=source+priority=2000");
+        var m = of(SOURCE, "Blu-ray", 22, 28, "Blu-ray").withPriority(2048);
+        Assertions.assertThat(formatMatch(m)).isEqualTo("Blu-ray:(22,28)+name=source+priority=2048");
     }
 
     @Test

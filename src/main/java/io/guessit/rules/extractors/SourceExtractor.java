@@ -1,7 +1,10 @@
 package io.guessit.rules.extractors;
 
 import io.guessit.core.pipeline.contracts.Extractor;
-import io.guessit.core.pipeline.state.*;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Validators;
 
@@ -66,7 +69,7 @@ public final class SourceExtractor implements Extractor {
         int s = matcher.start();
         int e = matcher.end();
         var sourceMatch = new Match(MatchName.SOURCE, rule.source(), s, e,
-                input.substring(s, e), Priority.DEFAULT, rule.tags(), false);
+                input.substring(s, e), 1000, rule.tags(), false);
 
         if (!validator.test(sourceMatch) || overlapsExtension(ctx, s, e)) return;
 
@@ -75,7 +78,7 @@ public final class SourceExtractor implements Extractor {
 
         if (insideStream) {
             sourceMatch = new Match(MatchName.SOURCE, rule.source(), s, e,
-                    input.substring(s, e), Priority.DEFAULT, rule.tags(), true);
+                    input.substring(s, e), 1000, rule.tags(), true);
         }
 
         ctx.matches.add(sourceMatch);
@@ -90,7 +93,7 @@ public final class SourceExtractor implements Extractor {
         int ge = groupEnd(matcher, groupName);
         if (gs >= 0 && ge > gs) {
             ctx.matches.add(new Match(MatchName.OTHER, value, gs, ge,
-                    input.substring(gs, ge), Priority.DEFAULT, Set.of("coexist", "derivedFrom:source"), false));
+                    input.substring(gs, ge), 1000, Set.of("coexist", "derivedFrom:source"), false));
         }
     }
 

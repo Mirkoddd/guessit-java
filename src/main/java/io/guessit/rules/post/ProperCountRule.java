@@ -4,7 +4,6 @@ import io.guessit.core.pipeline.contracts.PostProcessor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
-import io.guessit.core.pipeline.state.Priority;
 
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -65,7 +64,7 @@ public final class ProperCountRule implements PostProcessor {
                 start,
                 end,
                 rawInput,
-                Priority.DEFAULT,
+                1000,
                 Set.of(),
                 false
         ));

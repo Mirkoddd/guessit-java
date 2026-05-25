@@ -4,7 +4,6 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
-import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Words;
 import io.guessit.api.models.Country;
 import io.guessit.rules.lang.LanguageRegistry;
@@ -58,7 +57,7 @@ public final class CountryExtractor implements Extractor {
                     .filter(country -> isCountryAllowed(country, allowedLc))
                     .ifPresent(country -> ctx.matches.add(
                             new Match(MatchName.COUNTRY, country, word.start(), word.end(),
-                                    input.substring(word.start(), word.end()), Priority.DEFAULT, Set.of(), false)
+                                    input.substring(word.start(), word.end()), 1000, Set.of(), false)
                     ));
         }
     }

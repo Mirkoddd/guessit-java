@@ -3,7 +3,6 @@ package io.guessit.engine;
 import io.guessit.core.pipeline.phases.ConflictSolver;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchSet;
-import io.guessit.core.pipeline.state.Priority;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -19,8 +18,8 @@ class ConflictSolverTest {
     @Test
     void higherPriorityWinsOverlap() {
         var s = new MatchSet();
-        s.add(of(YEAR, 2020, 0, 4, "2020").withPriority(Priority.EXPECTED));
-        s.add(of(SEASON, 20, 0, 2, "20").withPriority(Priority.DEFAULT));
+        s.add(of(YEAR, 2020, 0, 4, "2020").withPriority(2000));
+        s.add(of(SEASON, 20, 0, 2, "20").withPriority(1000));
         solve(s);
         var names = s.all().map(Match::name).toList();
         assertThat(names).isEqualTo(List.of(YEAR));
@@ -47,8 +46,8 @@ class ConflictSolverTest {
     @Test
     void coexistTagSurvives() {
         var s = new MatchSet();
-        s.add(Match.of(COUNTRY, "FR", 0, 2, "FR").withPriority(Priority.DEFAULT));
-        s.add(Match.of(LANGUAGE, "fr", 0, 2, "fr").withPriority(Priority.DEFAULT).withTags(Set.of("coexist")));
+        s.add(Match.of(COUNTRY, "FR", 0, 2, "FR").withPriority(1000));
+        s.add(Match.of(LANGUAGE, "fr", 0, 2, "fr").withPriority(1000).withTags(Set.of("coexist")));
         ConflictSolver.solve(s);
         assertThat(s.all().count()).isEqualTo(2);
     }

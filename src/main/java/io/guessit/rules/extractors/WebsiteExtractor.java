@@ -9,7 +9,6 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
-import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Validators;
 
@@ -111,7 +110,7 @@ public final class WebsiteExtractor implements Extractor {
     public String description() { return "source website (.com, .net, …)"; }
 
     @Override
-    public Priority priority() { return Priority.FALLBACK; }
+    public int priority() { return 100; }
 
     @Override
     public void extract(ParseContext ctx) {
@@ -124,7 +123,7 @@ public final class WebsiteExtractor implements Extractor {
             var needle = prefix.toLowerCase(Locale.ROOT);
             for (int i = hay.indexOf(needle); i >= 0; i = hay.indexOf(needle, i + 1)) {
                 int end = i + needle.length();
-                var m = new Match(MatchName.WEBSITE, prefix, i, end, input.substring(i, end), Priority.NONE, Set.of(TAG_PREFIX), true);
+                var m = new Match(MatchName.WEBSITE, prefix, i, end, input.substring(i, end), 0, Set.of(TAG_PREFIX), true);
                 if (validator.test(m)) ctx.matches.add(m);
             }
         }
@@ -143,7 +142,7 @@ public final class WebsiteExtractor implements Extractor {
             var raw = input.substring(s, e);
             if (!isValidDomainChars(raw)) continue;
 
-            ctx.matches.add(new Match(MatchName.WEBSITE, raw, s, e, raw, Priority.FALLBACK, Set.of(), false));
+            ctx.matches.add(new Match(MatchName.WEBSITE, raw, s, e, raw, 100, Set.of(), false));
         }
     }
 
