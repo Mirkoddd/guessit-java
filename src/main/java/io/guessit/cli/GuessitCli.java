@@ -165,13 +165,13 @@ public final class GuessitCli implements Callable<Integer> {
             var fn = filenames.get(i);
             var result = guessit.guess(fn, trace);
 
+            if (debugSink != null) {
+                debugSink.flush();
+            }
+
             if (!verbose) {
                 printLog(formatResult(result));
             }
-        }
-
-        if (debugSink != null) {
-            debugSink.flush();
         }
         return 0;
     }
