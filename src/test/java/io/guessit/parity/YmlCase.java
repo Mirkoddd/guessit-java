@@ -1,6 +1,6 @@
 package io.guessit.parity;
 
-import io.guessit.Options;
+import io.guessit.api.Options;
 
 import java.util.Map;
 

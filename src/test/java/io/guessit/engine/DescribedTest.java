@@ -1,5 +1,10 @@
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.contracts.PostProcessor;
+import io.guessit.core.pipeline.phases.MarkerPhase;
+import io.guessit.core.pipeline.phases.PostPhase;
+import io.guessit.core.pipeline.state.ParseContext;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,7 +32,7 @@ class DescribedTest {
 
     @Test
     void postProcessorDescriptionFallsBackToSimpleClassName() {
-        PostPhase.PostProcessor proc = ctx -> {};
+        PostProcessor proc = ctx -> {};
         assertThat(proc.description()).isNotNull().isNotEmpty();
     }
 

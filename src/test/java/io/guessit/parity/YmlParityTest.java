@@ -1,10 +1,11 @@
 package io.guessit.parity;
 
 import io.guessit.GuessResultFields;
-import io.guessit.Guessit;
-import io.guessit.lang.Country;
-import io.guessit.lang.Language;
-import io.guessit.util.Canonical;
+import io.guessit.api.GuessResult;
+import io.guessit.api.Guessit;
+import io.guessit.api.models.Country;
+import io.guessit.api.models.Language;
+import io.guessit.core.text.Canonical;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.presentation.UnicodeRepresentation;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -30,7 +31,7 @@ class YmlParityTest {
      * widen to both the scalar and list field, since the parser/expected builder
      * pick one or the other based on cardinality. Keys not present here are
      * "extras-bucket" properties (color_depth, week, absolute_episode, episode_details,
-     * disc) and are checked separately via {@link io.guessit.GuessResult#field}.
+     * disc) and are checked separately via {@link GuessResult#field}.
      */
     private static final Map<String, String[]> KEY_TO_FIELDS = Map.ofEntries(
             entry("title", new String[]{"title"}),

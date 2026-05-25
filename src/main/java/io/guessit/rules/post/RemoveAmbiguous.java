@@ -1,9 +1,10 @@
 package io.guessit.rules.post;
 
-import io.guessit.engine.Match;
-import io.guessit.engine.MatchName;
-import io.guessit.engine.ParseContext;
-import io.guessit.engine.PostPhase.PostProcessor;
+import io.guessit.core.pipeline.state.Markers;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.contracts.PostProcessor;
 
 import java.util.*;
 import java.util.function.Predicate;
@@ -42,7 +43,7 @@ public class RemoveAmbiguous implements PostProcessor {
         var pathsSorted = ctx.markers.stream()
             .filter(m -> "path".equals(m.name()))
             .toList();
-        var sorted = io.guessit.engine.Markers.markerSorted(pathsSorted, ctx.matches);
+        var sorted = Markers.markerSorted(pathsSorted, ctx.matches);
         var paths = reverseFileparts ? sorted.reversed() : sorted;
 
         var perFilepart = new ArrayList<List<Match>>();

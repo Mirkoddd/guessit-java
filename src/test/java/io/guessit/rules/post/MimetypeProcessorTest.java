@@ -3,7 +3,7 @@ package io.guessit.rules.post;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import static io.guessit.Guessit.parse;
+import static io.guessit.api.Guessit.parse;
 
 class MimetypeProcessorTest {
     @Test void mp4() {

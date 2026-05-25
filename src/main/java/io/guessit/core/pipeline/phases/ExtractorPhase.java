@@ -1,0 +1,31 @@
+package io.guessit.core.pipeline.phases;
+
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.trace.TraceDiff;
+
+import java.util.List;
+
+/**
+ * Phase 2 — call {@link Extractor#extract} on every registered extractor.
+ *
+ * <p>All extractors complete this pass before {@link ConflictPhase} runs, so
+ * each extractor's candidates compete against every other extractor's
+ * candidates rather than only against earlier-registered ones. Within this
+ * phase, extractor order still matters whenever a later extractor reads tags
+ * or matches added by an earlier one.
+ */
+public record ExtractorPhase(List<Extractor> extractors) implements Phase {
+    public ExtractorPhase { extractors = List.copyOf(extractors); }
+
+    @Override
+    public void apply(ParseContext ctx) {
+        ctx.trace.phase("extractors", "scanning input for property patterns");
+        for (var e : extractors) {
+            var before = ctx.matches.snapshot();
+            ctx.trace.step("extract", e.name(), e.description());
+            e.extract(ctx);
+            TraceDiff.emit(before, ctx.matches.snapshot(), ctx);
+        }
+    }
+}

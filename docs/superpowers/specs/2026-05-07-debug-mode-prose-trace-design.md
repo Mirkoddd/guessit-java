@@ -22,7 +22,7 @@ Add a new `--debug` CLI flag that emits a **human-readable narration** of every 
 
 ### Trace API extension
 
-Add to existing `io.guessit.engine.Trace`:
+Add to existing `io.guessit.core.pipeline.trace.Trace`:
 
 ```java
 public interface Trace {
@@ -56,20 +56,44 @@ No separate `decision()` helper — accepted/rejected/dropped events are all emi
 ```java
 package io.guessit.engine;
 
-public final class DebugTrace implements Trace {
-    public DebugTrace(Appendable out) { ... }
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.trace.Trace;
 
-    @Override public void input(String s)                         { ... }
-    @Override public void phase(String name)                      { ... }   // fallback when no description
-    @Override public void phase(String name, String description)  { ... }   // prose header
-    @Override public void step(String kind, String name)          { ... }   // fallback
-    @Override public void step(String kind, String name, String description) { ... }
-    @Override public void subStep(String message)                 { ... }
-    @Override public void added(Match m)                          { ... }   // emits prose, not machine span
-    @Override public void removed(Match m)                        { ... }   // emits prose, not machine span
-    @Override public void noChanges()                             { ... }   // "(no changes)"
-    @Override public void note(String msg)                        { ... }
-    @Override public void result(GuessResult r)                   { ... }
+public final class DebugTrace implements Trace {
+   public DebugTrace(Appendable out) { ...}
+
+   @Override
+   public void input(String s) { ...}
+
+   @Override
+   public void phase(String name) { ...}   // fallback when no description
+
+   @Override
+   public void phase(String name, String description) { ...}   // prose header
+
+   @Override
+   public void step(String kind, String name) { ...}   // fallback
+
+   @Override
+   public void step(String kind, String name, String description) { ...}
+
+   @Override
+   public void subStep(String message) { ...}
+
+   @Override
+   public void added(Match m) { ...}   // emits prose, not machine span
+
+   @Override
+   public void removed(Match m) { ...}   // emits prose, not machine span
+
+   @Override
+   public void noChanges() { ...}   // "(no changes)"
+
+   @Override
+   public void note(String msg) { ...}
+
+   @Override
+   public void result(GuessResult r) { ...}
 }
 ```
 
@@ -88,11 +112,15 @@ Static helper in `io.guessit.engine` that turns input + spans into a multi-line 
 ```java
 package io.guessit.engine;
 
-public final class SpanRenderer {
-    private SpanRenderer() {}
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
 
-    /** Renders input string with underline + label rows for every span. */
-    public static String render(String input, List<Match> matches, List<Marker> markers);
+public final class SpanRenderer {
+   private SpanRenderer() {
+   }
+
+   /** Renders input string with underline + label rows for every span. */
+   public static String render(String input, List<Match> matches, List<Marker> markers);
 }
 ```
 
@@ -147,11 +175,16 @@ public static void emit(List<Match> before, List<Match> after, ParseContext ctx)
 ```java
 package io.guessit.engine;
 
-public final class CompositeTrace implements Trace {
-    private final List<Trace> sinks;
-    public CompositeTrace(Trace... sinks) { this.sinks = List.of(sinks); }
+import io.guessit.core.trace.Trace;
 
-    // Each method calls the same method on every sink in order.
+public final class CompositeTrace implements Trace {
+   private final List<Trace> sinks;
+
+   public CompositeTrace(Trace... sinks) {
+      this.sinks = List.of(sinks);
+   }
+
+   // Each method calls the same method on every sink in order.
 }
 ```
 

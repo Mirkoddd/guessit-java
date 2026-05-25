@@ -11,7 +11,7 @@
 - `MatchSet` additions: `range`, `previous`, `next`, `chainBefore`, `chainAfter`, `tagged`, `snapshot`.
 - `Seps.TITLE_CHARS` constant (`-+/\|`, Python `title_seps`).
 
-Two extractors land in `io.guessit.rules.property`:
+Two extractors land in `io.guessit.rules.extractors`:
 - `TitleExtractor` — `extract(ctx)` runs the `expected_title` functional (Options-driven); `postProcess(ctx)` runs the ported `TitleBaseRule` + `TitleFromPosition` + `PreferTitleWithYear`. Title and alternative_title both come out as real `Match`es.
 - `EpisodeTitleExtractor` — `postProcess(ctx)` only. Runs six chained rules: `RemoveConflictsWithEpisodeTitle`, `TitleToEpisodeTitle`, `EpisodeTitleFromPosition`, `AlternativeTitleReplace`, `Filepart3EpisodeTitle`, `Filepart2EpisodeTitle`.
 
@@ -130,41 +130,55 @@ git commit -m "feat(engine): add Seps.TITLE_CHARS for title/alternative_title sp
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.text.Formatters;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class FormattersTest {
-    @Test void cleanupReplacesSepsWithSpacesAndCollapses() {
-        assertEquals("Movie Name", Formatters.cleanup("Movie.Name"));
-        assertEquals("Movie Name", Formatters.cleanup("  Movie___Name  "));
-        assertEquals("a b c", Formatters.cleanup("a..b..c"));
-    }
-    @Test void cleanupKeepsCommasColonsDashesSlashes() {
-        // Python excludes ,:;-/\ from the replacement set, so they survive cleanup.
-        assertEquals("a,b", Formatters.cleanup("a,b"));
-        assertEquals("a-b", Formatters.cleanup("a-b"));
-        assertEquals("a:b", Formatters.cleanup("a:b"));
-    }
-    @Test void cleanupRestoresSingleCharDottedRuns() {
-        // S.H.I.E.L.D. survives because each dot separates single chars on both sides.
-        assertEquals("Marvels Agents of S.H.I.E.L.D",
-            Formatters.cleanup("Marvels.Agents.of.S.H.I.E.L.D"));
-    }
-    @Test void reorderTitlePromotesArticle() {
-        assertEquals("The Matrix", Formatters.reorderTitle("Matrix, The"));
-        assertEquals("The Matrix", Formatters.reorderTitle("Matrix,The"));
-    }
-    @Test void reorderTitleNoOpWhenNoArticle() {
-        assertEquals("The Matrix", Formatters.reorderTitle("The Matrix"));
-        assertEquals("Foo Bar", Formatters.reorderTitle("Foo Bar"));
-    }
-    @Test void stripRemovesSepsFromBothEnds() {
-        assertEquals("foo", Formatters.strip(".. foo --"));
-    }
-    @Test void titleTextChainsCleanupAndReorder() {
-        assertEquals("The Matrix", Formatters.titleText("Matrix..The"));
-    }
+   @Test
+   void cleanupReplacesSepsWithSpacesAndCollapses() {
+      assertEquals("Movie Name", Formatters.cleanup("Movie.Name"));
+      assertEquals("Movie Name", Formatters.cleanup("  Movie___Name  "));
+      assertEquals("a b c", Formatters.cleanup("a..b..c"));
+   }
+
+   @Test
+   void cleanupKeepsCommasColonsDashesSlashes() {
+      // Python excludes ,:;-/\ from the replacement set, so they survive cleanup.
+      assertEquals("a,b", Formatters.cleanup("a,b"));
+      assertEquals("a-b", Formatters.cleanup("a-b"));
+      assertEquals("a:b", Formatters.cleanup("a:b"));
+   }
+
+   @Test
+   void cleanupRestoresSingleCharDottedRuns() {
+      // S.H.I.E.L.D. survives because each dot separates single chars on both sides.
+      assertEquals("Marvels Agents of S.H.I.E.L.D",
+              Formatters.cleanup("Marvels.Agents.of.S.H.I.E.L.D"));
+   }
+
+   @Test
+   void reorderTitlePromotesArticle() {
+      assertEquals("The Matrix", Formatters.reorderTitle("Matrix, The"));
+      assertEquals("The Matrix", Formatters.reorderTitle("Matrix,The"));
+   }
+
+   @Test
+   void reorderTitleNoOpWhenNoArticle() {
+      assertEquals("The Matrix", Formatters.reorderTitle("The Matrix"));
+      assertEquals("Foo Bar", Formatters.reorderTitle("Foo Bar"));
+   }
+
+   @Test
+   void stripRemovesSepsFromBothEnds() {
+      assertEquals("foo", Formatters.strip(".. foo --"));
+   }
+
+   @Test
+   void titleTextChainsCleanupAndReorder() {
+      assertEquals("The Matrix", Formatters.titleText("Matrix..The"));
+   }
 }
 ```
 
@@ -178,12 +192,16 @@ Expected: FAIL — class `Formatters` does not exist.
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.text.Seps;
+
 public final class Formatters {
-    private Formatters() {}
+    private Formatters() {
+    }
 
     private static final String EXCLUDED_CLEAN_CHARS = ",:;-/\\";
 
     private static final String CLEAN_CHARS;
+
     static {
         var sb = new StringBuilder();
         for (var c : Seps.CHARS.toCharArray()) {
@@ -252,9 +270,9 @@ public final class Formatters {
 
     private static boolean potentialBefore(int i, String input) {
         return i - 1 >= 0 && i < input.length()
-            && Seps.isSep(input.charAt(i))
-            && i - 2 >= 0 && Seps.isSep(input.charAt(i - 2))
-            && !Seps.isSep(input.charAt(i - 1));
+                && Seps.isSep(input.charAt(i))
+                && i - 2 >= 0 && Seps.isSep(input.charAt(i - 2))
+                && !Seps.isSep(input.charAt(i - 1));
     }
 
     private static boolean potentialAfter(int i, String input) {
@@ -270,7 +288,7 @@ public final class Formatters {
                 var suffix = separator + article;
                 if (ltitle.endsWith(suffix)) {
                     return title.substring(title.length() - suffix.length() + separator.length())
-                        + " " + title.substring(0, title.length() - suffix.length());
+                            + " " + title.substring(0, title.length() - suffix.length());
                 }
             }
         }
@@ -309,53 +327,66 @@ git commit -m "feat(engine): add Formatters (cleanup, reorderTitle, strip) for t
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Holes;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.text.Formatters;
+import io.guessit.core.text.Seps;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class HolesTest {
-    @Test void computeReturnsGapsBetweenMatches() {
-        var input = "Movie.Name.2020.1080p.x264";
-        var matches = List.of(
-            Match.of("year", 2020, 11, 15, "2020"),
-            Match.of("screen_size", "1080p", 16, 21, "1080p"),
-            Match.of("video_codec", "H.264", 22, 26, "x264"));
-        var holes = Holes.compute(input, 0, input.length(), matches, m -> false, null, Formatters::cleanup);
-        assertEquals(1, holes.size());
-        assertEquals("Movie Name", holes.get(0).value());
-    }
-    @Test void ignoredMatchesAreTransparent() {
-        var input = "Hello.world.bar";
-        var matches = List.of(Match.of("language", "en", 6, 11, "world"));
-        var holes = Holes.compute(input, 0, input.length(), matches,
-            m -> m.name().equals("language"), null, Formatters::cleanup);
-        assertEquals(1, holes.size());
-        assertEquals("Hello world bar", holes.get(0).value());
-    }
-    @Test void cropAroundMarker() {
-        var input = "abc[def]ghi";
-        var hole = new Holes.Hole(0, 11, input, Formatters::cleanup);
-        var cropped = hole.crop(List.of(new Marker("group", 3, 8, "[def]")));
-        assertEquals(2, cropped.size());
-        assertEquals("abc", cropped.get(0).value());
-        assertEquals("ghi", cropped.get(1).value());
-    }
-    @Test void splitOnTitleSeps() {
-        var input = "Foo-Bar/Baz";
-        var hole = new Holes.Hole(0, 11, input, s -> s);
-        var parts = hole.split(Seps.TITLE_CHARS);
-        assertEquals(List.of("Foo", "Bar", "Baz"),
-            parts.stream().map(Holes.Hole::raw).toList());
-    }
-    @Test void emptyHoleSkipped() {
-        var input = "ab";
-        var matches = List.of(Match.of("x", null, 0, 2, "ab"));
-        var holes = Holes.compute(input, 0, input.length(), matches, m -> false, null, Formatters::cleanup);
-        assertTrue(holes.isEmpty());
-    }
+   @Test
+   void computeReturnsGapsBetweenMatches() {
+      var input = "Movie.Name.2020.1080p.x264";
+      var matches = List.of(
+              Match.of("year", 2020, 11, 15, "2020"),
+              Match.of("screen_size", "1080p", 16, 21, "1080p"),
+              Match.of("video_codec", "H.264", 22, 26, "x264"));
+      var holes = Holes.compute(input, 0, input.length(), matches, m -> false, null, Formatters::cleanup);
+      assertEquals(1, holes.size());
+      assertEquals("Movie Name", holes.get(0).value());
+   }
+
+   @Test
+   void ignoredMatchesAreTransparent() {
+      var input = "Hello.world.bar";
+      var matches = List.of(Match.of("language", "en", 6, 11, "world"));
+      var holes = Holes.compute(input, 0, input.length(), matches,
+              m -> m.name().equals("language"), null, Formatters::cleanup);
+      assertEquals(1, holes.size());
+      assertEquals("Hello world bar", holes.get(0).value());
+   }
+
+   @Test
+   void cropAroundMarker() {
+      var input = "abc[def]ghi";
+      var hole = new Holes.Hole(0, 11, input, Formatters::cleanup);
+      var cropped = hole.crop(List.of(new Marker("group", 3, 8, "[def]")));
+      assertEquals(2, cropped.size());
+      assertEquals("abc", cropped.get(0).value());
+      assertEquals("ghi", cropped.get(1).value());
+   }
+
+   @Test
+   void splitOnTitleSeps() {
+      var input = "Foo-Bar/Baz";
+      var hole = new Holes.Hole(0, 11, input, s -> s);
+      var parts = hole.split(Seps.TITLE_CHARS);
+      assertEquals(List.of("Foo", "Bar", "Baz"),
+              parts.stream().map(Holes.Hole::raw).toList());
+   }
+
+   @Test
+   void emptyHoleSkipped() {
+      var input = "ab";
+      var matches = List.of(Match.of("x", null, 0, 2, "ab"));
+      var holes = Holes.compute(input, 0, input.length(), matches, m -> false, null, Formatters::cleanup);
+      assertTrue(holes.isEmpty());
+   }
 }
 ```
 
@@ -369,6 +400,9 @@ Expected: FAIL — class `Holes` does not exist.
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -376,110 +410,131 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 public final class Holes {
-    private Holes() {}
+   private Holes() {
+   }
 
-    public static final class Hole {
-        public int start;
-        public int end;
-        public final String input;
-        public final Function<String, String> formatter;
+   public static final class Hole {
+      public int start;
+      public int end;
+      public final String input;
+      public final Function<String, String> formatter;
 
-        public Hole(int start, int end, String input, Function<String, String> formatter) {
-            this.start = start; this.end = end;
-            this.input = input; this.formatter = formatter;
-        }
+      public Hole(int start, int end, String input, Function<String, String> formatter) {
+         this.start = start;
+         this.end = end;
+         this.input = input;
+         this.formatter = formatter;
+      }
 
-        public String raw() { return input.substring(start, end); }
-        public String value() { return formatter == null ? raw() : formatter.apply(raw()); }
-        public boolean isEmpty() { var v = value(); return v == null || v.isEmpty(); }
-        public int length() { return end - start; }
+      public String raw() {
+         return input.substring(start, end);
+      }
 
-        public List<Hole> crop(List<Marker> markers) {
-            var ret = new ArrayList<Hole>();
-            ret.add(this);
-            for (var m : markers) {
-                var newRet = new ArrayList<Hole>();
-                for (var h : ret) {
-                    if (m.start() <= h.start && m.end() >= h.end) {
-                        // marker fully covers hole - drop
-                    } else if (m.start() >= h.start && m.end() <= h.end) {
-                        var left = new Hole(h.start, m.start(), input, formatter);
-                        var right = new Hole(m.end(), h.end, input, formatter);
-                        if (left.length() > 0) newRet.add(left);
-                        if (right.length() > 0) newRet.add(right);
-                    } else if (m.end() >= h.end && m.start() < h.end && m.start() > h.start) {
-                        h.end = m.start();
-                        if (h.length() > 0) newRet.add(h);
-                    } else if (m.start() <= h.start && m.end() > h.start && m.end() < h.end) {
-                        h.start = m.end();
-                        if (h.length() > 0) newRet.add(h);
-                    } else {
-                        newRet.add(h);
-                    }
-                }
-                ret = newRet;
+      public String value() {
+         return formatter == null ? raw() : formatter.apply(raw());
+      }
+
+      public boolean isEmpty() {
+         var v = value();
+         return v == null || v.isEmpty();
+      }
+
+      public int length() {
+         return end - start;
+      }
+
+      public List<Hole> crop(List<Marker> markers) {
+         var ret = new ArrayList<Hole>();
+         ret.add(this);
+         for (var m : markers) {
+            var newRet = new ArrayList<Hole>();
+            for (var h : ret) {
+               if (m.start() <= h.start && m.end() >= h.end) {
+                  // marker fully covers hole - drop
+               } else if (m.start() >= h.start && m.end() <= h.end) {
+                  var left = new Hole(h.start, m.start(), input, formatter);
+                  var right = new Hole(m.end(), h.end, input, formatter);
+                  if (left.length() > 0) newRet.add(left);
+                  if (right.length() > 0) newRet.add(right);
+               } else if (m.end() >= h.end && m.start() < h.end && m.start() > h.start) {
+                  h.end = m.start();
+                  if (h.length() > 0) newRet.add(h);
+               } else if (m.start() <= h.start && m.end() > h.start && m.end() < h.end) {
+                  h.start = m.end();
+                  if (h.length() > 0) newRet.add(h);
+               } else {
+                  newRet.add(h);
+               }
             }
-            return ret;
-        }
+            ret = newRet;
+         }
+         return ret;
+      }
 
-        public List<Hole> split(String seps) {
-            var ret = new ArrayList<Hole>();
-            var raw = raw();
-            int i = 0;
-            while (i < raw.length()) {
-                while (i < raw.length() && seps.indexOf(raw.charAt(i)) >= 0) i++;
-                int s = i;
-                while (i < raw.length() && seps.indexOf(raw.charAt(i)) < 0) i++;
-                if (s < i) {
-                    var sub = new Hole(start + s, start + i, input, formatter);
-                    if (!sub.isEmpty()) ret.add(sub);
-                }
+      public List<Hole> split(String seps) {
+         var ret = new ArrayList<Hole>();
+         var raw = raw();
+         int i = 0;
+         while (i < raw.length()) {
+            while (i < raw.length() && seps.indexOf(raw.charAt(i)) >= 0) i++;
+            int s = i;
+            while (i < raw.length() && seps.indexOf(raw.charAt(i)) < 0) i++;
+            if (s < i) {
+               var sub = new Hole(start + s, start + i, input, formatter);
+               if (!sub.isEmpty()) ret.add(sub);
             }
-            return ret;
-        }
-    }
+         }
+         return ret;
+      }
+   }
 
-    public static List<Hole> compute(String input, int start, int end,
-                                     List<Match> allMatches,
-                                     Predicate<Match> ignore,
-                                     String seps,
-                                     Function<String, String> formatter) {
-        var matches = new ArrayList<>(allMatches);
-        matches.sort(Comparator.comparingInt(Match::start));
-        var active = new ArrayList<Match>();
-        for (var m : matches) {
-            if (ignore != null && ignore.test(m)) continue;
-            if (m.end() <= start || m.start() >= end) continue;
-            active.add(m);
-        }
+   public static List<Hole> compute(String input, int start, int end,
+                                    List<Match> allMatches,
+                                    Predicate<Match> ignore,
+                                    String seps,
+                                    Function<String, String> formatter) {
+      var matches = new ArrayList<>(allMatches);
+      matches.sort(Comparator.comparingInt(Match::start));
+      var active = new ArrayList<Match>();
+      for (var m : matches) {
+         if (ignore != null && ignore.test(m)) continue;
+         if (m.end() <= start || m.start() >= end) continue;
+         active.add(m);
+      }
 
-        var ret = new ArrayList<Hole>();
-        Hole current = null;
-        for (var pos = start; pos < end; pos++) {
-            var inMatch = false;
-            for (var m : active) {
-                if (m.start() <= pos && pos < m.end()) { inMatch = true; break; }
+      var ret = new ArrayList<Hole>();
+      Hole current = null;
+      for (var pos = start; pos < end; pos++) {
+         var inMatch = false;
+         for (var m : active) {
+            if (m.start() <= pos && pos < m.end()) {
+               inMatch = true;
+               break;
             }
-            if (current != null && seps != null && pos < input.length()
-                    && seps.indexOf(input.charAt(pos)) >= 0) {
-                current.end = pos;
-                if (current.length() > 0) ret.add(current);
-                current = null;
-            } else if (!inMatch && current == null) {
-                current = new Hole(pos, pos, input, formatter);
-            } else if (inMatch && current != null) {
-                current.end = pos;
-                if (current.length() > 0) ret.add(current);
-                current = null;
-            }
-        }
-        if (current != null) {
-            current.end = end;
+         }
+         if (current != null && seps != null && pos < input.length()
+                 && seps.indexOf(input.charAt(pos)) >= 0) {
+            current.end = pos;
             if (current.length() > 0) ret.add(current);
-        }
-        ret.removeIf(h -> { var v = h.value(); return v == null || v.isEmpty(); });
-        return ret;
-    }
+            current = null;
+         } else if (!inMatch && current == null) {
+            current = new Hole(pos, pos, input, formatter);
+         } else if (inMatch && current != null) {
+            current.end = pos;
+            if (current.length() > 0) ret.add(current);
+            current = null;
+         }
+      }
+      if (current != null) {
+         current.end = end;
+         if (current.length() > 0) ret.add(current);
+      }
+      ret.removeIf(h -> {
+         var v = h.value();
+         return v == null || v.isEmpty();
+      });
+      return ret;
+   }
 }
 ```
 
@@ -643,6 +698,10 @@ git commit -m "feat(engine): add MatchSet query helpers (range/previous/next/cha
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Markers;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchSet;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -650,31 +709,36 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MarkersTest {
-    @Test void namedFiltersByName() {
-        var markers = List.of(
-            new Marker("path", 0, 5, "12345"),
-            new Marker("group", 1, 4, "234"),
-            new Marker("path", 6, 10, "6789"));
-        var paths = Markers.named(markers, "path").toList();
-        assertEquals(2, paths.size());
-    }
-    @Test void atMatchReturnsContainingMarker() {
-        var markers = List.of(new Marker("path", 0, 10, "0123456789"));
-        var m = Match.of("x", null, 2, 5, "234");
-        assertEquals(markers.get(0), Markers.atMatch(markers, m, mk -> true).orElseThrow());
-    }
-    @Test void markerSortedByDescendingMatchCount() {
-        var p1 = new Marker("path", 0, 5, "0..4");
-        var p2 = new Marker("path", 6, 12, "6..11");
-        var matches = new MatchSet();
-        matches.add(Match.of("a", null, 6, 7, "a"));
-        matches.add(Match.of("b", null, 8, 9, "b"));
-        matches.add(Match.of("c", null, 10, 11, "c"));
-        matches.add(Match.of("d", null, 0, 1, "d"));
-        var sorted = Markers.markerSorted(List.of(p1, p2), matches);
-        assertEquals(p2, sorted.get(0));
-        assertEquals(p1, sorted.get(1));
-    }
+   @Test
+   void namedFiltersByName() {
+      var markers = List.of(
+              new Marker("path", 0, 5, "12345"),
+              new Marker("group", 1, 4, "234"),
+              new Marker("path", 6, 10, "6789"));
+      var paths = Markers.named(markers, "path").toList();
+      assertEquals(2, paths.size());
+   }
+
+   @Test
+   void atMatchReturnsContainingMarker() {
+      var markers = List.of(new Marker("path", 0, 10, "0123456789"));
+      var m = Match.of("x", null, 2, 5, "234");
+      assertEquals(markers.get(0), Markers.atMatch(markers, m, mk -> true).orElseThrow());
+   }
+
+   @Test
+   void markerSortedByDescendingMatchCount() {
+      var p1 = new Marker("path", 0, 5, "0..4");
+      var p2 = new Marker("path", 6, 12, "6..11");
+      var matches = new MatchSet();
+      matches.add(Match.of("a", null, 6, 7, "a"));
+      matches.add(Match.of("b", null, 8, 9, "b"));
+      matches.add(Match.of("c", null, 10, 11, "c"));
+      matches.add(Match.of("d", null, 0, 1, "d"));
+      var sorted = Markers.markerSorted(List.of(p1, p2), matches);
+      assertEquals(p2, sorted.get(0));
+      assertEquals(p1, sorted.get(1));
+   }
 }
 ```
 
@@ -688,6 +752,10 @@ Expected: FAIL — class does not exist.
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchSet;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -696,38 +764,39 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 public final class Markers {
-    private Markers() {}
+   private Markers() {
+   }
 
-    public static Stream<Marker> named(List<Marker> markers, String name) {
-        return markers.stream().filter(m -> m.name().equals(name));
-    }
+   public static Stream<Marker> named(List<Marker> markers, String name) {
+      return markers.stream().filter(m -> m.name().equals(name));
+   }
 
-    public static Stream<Marker> coveringMatch(List<Marker> markers, Match m, Predicate<Marker> p) {
-        return markers.stream()
-            .filter(mk -> mk.covers(m.start(), m.end()))
-            .filter(p)
-            .sorted(Comparator.comparingInt(Marker::start));
-    }
+   public static Stream<Marker> coveringMatch(List<Marker> markers, Match m, Predicate<Marker> p) {
+      return markers.stream()
+              .filter(mk -> mk.covers(m.start(), m.end()))
+              .filter(p)
+              .sorted(Comparator.comparingInt(Marker::start));
+   }
 
-    public static Optional<Marker> atMatch(List<Marker> markers, Match m, Predicate<Marker> p) {
-        return coveringMatch(markers, m, p).findFirst();
-    }
+   public static Optional<Marker> atMatch(List<Marker> markers, Match m, Predicate<Marker> p) {
+      return coveringMatch(markers, m, p).findFirst();
+   }
 
-    public static List<Marker> markerSorted(List<Marker> paths, MatchSet matches) {
-        var indexed = new ArrayList<int[]>();
-        for (var i = 0; i < paths.size(); i++) {
-            var p = paths.get(i);
-            var count = (int) matches.all().filter(x -> p.covers(x.start(), x.end())).count();
-            indexed.add(new int[]{i, count});
-        }
-        indexed.sort((a, b) -> {
-            var byCount = Integer.compare(b[1], a[1]);
-            return byCount != 0 ? byCount : Integer.compare(a[0], b[0]);
-        });
-        var ret = new ArrayList<Marker>();
-        for (var entry : indexed) ret.add(paths.get(entry[0]));
-        return ret;
-    }
+   public static List<Marker> markerSorted(List<Marker> paths, MatchSet matches) {
+      var indexed = new ArrayList<int[]>();
+      for (var i = 0; i < paths.size(); i++) {
+         var p = paths.get(i);
+         var count = (int) matches.all().filter(x -> p.covers(x.start(), x.end())).count();
+         indexed.add(new int[]{i, count});
+      }
+      indexed.sort((a, b) -> {
+         var byCount = Integer.compare(b[1], a[1]);
+         return byCount != 0 ? byCount : Integer.compare(a[0], b[0]);
+      });
+      var ret = new ArrayList<Marker>();
+      for (var entry : indexed) ret.add(paths.get(entry[0]));
+      return ret;
+   }
 }
 ```
 
@@ -756,60 +825,71 @@ git commit -m "feat(engine): add Markers (named, atMatch, markerSorted) helpers"
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.Options;
+import io.guessit.api.Options;
 import io.guessit.config.OptionsConfig;
-import io.guessit.engine.Match;
-import io.guessit.engine.ParseContext;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TypeProcessorTest {
-    private static ParseContext ctx(String input) {
-        return new ParseContext(input, Options.defaults(), OptionsConfig.empty());
-    }
+   private static ParseContext ctx(String input) {
+      return new ParseContext(input, Options.defaults(), OptionsConfig.empty());
+   }
 
-    @Test void seasonOrEpisodeYieldsEpisode() {
-        var ctx = ctx("anything");
-        ctx.matches.add(Match.of("season", 1, 0, 2, "S1"));
-        new TypeProcessor().process(ctx);
-        assertThat(ctx.matches.named("type").findFirst().orElseThrow().value()).isEqualTo("episode");
-    }
-    @Test void noEpisodeOrYearYieldsMovie() {
-        var ctx = ctx("anything");
-        ctx.matches.add(Match.of("year", 2020, 0, 4, "2020"));
-        new TypeProcessor().process(ctx);
-        assertThat(ctx.matches.named("type").findFirst().orElseThrow().value()).isEqualTo("movie");
-    }
-    @Test void dateWithoutYearYieldsEpisode() {
-        var ctx = ctx("anything");
-        ctx.matches.add(Match.of("date", null, 0, 10, "2020-01-01"));
-        new TypeProcessor().process(ctx);
-        assertThat(ctx.matches.named("type").findFirst().orElseThrow().value()).isEqualTo("episode");
-    }
-    @Test void optionsTypeOverridesEverything() {
-        var opts = Options.builder().type("movie").build();
-        var ctx = new ParseContext("x", opts, OptionsConfig.empty());
-        ctx.matches.add(Match.of("episode", 1, 0, 1, "1"));
-        new TypeProcessor().process(ctx);
-        assertThat(ctx.matches.named("type").findFirst().orElseThrow().value()).isEqualTo("movie");
-    }
-    @Test void movieTypeRenamesEpisodeTitleToAlternativeTitle() {
-        var ctx = ctx("Some Movie");
-        ctx.matches.add(Match.of("year", 2020, 0, 4, "2020"));
-        ctx.matches.add(Match.of("episode_title", "Bonus", 5, 10, "Bonus"));
-        new TypeProcessor().process(ctx);
-        assertThat(ctx.matches.named("episode_title").count()).isZero();
-        assertThat(ctx.matches.named("alternative_title").findFirst().orElseThrow().value()).isEqualTo("Bonus");
-    }
-    @Test void episodeTitleWithAlternativeReplacedTagSurvivesMovieDemotion() {
-        var ctx = ctx("Some Movie");
-        ctx.matches.add(Match.of("year", 2020, 0, 4, "2020"));
-        ctx.matches.add(new Match("episode_title", "X", 5, 6, "X", 1000,
-            java.util.Set.of("alternative-replaced"), false));
-        new TypeProcessor().process(ctx);
-        assertThat(ctx.matches.named("episode_title").count()).isOne();
-    }
+   @Test
+   void seasonOrEpisodeYieldsEpisode() {
+      var ctx = ctx("anything");
+      ctx.matches.add(Match.of("season", 1, 0, 2, "S1"));
+      new TypeProcessor().process(ctx);
+      assertThat(ctx.matches.named("type").findFirst().orElseThrow().value()).isEqualTo("episode");
+   }
+
+   @Test
+   void noEpisodeOrYearYieldsMovie() {
+      var ctx = ctx("anything");
+      ctx.matches.add(Match.of("year", 2020, 0, 4, "2020"));
+      new TypeProcessor().process(ctx);
+      assertThat(ctx.matches.named("type").findFirst().orElseThrow().value()).isEqualTo("movie");
+   }
+
+   @Test
+   void dateWithoutYearYieldsEpisode() {
+      var ctx = ctx("anything");
+      ctx.matches.add(Match.of("date", null, 0, 10, "2020-01-01"));
+      new TypeProcessor().process(ctx);
+      assertThat(ctx.matches.named("type").findFirst().orElseThrow().value()).isEqualTo("episode");
+   }
+
+   @Test
+   void optionsTypeOverridesEverything() {
+      var opts = Options.builder().type("movie").build();
+      var ctx = new ParseContext("x", opts, OptionsConfig.empty());
+      ctx.matches.add(Match.of("episode", 1, 0, 1, "1"));
+      new TypeProcessor().process(ctx);
+      assertThat(ctx.matches.named("type").findFirst().orElseThrow().value()).isEqualTo("movie");
+   }
+
+   @Test
+   void movieTypeRenamesEpisodeTitleToAlternativeTitle() {
+      var ctx = ctx("Some Movie");
+      ctx.matches.add(Match.of("year", 2020, 0, 4, "2020"));
+      ctx.matches.add(Match.of("episode_title", "Bonus", 5, 10, "Bonus"));
+      new TypeProcessor().process(ctx);
+      assertThat(ctx.matches.named("episode_title").count()).isZero();
+      assertThat(ctx.matches.named("alternative_title").findFirst().orElseThrow().value()).isEqualTo("Bonus");
+   }
+
+   @Test
+   void episodeTitleWithAlternativeReplacedTagSurvivesMovieDemotion() {
+      var ctx = ctx("Some Movie");
+      ctx.matches.add(Match.of("year", 2020, 0, 4, "2020"));
+      ctx.matches.add(new Match("episode_title", "X", 5, 6, "X", 1000,
+              java.util.Set.of("alternative-replaced"), false));
+      new TypeProcessor().process(ctx);
+      assertThat(ctx.matches.named("episode_title").count()).isOne();
+   }
 }
 ```
 
@@ -823,9 +903,9 @@ Expected: FAIL — class does not exist.
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.engine.Match;
-import io.guessit.engine.ParseContext;
-import io.guessit.engine.PostPhase.PostProcessor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.phases.PostPhase.PostProcessor;
 
 /**
  * Decide {@code type} (movie|episode) from surviving matches and emit a
@@ -835,42 +915,42 @@ import io.guessit.engine.PostPhase.PostProcessor;
  * when the chosen type is not {@code episode} (Python {@code RenameEpisodeTitleWhenMovieType}).
  */
 public final class TypeProcessor implements PostProcessor {
-    @Override
-    public void process(ParseContext ctx) {
-        var type = decide(ctx);
-        var len = ctx.input.length();
-        ctx.matches.add(Match.of("type", type, len, len, ""));
-        if (!"episode".equals(type)) {
-            var toRename = ctx.matches.named("episode_title")
-                .filter(m -> !m.tags().contains("alternative-replaced"))
-                .toList();
-            for (var m : toRename) {
-                ctx.matches.replace(m, new Match("alternative_title", m.value(),
+   @Override
+   public void process(ParseContext ctx) {
+      var type = decide(ctx);
+      var len = ctx.input.length();
+      ctx.matches.add(Match.of("type", type, len, len, ""));
+      if (!"episode".equals(type)) {
+         var toRename = ctx.matches.named("episode_title")
+                 .filter(m -> !m.tags().contains("alternative-replaced"))
+                 .toList();
+         for (var m : toRename) {
+            ctx.matches.replace(m, new Match("alternative_title", m.value(),
                     m.start(), m.end(), m.raw(), m.priority(), m.tags(), m.isPrivate()));
-            }
-        }
-    }
+         }
+      }
+   }
 
-    private static String decide(ParseContext ctx) {
-        var optType = ctx.options.type();
-        if (optType != null) return optType;
-        if (anyNamed(ctx, "episode") || anyNamed(ctx, "season")
-                || anyNamed(ctx, "episode_details") || anyNamed(ctx, "absolute_episode")) {
-            return "episode";
-        }
-        if (anyNamed(ctx, "film")) return "movie";
-        var hasYear = anyNamed(ctx, "year");
-        if (anyNamed(ctx, "date") && !hasYear) return "episode";
-        if (anyNamed(ctx, "bonus") && !hasYear) return "episode";
-        var hasCrc = anyNamed(ctx, "crc32");
-        var anyAnimeRg = ctx.matches.named("release_group").anyMatch(m -> m.tags().contains("anime"));
-        if (hasCrc && anyAnimeRg) return "episode";
-        return "movie";
-    }
+   private static String decide(ParseContext ctx) {
+      var optType = ctx.options.type();
+      if (optType != null) return optType;
+      if (anyNamed(ctx, "episode") || anyNamed(ctx, "season")
+              || anyNamed(ctx, "episode_details") || anyNamed(ctx, "absolute_episode")) {
+         return "episode";
+      }
+      if (anyNamed(ctx, "film")) return "movie";
+      var hasYear = anyNamed(ctx, "year");
+      if (anyNamed(ctx, "date") && !hasYear) return "episode";
+      if (anyNamed(ctx, "bonus") && !hasYear) return "episode";
+      var hasCrc = anyNamed(ctx, "crc32");
+      var anyAnimeRg = ctx.matches.named("release_group").anyMatch(m -> m.tags().contains("anime"));
+      if (hasCrc && anyAnimeRg) return "episode";
+      return "movie";
+   }
 
-    private static boolean anyNamed(ParseContext ctx, String name) {
-        return ctx.matches.named(name).findAny().isPresent();
-    }
+   private static boolean anyNamed(ParseContext ctx, String name) {
+      return ctx.matches.named(name).findAny().isPresent();
+   }
 }
 ```
 
@@ -905,39 +985,47 @@ The TitleBaseRule "is_ignored" predicate stays in this class as a private helper
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
-import io.guessit.Options;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TitleExtractorTest {
-    @Test void simpleFilepartHoleBecomesTitle() {
-        var r = Guessit.parse("Movie.Name.2020.1080p.BluRay-RG.mkv").toMap();
-        assertThat(r.get("title")).isEqualTo("Movie Name");
-    }
-    @Test void dashSplitYieldsAlternativeTitle() {
-        var r = Guessit.parse("Main Title - Alt Title.2020.mkv").toMap();
-        assertThat(r.get("title")).isEqualTo("Main Title");
-        assertThat(r.get("alternative_title")).isEqualTo("Alt Title");
-    }
-    @Test void serieNameFilepartRoutesInnerToEpisodeTitle() {
-        var r = Guessit.parse("Caprica/Season 1/Apotheosis.mkv").toMap();
-        assertThat(r.get("title")).isEqualTo("Caprica");
-        assertThat(r.get("episode_title")).isEqualTo("Apotheosis");
-        assertThat(r.get("season")).isEqualTo(1);
-    }
-    @Test void preferTitleWithYearFilepart() {
-        var r = Guessit.parse("Foo/Movie.Name.2020.1080p.mkv").toMap();
-        assertThat(r.get("title")).isEqualTo("Movie Name");
-    }
-    @Test void expectedTitleEmitsExpectedTaggedMatch() {
-        var opts = Options.builder().expectedTitle(java.util.List.of("My Show")).build();
-        var r = Guessit.parse("My.Show.2020.mkv", opts).toMap();
-        assertThat(r.get("title")).isEqualTo("My Show");
-    }
+   @Test
+   void simpleFilepartHoleBecomesTitle() {
+      var r = Guessit.parse("Movie.Name.2020.1080p.BluRay-RG.mkv").toMap();
+      assertThat(r.get("title")).isEqualTo("Movie Name");
+   }
+
+   @Test
+   void dashSplitYieldsAlternativeTitle() {
+      var r = Guessit.parse("Main Title - Alt Title.2020.mkv").toMap();
+      assertThat(r.get("title")).isEqualTo("Main Title");
+      assertThat(r.get("alternative_title")).isEqualTo("Alt Title");
+   }
+
+   @Test
+   void serieNameFilepartRoutesInnerToEpisodeTitle() {
+      var r = Guessit.parse("Caprica/Season 1/Apotheosis.mkv").toMap();
+      assertThat(r.get("title")).isEqualTo("Caprica");
+      assertThat(r.get("episode_title")).isEqualTo("Apotheosis");
+      assertThat(r.get("season")).isEqualTo(1);
+   }
+
+   @Test
+   void preferTitleWithYearFilepart() {
+      var r = io.guessit.api.Guessit.parse("Foo/Movie.Name.2020.1080p.mkv").toMap();
+      assertThat(r.get("title")).isEqualTo("Movie Name");
+   }
+
+   @Test
+   void expectedTitleEmitsExpectedTaggedMatch() {
+      var opts = io.guessit.api.Options.builder().expectedTitle(java.util.List.of("My Show")).build();
+      var r = io.guessit.api.Guessit.parse("My.Show.2020.mkv", opts).toMap();
+      assertThat(r.get("title")).isEqualTo("My Show");
+   }
 }
 ```
 
@@ -949,9 +1037,13 @@ Expected: FAIL — class does not exist; existing pipeline cannot produce title.
 - [ ] **Step 3: Write minimal implementation**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.*;
+import io.guessit.core.text.Formatters;
+import io.guessit.core.text.Seps;
+import io.guessit.core.text.Validators;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -976,247 +1068,252 @@ import java.util.Set;
  * </ul>
  */
 public final class TitleExtractor implements Extractor {
-    static final Set<String> NON_SPECIFIC_LANGUAGES = Set.of("mul", "und");
+   static final Set<String> NON_SPECIFIC_LANGUAGES = Set.of("mul", "und");
 
-    @Override
-    public String name() { return "title"; }
+   @Override
+   public String name() {
+      return "title";
+   }
 
-    @Override
-    public void extract(ParseContext ctx) {
-        var expected = ctx.options.expectedTitle();
-        if (expected.isEmpty()) return;
-        var input = ctx.input;
-        var sepsSurround = Validators.sepsSurround(input);
-        for (var word : expected) {
-            int idx = 0;
-            while ((idx = input.indexOf(word, idx)) >= 0) {
-                var raw = input.substring(idx, idx + word.length());
-                var formatted = Formatters.titleText(raw);
-                var m = new Match("title", formatted, idx, idx + word.length(), raw,
+   @Override
+   public void extract(ParseContext ctx) {
+      var expected = ctx.options.expectedTitle();
+      if (expected.isEmpty()) return;
+      var input = ctx.input;
+      var sepsSurround = Validators.sepsSurround(input);
+      for (var word : expected) {
+         int idx = 0;
+         while ((idx = input.indexOf(word, idx)) >= 0) {
+            var raw = input.substring(idx, idx + word.length());
+            var formatted = Formatters.titleText(raw);
+            var m = new Match("title", formatted, idx, idx + word.length(), raw,
                     1000, Set.of("expected", "title"), false);
-                if (sepsSurround.test(m)) ctx.matches.add(m);
-                idx += word.length();
-            }
-        }
-    }
+            if (sepsSurround.test(m)) ctx.matches.add(m);
+            idx += word.length();
+         }
+      }
+   }
 
-    @Override
-    public void postProcess(ParseContext ctx) {
-        var hasExpected = ctx.matches.named("title").anyMatch(m -> m.tags().contains("expected"));
-        if (!hasExpected) {
-            titleFromPosition(ctx);
-        }
-        preferTitleWithYear(ctx);
-    }
+   @Override
+   public void postProcess(ParseContext ctx) {
+      var hasExpected = ctx.matches.named("title").anyMatch(m -> m.tags().contains("expected"));
+      if (!hasExpected) {
+         titleFromPosition(ctx);
+      }
+      preferTitleWithYear(ctx);
+   }
 
-    private void titleFromPosition(ParseContext ctx) {
-        var paths = ctx.markers.stream().filter(m -> "path".equals(m.name())).toList();
-        if (paths.isEmpty()) return;
-        var sorted = Markers.markerSorted(paths, ctx.matches);
+   private void titleFromPosition(ParseContext ctx) {
+      var paths = ctx.markers.stream().filter(m -> "path".equals(m.name())).toList();
+      if (paths.isEmpty()) return;
+      var sorted = Markers.markerSorted(paths, ctx.matches);
 
-        var serieNameFilepart = serieNameFilepart(ctx, paths);
-        Match serieNameTitle = null;
-        if (serieNameFilepart != null) {
-            var titles = checkTitlesInFilepart(ctx, serieNameFilepart, this::serieNameIgnored);
-            if (titles != null && titles.titles.size() == 1) {
-                for (var t : titles.titles) ctx.matches.add(t);
-                for (var r : titles.toRemove) ctx.matches.remove(r);
-                serieNameTitle = titles.titles.get(0);
-            }
-        }
-
-        var yearFileparts = paths.stream()
-            .filter(fp -> ctx.matches.range(fp.start(), fp.end(), m -> "year".equals(m.name())).findAny().isPresent())
-            .toList();
-        var consumedYearFileparts = new HashSet<Marker>();
-
-        for (var fp : sorted) {
-            consumedYearFileparts.add(fp);
-            var titles = checkTitlesInFilepart(ctx, fp, m -> false);
-            if (titles == null) continue;
-            for (var t : titles.titles) {
-                if (serieNameTitle != null && !java.util.Objects.equals(t.value(), serieNameTitle.value())) {
-                    ctx.matches.add(new Match("episode_title", t.value(), t.start(), t.end(),
-                        t.raw(), t.priority(), Set.of("title"), false));
-                } else {
-                    ctx.matches.add(t);
-                }
-            }
-            for (var r : titles.toRemove) ctx.matches.remove(r);
-            break;
-        }
-
-        for (var fp : yearFileparts) {
-            if (consumedYearFileparts.contains(fp)) continue;
-            var titles = checkTitlesInFilepart(ctx, fp, m -> false);
-            if (titles == null) continue;
+      var serieNameFilepart = serieNameFilepart(ctx, paths);
+      Match serieNameTitle = null;
+      if (serieNameFilepart != null) {
+         var titles = checkTitlesInFilepart(ctx, serieNameFilepart, this::serieNameIgnored);
+         if (titles != null && titles.titles.size() == 1) {
             for (var t : titles.titles) ctx.matches.add(t);
             for (var r : titles.toRemove) ctx.matches.remove(r);
-        }
-    }
+            serieNameTitle = titles.titles.get(0);
+         }
+      }
 
-    private void preferTitleWithYear(ParseContext ctx) {
-        var titles = ctx.matches.named("title").toList();
-        if (titles.isEmpty()) return;
-        var withYearInGroup = new ArrayList<Match>();
-        var withYear = new ArrayList<Match>();
-        for (var t : titles) {
-            var fp = Markers.atMatch(ctx.markers, t, m -> "path".equals(m.name())).orElse(null);
-            if (fp == null) continue;
-            var year = ctx.matches.range(fp.start(), fp.end(), m -> "year".equals(m.name())).findFirst().orElse(null);
-            if (year == null) continue;
-            var inGroup = Markers.atMatch(ctx.markers, year, m -> "group".equals(m.name())).isPresent();
-            (inGroup ? withYearInGroup : withYear).add(t);
-        }
-        Set<Object> keepValues;
-        if (!withYearInGroup.isEmpty()) keepValues = withYearInGroup.stream().map(Match::value).collect(java.util.stream.Collectors.toSet());
-        else if (!withYear.isEmpty()) keepValues = withYear.stream().map(Match::value).collect(java.util.stream.Collectors.toSet());
-        else return;
-        for (var t : titles) if (!keepValues.contains(t.value())) ctx.matches.remove(t);
-    }
+      var yearFileparts = paths.stream()
+              .filter(fp -> ctx.matches.range(fp.start(), fp.end(), m -> "year".equals(m.name())).findAny().isPresent())
+              .toList();
+      var consumedYearFileparts = new HashSet<Marker>();
 
-    private boolean serieNameIgnored(Match m) {
-        for (var tag : m.tags()) {
-            if ("weak".equals(tag) || tag.startsWith("weak-")) return true;
-        }
-        return false;
-    }
-
-    private Marker serieNameFilepart(ParseContext ctx, List<Marker> fileparts) {
-        for (var index = 1; index < fileparts.size() - 1; index++) {
-            var fp = fileparts.get(index);
-            var inFp = ctx.matches.range(fp.start(), fp.end(), m -> !m.isPrivate()).toList();
-            if (inFp.size() == 1 && "season".equals(inFp.get(0).name())
-                    && inFp.get(0).start() == fp.start() && inFp.get(0).end() == fp.end()) {
-                return fileparts.get(index + 1);
+      for (var fp : sorted) {
+         consumedYearFileparts.add(fp);
+         var titles = checkTitlesInFilepart(ctx, fp, m -> false);
+         if (titles == null) continue;
+         for (var t : titles.titles) {
+            if (serieNameTitle != null && !java.util.Objects.equals(t.value(), serieNameTitle.value())) {
+               ctx.matches.add(new Match("episode_title", t.value(), t.start(), t.end(),
+                       t.raw(), t.priority(), Set.of("title"), false));
+            } else {
+               ctx.matches.add(t);
             }
-        }
-        return null;
-    }
+         }
+         for (var r : titles.toRemove) ctx.matches.remove(r);
+         break;
+      }
 
-    record TitlesInFilepart(List<Match> titles, List<Match> toRemove) {}
+      for (var fp : yearFileparts) {
+         if (consumedYearFileparts.contains(fp)) continue;
+         var titles = checkTitlesInFilepart(ctx, fp, m -> false);
+         if (titles == null) continue;
+         for (var t : titles.titles) ctx.matches.add(t);
+         for (var r : titles.toRemove) ctx.matches.remove(r);
+      }
+   }
 
-    /** Returns null when no usable hole was found. */
-    TitlesInFilepart checkTitlesInFilepart(ParseContext ctx, Marker filepart,
-                                            java.util.function.Predicate<Match> additionalIgnore) {
-        var ignore = (java.util.function.Predicate<Match>) m ->
-            isIgnored(m) || (additionalIgnore != null && additionalIgnore.test(m));
-        return checkTitlesInFilepart(ctx, filepart, ignore, "title", List.of("title"), "alternative_title", false);
-    }
+   private void preferTitleWithYear(ParseContext ctx) {
+      var titles = ctx.matches.named("title").toList();
+      if (titles.isEmpty()) return;
+      var withYearInGroup = new ArrayList<Match>();
+      var withYear = new ArrayList<Match>();
+      for (var t : titles) {
+         var fp = Markers.atMatch(ctx.markers, t, m -> "path".equals(m.name())).orElse(null);
+         if (fp == null) continue;
+         var year = ctx.matches.range(fp.start(), fp.end(), m -> "year".equals(m.name())).findFirst().orElse(null);
+         if (year == null) continue;
+         var inGroup = Markers.atMatch(ctx.markers, year, m -> "group".equals(m.name())).isPresent();
+         (inGroup ? withYearInGroup : withYear).add(t);
+      }
+      Set<Object> keepValues;
+      if (!withYearInGroup.isEmpty())
+         keepValues = withYearInGroup.stream().map(Match::value).collect(java.util.stream.Collectors.toSet());
+      else if (!withYear.isEmpty())
+         keepValues = withYear.stream().map(Match::value).collect(java.util.stream.Collectors.toSet());
+      else return;
+      for (var t : titles) if (!keepValues.contains(t.value())) ctx.matches.remove(t);
+   }
 
-    /**
-     * Shared implementation used by EpisodeTitleExtractor too; emits {@code matchName}-named
-     * matches and (when {@code alternativeMatchName != null}) splits the hole on title_seps
-     * to spawn alternative-title matches.
-     */
-    TitlesInFilepart checkTitlesInFilepart(ParseContext ctx, Marker filepart,
-                                            java.util.function.Predicate<Match> ignore,
-                                            String matchName, List<String> matchTags,
-                                            String alternativeMatchName,
-                                            boolean episodeTitleContext) {
-        var allMatches = ctx.matches.snapshot();
-        var holes = Holes.compute(ctx.input, filepart.start(), filepart.end() + 1,
-            allMatches, ignore, null, Formatters::titleText);
-        holes = holesProcess(ctx, holes);
+   private boolean serieNameIgnored(Match m) {
+      for (var tag : m.tags()) {
+         if ("weak".equals(tag) || tag.startsWith("weak-")) return true;
+      }
+      return false;
+   }
 
-        for (var hole : holes) {
-            if (hole == null) continue;
-            var toRemove = new ArrayList<Match>();
-            var toKeep = new ArrayList<Match>();
-            var ignoredInHole = ctx.matches.range(hole.start, hole.end, TitleExtractor::isIgnored).toList();
-            if (!ignoredInHole.isEmpty()) {
-                var reversed = new ArrayList<>(ignoredInHole);
-                java.util.Collections.reverse(reversed);
-                for (var m : reversed) {
-                    var trailing = ctx.matches.chainBefore(hole.end, ctx.input, Seps.CHARS, x -> x == m).orElse(null);
-                    if (trailing != null && shouldKeep(m, toKeep, ctx, filepart, hole, false)) {
-                        toKeep.add(m);
-                        hole.end = m.start();
-                    }
-                }
-                for (var m : ignoredInHole) {
-                    if (toKeep.contains(m)) continue;
-                    var starting = ctx.matches.chainAfter(hole.start, ctx.input, Seps.CHARS, x -> x == m).orElse(null);
-                    if (starting != null && shouldKeep(m, toKeep, ctx, filepart, hole, true)) {
-                        toKeep.add(m);
-                        hole.start = m.end();
-                    }
-                }
+   private Marker serieNameFilepart(ParseContext ctx, List<Marker> fileparts) {
+      for (var index = 1; index < fileparts.size() - 1; index++) {
+         var fp = fileparts.get(index);
+         var inFp = ctx.matches.range(fp.start(), fp.end(), m -> !m.isPrivate()).toList();
+         if (inFp.size() == 1 && "season".equals(inFp.get(0).name())
+                 && inFp.get(0).start() == fp.start() && inFp.get(0).end() == fp.end()) {
+            return fileparts.get(index + 1);
+         }
+      }
+      return null;
+   }
+
+   record TitlesInFilepart(List<Match> titles, List<Match> toRemove) {
+   }
+
+   /** Returns null when no usable hole was found. */
+   TitlesInFilepart checkTitlesInFilepart(ParseContext ctx, Marker filepart,
+                                          java.util.function.Predicate<Match> additionalIgnore) {
+      var ignore = (java.util.function.Predicate<Match>) m ->
+              isIgnored(m) || (additionalIgnore != null && additionalIgnore.test(m));
+      return checkTitlesInFilepart(ctx, filepart, ignore, "title", List.of("title"), "alternative_title", false);
+   }
+
+   /**
+    * Shared implementation used by EpisodeTitleExtractor too; emits {@code matchName}-named
+    * matches and (when {@code alternativeMatchName != null}) splits the hole on title_seps
+    * to spawn alternative-title matches.
+    */
+   TitlesInFilepart checkTitlesInFilepart(ParseContext ctx, Marker filepart,
+                                          java.util.function.Predicate<Match> ignore,
+                                          String matchName, List<String> matchTags,
+                                          String alternativeMatchName,
+                                          boolean episodeTitleContext) {
+      var allMatches = ctx.matches.snapshot();
+      var holes = Holes.compute(ctx.input, filepart.start(), filepart.end() + 1,
+              allMatches, ignore, null, Formatters::titleText);
+      holes = holesProcess(ctx, holes);
+
+      for (var hole : holes) {
+         if (hole == null) continue;
+         var toRemove = new ArrayList<Match>();
+         var toKeep = new ArrayList<Match>();
+         var ignoredInHole = ctx.matches.range(hole.start, hole.end, TitleExtractor::isIgnored).toList();
+         if (!ignoredInHole.isEmpty()) {
+            var reversed = new ArrayList<>(ignoredInHole);
+            java.util.Collections.reverse(reversed);
+            for (var m : reversed) {
+               var trailing = ctx.matches.chainBefore(hole.end, ctx.input, Seps.CHARS, x -> x == m).orElse(null);
+               if (trailing != null && shouldKeep(m, toKeep, ctx, filepart, hole, false)) {
+                  toKeep.add(m);
+                  hole.end = m.start();
+               }
             }
             for (var m : ignoredInHole) {
-                if (shouldRemove(m, ctx, hole, episodeTitleContext)) toRemove.add(m);
+               if (toKeep.contains(m)) continue;
+               var starting = ctx.matches.chainAfter(hole.start, ctx.input, Seps.CHARS, x -> x == m).orElse(null);
+               if (starting != null && shouldKeep(m, toKeep, ctx, filepart, hole, true)) {
+                  toKeep.add(m);
+                  hole.start = m.end();
+               }
             }
-            toRemove.removeAll(toKeep);
+         }
+         for (var m : ignoredInHole) {
+            if (shouldRemove(m, ctx, hole, episodeTitleContext)) toRemove.add(m);
+         }
+         toRemove.removeAll(toKeep);
 
-            if (hole.length() <= 0 || hole.value().isEmpty()) continue;
+         if (hole.length() <= 0 || hole.value().isEmpty()) continue;
 
-            var titles = new ArrayList<Match>();
-            var raw = hole.raw();
-            var value = hole.value();
-            titles.add(new Match(matchName, value, hole.start, hole.end, raw, 1000, Set.copyOf(matchTags), false));
+         var titles = new ArrayList<Match>();
+         var raw = hole.raw();
+         var value = hole.value();
+         titles.add(new Match(matchName, value, hole.start, hole.end, raw, 1000, Set.copyOf(matchTags), false));
 
-            if (alternativeMatchName != null) {
-                var split = hole.split(Seps.TITLE_CHARS);
-                if (split.size() > 1) {
-                    titles.clear();
-                    titles.add(new Match(matchName, split.get(0).value(), split.get(0).start, split.get(0).end,
-                        split.get(0).raw(), 1000, Set.copyOf(matchTags), false));
-                    for (var i = 1; i < split.size(); i++) {
-                        var s = split.get(i);
-                        titles.add(new Match(alternativeMatchName, s.value(), s.start, s.end, s.raw(),
-                            1000, Set.of("title"), false));
-                    }
-                }
+         if (alternativeMatchName != null) {
+            var split = hole.split(Seps.TITLE_CHARS);
+            if (split.size() > 1) {
+               titles.clear();
+               titles.add(new Match(matchName, split.get(0).value(), split.get(0).start, split.get(0).end,
+                       split.get(0).raw(), 1000, Set.copyOf(matchTags), false));
+               for (var i = 1; i < split.size(); i++) {
+                  var s = split.get(i);
+                  titles.add(new Match(alternativeMatchName, s.value(), s.start, s.end, s.raw(),
+                          1000, Set.of("title"), false));
+               }
             }
-            return new TitlesInFilepart(titles, toRemove);
-        }
-        return null;
-    }
+         }
+         return new TitlesInFilepart(titles, toRemove);
+      }
+      return null;
+   }
 
-    private List<Holes.Hole> holesProcess(ParseContext ctx, List<Holes.Hole> holes) {
-        var groupMarkers = new ArrayList<>(Markers.named(ctx.markers, "group").toList());
-        var iter = groupMarkers.iterator();
-        while (iter.hasNext()) {
-            var g = iter.next();
-            var path = Markers.atMatch(ctx.markers, new Match("g", null, g.start(), g.end(), g.raw()),
-                m -> "path".equals(m.name())).orElse(null);
-            if (path != null && path.start() == g.start() && path.end() == g.end()) iter.remove();
-        }
-        var ret = new ArrayList<Holes.Hole>();
-        for (var h : holes) ret.addAll(h.crop(groupMarkers));
-        return ret;
-    }
+   private List<Holes.Hole> holesProcess(ParseContext ctx, List<Holes.Hole> holes) {
+      var groupMarkers = new ArrayList<>(Markers.named(ctx.markers, "group").toList());
+      var iter = groupMarkers.iterator();
+      while (iter.hasNext()) {
+         var g = iter.next();
+         var path = Markers.atMatch(ctx.markers, new Match("g", null, g.start(), g.end(), g.raw()),
+                 m -> "path".equals(m.name())).orElse(null);
+         if (path != null && path.start() == g.start() && path.end() == g.end()) iter.remove();
+      }
+      var ret = new ArrayList<Holes.Hole>();
+      for (var h : holes) ret.addAll(h.crop(groupMarkers));
+      return ret;
+   }
 
-    static boolean isIgnored(Match m) {
-        if (!Set.of("language", "country", "episode_details").contains(m.name())) return false;
-        var raw = m.raw();
-        if (raw == null) return true;
-        var upper = raw.equals(raw.toUpperCase(java.util.Locale.ROOT))
-            && raw.chars().anyMatch(Character::isLetter);
-        return !(raw.length() > 3 && upper);
-    }
+   static boolean isIgnored(Match m) {
+      if (!Set.of("language", "country", "episode_details").contains(m.name())) return false;
+      var raw = m.raw();
+      if (raw == null) return true;
+      var upper = raw.equals(raw.toUpperCase(java.util.Locale.ROOT))
+              && raw.chars().anyMatch(Character::isLetter);
+      return !(raw.length() > 3 && upper);
+   }
 
-    private boolean shouldKeep(Match m, List<Match> toKeep, ParseContext ctx, Marker filepart,
-                               Holes.Hole hole, boolean starting) {
-        if (Set.of("language", "country").contains(m.name())) {
-            if (hole.value().length() == m.raw().length()) return true;
-            var others = ctx.matches.range(filepart.start(), filepart.end(),
-                x -> x.name().equals(m.name()) && !toKeep.contains(x)
-                    && !NON_SPECIFIC_LANGUAGES.contains(String.valueOf(x.value()))
-                    && (x.end() <= hole.start || x.start() >= hole.end));
-            return others.findAny().isEmpty() && (!starting || m.raw().length() <= 3);
-        }
-        return false;
-    }
+   private boolean shouldKeep(Match m, List<Match> toKeep, ParseContext ctx, Marker filepart,
+                              Holes.Hole hole, boolean starting) {
+      if (Set.of("language", "country").contains(m.name())) {
+         if (hole.value().length() == m.raw().length()) return true;
+         var others = ctx.matches.range(filepart.start(), filepart.end(),
+                 x -> x.name().equals(m.name()) && !toKeep.contains(x)
+                         && !NON_SPECIFIC_LANGUAGES.contains(String.valueOf(x.value()))
+                         && (x.end() <= hole.start || x.start() >= hole.end));
+         return others.findAny().isEmpty() && (!starting || m.raw().length() <= 3);
+      }
+      return false;
+   }
 
-    private boolean shouldRemove(Match m, ParseContext ctx, Holes.Hole hole, boolean episodeTitleContext) {
-        if ("episode_details".equals(m.name())) {
-            if (episodeTitleContext) return false;
-            if ("episode".equals(ctx.options.type())) {
-                return m.start() >= hole.start && m.end() <= hole.end;
-            }
-        }
-        return tru
+   private boolean shouldRemove(Match m, ParseContext ctx, Holes.Hole hole, boolean episodeTitleContext) {
+      if ("episode_details".equals(m.name())) {
+         if (episodeTitleContext) return false;
+         if ("episode".equals(ctx.options.type())) {
+            return m.start() >= hole.start && m.end() <= hole.end;
+         }
+      }
+      return tru
 ```
 
 - [ ] **Step 4: Run tests**
@@ -1251,39 +1348,48 @@ The extractor's `postProcess` runs Python's six rules in order:
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class EpisodeTitleExtractorTest {
-    @Test void episodeTitleFromPositionFillsHoleAfterEpisode() {
-        var r = Guessit.parse("Show.Name.S01E02.Episode.Title.720p.HDTV.x264-RG.mkv").toMap();
-        assertThat(r.get("title")).isEqualTo("Show Name");
-        assertThat(r.get("episode_title")).isEqualTo("Episode Title");
-    }
-    @Test void titleToEpisodeTitleRenamesSecondTitleAfterEpisode() {
-        var r = Guessit.parse("Foo/Show.Name.S01E02.Episode.Title.mkv").toMap();
-        assertThat(r.get("title")).isEqualTo("Show Name");
-        assertThat(r.get("episode_title")).isEqualTo("Episode Title");
-    }
-    @Test void filepart3() {
-        var r = Guessit.parse("Series Name/Season 1/E01-episode-title.mkv").toMap();
-        assertThat(r.get("title")).isEqualTo("Series Name");
-        assertThat(r.get("episode")).isEqualTo(1);
-    }
-    @Test void filepart2() {
-        var r = Guessit.parse("Series Name S01/E01-episode-title.mkv").toMap();
-        assertThat(r.get("title")).isEqualTo("Series Name");
-    }
-    @Test void renameEpisodeTitleWhenMovieType() {
-        var r = Guessit.parse("Movie.Name.2020.Bonus.Material.mkv").toMap();
-        assertThat(r.get("title")).isEqualTo("Movie Name");
-        assertThat(r.get("alternative_title")).isEqualTo("Bonus Material");
-        assertThat(r.get("episode_title")).isNull();
-    }
+   @Test
+   void episodeTitleFromPositionFillsHoleAfterEpisode() {
+      var r = io.guessit.api.Guessit.parse("Show.Name.S01E02.Episode.Title.720p.HDTV.x264-RG.mkv").toMap();
+      assertThat(r.get("title")).isEqualTo("Show Name");
+      assertThat(r.get("episode_title")).isEqualTo("Episode Title");
+   }
+
+   @Test
+   void titleToEpisodeTitleRenamesSecondTitleAfterEpisode() {
+      var r = Guessit.parse("Foo/Show.Name.S01E02.Episode.Title.mkv").toMap();
+      assertThat(r.get("title")).isEqualTo("Show Name");
+      assertThat(r.get("episode_title")).isEqualTo("Episode Title");
+   }
+
+   @Test
+   void filepart3() {
+      var r = io.guessit.api.Guessit.parse("Series Name/Season 1/E01-episode-title.mkv").toMap();
+      assertThat(r.get("title")).isEqualTo("Series Name");
+      assertThat(r.get("episode")).isEqualTo(1);
+   }
+
+   @Test
+   void filepart2() {
+      var r = io.guessit.api.Guessit.parse("Series Name S01/E01-episode-title.mkv").toMap();
+      assertThat(r.get("title")).isEqualTo("Series Name");
+   }
+
+   @Test
+   void renameEpisodeTitleWhenMovieType() {
+      var r = Guessit.parse("Movie.Name.2020.Bonus.Material.mkv").toMap();
+      assertThat(r.get("title")).isEqualTo("Movie Name");
+      assertThat(r.get("alternative_title")).isEqualTo("Bonus Material");
+      assertThat(r.get("episode_title")).isNull();
+   }
 }
 ```
 
@@ -1295,152 +1401,163 @@ Expected: FAIL — class does not exist.
 - [ ] **Step 3: Write minimal implementation**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Holes;
+import io.guessit.core.pipeline.state.Markers;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Formatters;
+import io.guessit.core.text.Seps;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 public final class EpisodeTitleExtractor implements Extractor {
-    private static final Set<String> PREVIOUS_NAMES = Set.of(
-        "episode", "episode_count", "season", "season_count", "date", "title", "year");
-    private static final Set<String> NEXT_NAMES = Set.of(
-        "streaming_service", "screen_size", "source", "video_codec",
-        "audio_codec", "other", "container");
-    private static final Set<String> AFFECTED_NAMES = Set.of("part", "year");
-    private static final Set<String> AFFECTED_IF_HOLES_AFTER = Set.of("part");
+   private static final Set<String> PREVIOUS_NAMES = Set.of(
+           "episode", "episode_count", "season", "season_count", "date", "title", "year");
+   private static final Set<String> NEXT_NAMES = Set.of(
+           "streaming_service", "screen_size", "source", "video_codec",
+           "audio_codec", "other", "container");
+   private static final Set<String> AFFECTED_NAMES = Set.of("part", "year");
+   private static final Set<String> AFFECTED_IF_HOLES_AFTER = Set.of("part");
 
-    @Override
-    public String name() { return "episode_title"; }
+   @Override
+   public String name() {
+      return "episode_title";
+   }
 
-    @Override
-    public void extract(ParseContext ctx) { /* no extraction phase */ }
+   @Override
+   public void extract(ParseContext ctx) { /* no extraction phase */ }
 
-    @Override
-    public void postProcess(ParseContext ctx) {
-        removeConflictsWithEpisodeTitle(ctx);
-        titleToEpisodeTitle(ctx);
-        episodeTitleFromPosition(ctx);
-        alternativeTitleReplace(ctx);
-        filepart3EpisodeTitle(ctx);
-        filepart2EpisodeTitle(ctx);
-    }
+   @Override
+   public void postProcess(ParseContext ctx) {
+      removeConflictsWithEpisodeTitle(ctx);
+      titleToEpisodeTitle(ctx);
+      episodeTitleFromPosition(ctx);
+      alternativeTitleReplace(ctx);
+      filepart3EpisodeTitle(ctx);
+      filepart2EpisodeTitle(ctx);
+   }
 
-    private void removeConflictsWithEpisodeTitle(ParseContext ctx) {
-        var toRemove = new ArrayList<Match>();
-        for (var fp : Markers.named(ctx.markers, "path").toList()) {
-            var inFp = ctx.matches.range(fp.start(), fp.end(), m -> AFFECTED_NAMES.contains(m.name())).toList();
-            for (var m : inFp) {
-                var before = ctx.matches.range(fp.start(), m.start(), x -> !x.isPrivate())
+   private void removeConflictsWithEpisodeTitle(ParseContext ctx) {
+      var toRemove = new ArrayList<Match>();
+      for (var fp : Markers.named(ctx.markers, "path").toList()) {
+         var inFp = ctx.matches.range(fp.start(), fp.end(), m -> AFFECTED_NAMES.contains(m.name())).toList();
+         for (var m : inFp) {
+            var before = ctx.matches.range(fp.start(), m.start(), x -> !x.isPrivate())
                     .reduce((a, b) -> b).orElse(null);
-                if (before == null || !PREVIOUS_NAMES.contains(before.name())) continue;
-                var after = ctx.matches.range(m.end(), fp.end(), x -> !x.isPrivate()).findFirst().orElse(null);
-                if (after == null || !NEXT_NAMES.contains(after.name())) continue;
-                var group = Markers.atMatch(ctx.markers, m, mk -> "group".equals(mk.name())).orElse(null);
-                java.util.function.Predicate<Match> sameGroup = c ->
+            if (before == null || !PREVIOUS_NAMES.contains(before.name())) continue;
+            var after = ctx.matches.range(m.end(), fp.end(), x -> !x.isPrivate()).findFirst().orElse(null);
+            if (after == null || !NEXT_NAMES.contains(after.name())) continue;
+            var group = Markers.atMatch(ctx.markers, m, mk -> "group".equals(mk.name())).orElse(null);
+            java.util.function.Predicate<Match> sameGroup = c ->
                     c.value() != null && !c.raw().isBlank()
-                        && java.util.Objects.equals(group,
+                            && java.util.Objects.equals(group,
                             Markers.atMatch(ctx.markers, c, mk -> "group".equals(mk.name())).orElse(null));
 
-                var holesBefore = Holes.compute(ctx.input, before.end(), m.start(),
+            var holesBefore = Holes.compute(ctx.input, before.end(), m.start(),
                     ctx.matches.snapshot(), n -> false, null, Formatters::cleanup);
-                var holesAfter = Holes.compute(ctx.input, m.end(), after.start(),
+            var holesAfter = Holes.compute(ctx.input, m.end(), after.start(),
                     ctx.matches.snapshot(), n -> false, null, Formatters::cleanup);
-                if (holesBefore.isEmpty() && holesAfter.isEmpty()) continue;
-                if (AFFECTED_IF_HOLES_AFTER.contains(m.name()) && holesAfter.isEmpty()) continue;
-                toRemove.add(m);
-            }
-        }
-        for (var m : toRemove) ctx.matches.remove(m);
-    }
+            if (holesBefore.isEmpty() && holesAfter.isEmpty()) continue;
+            if (AFFECTED_IF_HOLES_AFTER.contains(m.name()) && holesAfter.isEmpty()) continue;
+            toRemove.add(m);
+         }
+      }
+      for (var m : toRemove) ctx.matches.remove(m);
+   }
 
-    private void titleToEpisodeTitle(ParseContext ctx) {
-        var titles = ctx.matches.named("title").toList();
-        var values = new java.util.HashSet<Object>();
-        for (var t : titles) values.add(t.value());
-        if (values.size() < 2) return;
-        for (var t : titles) {
-            var prev = ctx.matches.previous(t, m -> "episode".equals(m.name()));
-            if (prev.isPresent()) {
-                ctx.matches.replace(t, new Match("episode_title", t.value(), t.start(), t.end(),
+   private void titleToEpisodeTitle(ParseContext ctx) {
+      var titles = ctx.matches.named("title").toList();
+      var values = new java.util.HashSet<Object>();
+      for (var t : titles) values.add(t.value());
+      if (values.size() < 2) return;
+      for (var t : titles) {
+         var prev = ctx.matches.previous(t, m -> "episode".equals(m.name()));
+         if (prev.isPresent()) {
+            ctx.matches.replace(t, new Match("episode_title", t.value(), t.start(), t.end(),
                     t.raw(), t.priority(), t.tags(), t.isPrivate()));
-            }
-        }
-    }
+         }
+      }
+   }
 
-    private void episodeTitleFromPosition(ParseContext ctx) {
-        if (ctx.matches.named("episode_title").findAny().isPresent()) return;
-        var paths = ctx.markers.stream().filter(m -> "path".equals(m.name())).toList();
-        var titleExtractor = new TitleExtractor();
-        var hasCrc = ctx.matches.named("crc32").findAny().isPresent();
-        for (var fp : Markers.markerSorted(paths, ctx.matches)) {
-            var hasTitle = ctx.matches.range(fp.start(), fp.end(), m -> "title".equals(m.name())).findAny().isPresent();
-            if (!hasTitle) continue;
-            var titles = titleExtractor.checkTitlesInFilepart(ctx, fp,
-                m -> false, "episode_title", List.of("title"), null, true);
-            if (titles == null) continue;
-            for (var t : titles.titles()) {
-                var prev = ctx.matches.previous(t, m -> PREVIOUS_NAMES.contains(m.name()));
-                if (prev.isPresent() || hasCrc) ctx.matches.add(t);
-            }
-            for (var r : titles.toRemove()) ctx.matches.remove(r);
-        }
-    }
+   private void episodeTitleFromPosition(ParseContext ctx) {
+      if (ctx.matches.named("episode_title").findAny().isPresent()) return;
+      var paths = ctx.markers.stream().filter(m -> "path".equals(m.name())).toList();
+      var titleExtractor = new TitleExtractor();
+      var hasCrc = ctx.matches.named("crc32").findAny().isPresent();
+      for (var fp : Markers.markerSorted(paths, ctx.matches)) {
+         var hasTitle = ctx.matches.range(fp.start(), fp.end(), m -> "title".equals(m.name())).findAny().isPresent();
+         if (!hasTitle) continue;
+         var titles = titleExtractor.checkTitlesInFilepart(ctx, fp,
+                 m -> false, "episode_title", List.of("title"), null, true);
+         if (titles == null) continue;
+         for (var t : titles.titles()) {
+            var prev = ctx.matches.previous(t, m -> PREVIOUS_NAMES.contains(m.name()));
+            if (prev.isPresent() || hasCrc) ctx.matches.add(t);
+         }
+         for (var r : titles.toRemove()) ctx.matches.remove(r);
+      }
+   }
 
-    private void alternativeTitleReplace(ParseContext ctx) {
-        if (ctx.matches.named("episode_title").findAny().isPresent()) return;
-        var alt = ctx.matches.named("alternative_title").findFirst().orElse(null);
-        if (alt == null) return;
-        var mainTitle = ctx.matches.chainBefore(alt.start(), ctx.input, Seps.CHARS,
-            m -> m.tags().contains("title")).orElse(null);
-        if (mainTitle == null) return;
-        var prev = ctx.matches.previous(mainTitle, m -> PREVIOUS_NAMES.contains(m.name()));
-        var hasCrc = ctx.matches.named("crc32").findAny().isPresent();
-        if (prev.isPresent() || hasCrc) {
-            var newTags = new java.util.HashSet<>(alt.tags());
-            newTags.add("alternative-replaced");
-            ctx.matches.replace(alt, new Match("episode_title", alt.value(), alt.start(), alt.end(),
-                alt.raw(), alt.priority(), Set.copyOf(newTags), alt.isPrivate()));
-        }
-    }
+   private void alternativeTitleReplace(ParseContext ctx) {
+      if (ctx.matches.named("episode_title").findAny().isPresent()) return;
+      var alt = ctx.matches.named("alternative_title").findFirst().orElse(null);
+      if (alt == null) return;
+      var mainTitle = ctx.matches.chainBefore(alt.start(), ctx.input, Seps.CHARS,
+              m -> m.tags().contains("title")).orElse(null);
+      if (mainTitle == null) return;
+      var prev = ctx.matches.previous(mainTitle, m -> PREVIOUS_NAMES.contains(m.name()));
+      var hasCrc = ctx.matches.named("crc32").findAny().isPresent();
+      if (prev.isPresent() || hasCrc) {
+         var newTags = new java.util.HashSet<>(alt.tags());
+         newTags.add("alternative-replaced");
+         ctx.matches.replace(alt, new Match("episode_title", alt.value(), alt.start(), alt.end(),
+                 alt.raw(), alt.priority(), Set.copyOf(newTags), alt.isPrivate()));
+      }
+   }
 
-    private void filepart3EpisodeTitle(ParseContext ctx) {
-        if (ctx.matches.tagged("filepart-title").findAny().isPresent()) return;
-        var paths = Markers.named(ctx.markers, "path").toList();
-        if (paths.size() < 3) return;
-        var filename = paths.get(paths.size() - 1);
-        var directory = paths.get(paths.size() - 2);
-        var subdirectory = paths.get(paths.size() - 3);
-        if (ctx.matches.range(filename.start(), filename.end(), m -> "episode".equals(m.name())).findAny().isEmpty()) return;
-        if (ctx.matches.range(directory.start(), directory.end(), m -> "season".equals(m.name())).findAny().isEmpty()) return;
-        java.util.function.Predicate<Match> ignore = m -> m.tags().contains("weak-episode") || TitleExtractor.isIgnored(m);
-        var holes = Holes.compute(ctx.input, subdirectory.start(), subdirectory.end(),
-            ctx.matches.snapshot(), ignore, Seps.TITLE_CHARS, Formatters::cleanup);
-        if (holes.isEmpty()) return;
-        var h = holes.get(0);
-        ctx.matches.add(new Match("title", h.value(), h.start, h.end, h.raw(), 1000, Set.of(), false));
-    }
+   private void filepart3EpisodeTitle(ParseContext ctx) {
+      if (ctx.matches.tagged("filepart-title").findAny().isPresent()) return;
+      var paths = Markers.named(ctx.markers, "path").toList();
+      if (paths.size() < 3) return;
+      var filename = paths.get(paths.size() - 1);
+      var directory = paths.get(paths.size() - 2);
+      var subdirectory = paths.get(paths.size() - 3);
+      if (ctx.matches.range(filename.start(), filename.end(), m -> "episode".equals(m.name())).findAny().isEmpty())
+         return;
+      if (ctx.matches.range(directory.start(), directory.end(), m -> "season".equals(m.name())).findAny().isEmpty())
+         return;
+      java.util.function.Predicate<Match> ignore = m -> m.tags().contains("weak-episode") || TitleExtractor.isIgnored(m);
+      var holes = Holes.compute(ctx.input, subdirectory.start(), subdirectory.end(),
+              ctx.matches.snapshot(), ignore, Seps.TITLE_CHARS, Formatters::cleanup);
+      if (holes.isEmpty()) return;
+      var h = holes.get(0);
+      ctx.matches.add(new Match("title", h.value(), h.start, h.end, h.raw(), 1000, Set.of(), false));
+   }
 
-    private void filepart2EpisodeTitle(ParseContext ctx) {
-        if (ctx.matches.tagged("filepart-title").findAny().isPresent()) return;
-        var paths = Markers.named(ctx.markers, "path").toList();
-        if (paths.size() < 2) return;
-        var filename = paths.get(paths.size() - 1);
-        var directory = paths.get(paths.size() - 2);
-        if (ctx.matches.range(filename.start(), filename.end(), m -> "episode".equals(m.name())).findAny().isEmpty()) return;
-        var hasSeason = ctx.matches.range(directory.start(), directory.end(), m -> "season".equals(m.name())).findAny().isPresent()
-            || ctx.matches.range(filename.start(), filename.end(), m -> "season".equals(m.name())).findAny().isPresent();
-        if (!hasSeason) return;
-        java.util.function.Predicate<Match> ignore = m -> m.tags().contains("weak-episode") || TitleExtractor.isIgnored(m);
-        var holes = Holes.compute(ctx.input, directory.start(), directory.end(),
-            ctx.matches.snapshot(), ignore, Seps.TITLE_CHARS, Formatters::cleanup);
-        if (holes.isEmpty()) return;
-        var h = holes.get(0);
-        var tags = Set.of("filepart-title");
-        ctx.matches.add(new Match("title", h.value(), h.start, h.end, h.raw(), 1000, tags, false));
-    }
+   private void filepart2EpisodeTitle(ParseContext ctx) {
+      if (ctx.matches.tagged("filepart-title").findAny().isPresent()) return;
+      var paths = Markers.named(ctx.markers, "path").toList();
+      if (paths.size() < 2) return;
+      var filename = paths.get(paths.size() - 1);
+      var directory = paths.get(paths.size() - 2);
+      if (ctx.matches.range(filename.start(), filename.end(), m -> "episode".equals(m.name())).findAny().isEmpty())
+         return;
+      var hasSeason = ctx.matches.range(directory.start(), directory.end(), m -> "season".equals(m.name())).findAny().isPresent()
+              || ctx.matches.range(filename.start(), filename.end(), m -> "season".equals(m.name())).findAny().isPresent();
+      if (!hasSeason) return;
+      java.util.function.Predicate<Match> ignore = m -> m.tags().contains("weak-episode") || TitleExtractor.isIgnored(m);
+      var holes = Holes.compute(ctx.input, directory.start(), directory.end(),
+              ctx.matches.snapshot(), ignore, Seps.TITLE_CHARS, Formatters::cleanup);
+      if (holes.isEmpty()) return;
+      var h = holes.get(0);
+      var tags = Set.of("filepart-title");
+      ctx.matches.add(new Match("title", h.value(), h.start, h.end, h.raw(), 1000, tags, false));
+   }
 }
 ```
 

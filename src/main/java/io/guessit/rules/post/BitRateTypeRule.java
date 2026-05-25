@@ -1,11 +1,12 @@
 package io.guessit.rules.post;
 
-import io.guessit.engine.Match;
-import io.guessit.engine.MatchName;
-import io.guessit.engine.ParseContext;
-import io.guessit.engine.PostPhase;
-import io.guessit.engine.Seps;
-import io.guessit.util.BitRate;
+import io.guessit.core.pipeline.contracts.PostProcessor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.phases.PostPhase;
+import io.guessit.core.text.Seps;
+import io.guessit.api.models.BitRate;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -23,7 +24,7 @@ import java.util.List;
  *
  * <p>Mirrors Python guessit's {@code BitRateTypeRule}.
  */
-public final class BitRateTypeRule implements PostPhase.PostProcessor {
+public final class BitRateTypeRule implements PostProcessor {
 
     private static final java.util.Set<MatchName> VIDEO_CONTEXT = java.util.Set.of(
             MatchName.SOURCE, MatchName.SCREEN_SIZE, MatchName.VIDEO_CODEC);

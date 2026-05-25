@@ -1,5 +1,6 @@
 package io.guessit.engine;
 
+import io.guessit.core.text.Seps;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;

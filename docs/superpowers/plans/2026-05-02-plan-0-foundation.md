@@ -578,30 +578,32 @@ git commit -m "test: smoke-test commons-csv on the classpath"
 ```java
 package io.guessit.util;
 
+import io.guessit.api.models.Quantity;
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class QuantityTest {
-    @Test
-    void formatsBitRate() {
-        assertEquals("1.5 Mbps", new Quantity(1.5, "Mbps").format());
-    }
+   @Test
+   void formatsBitRate() {
+      assertEquals("1.5 Mbps", new Quantity(1.5, "Mbps").format());
+   }
 
-    @Test
-    void formatsIntegerSize() {
-        assertEquals("4 GB", new Quantity(4.0, "GB").format());
-    }
+   @Test
+   void formatsIntegerSize() {
+      assertEquals("4 GB", new Quantity(4.0, "GB").format());
+   }
 
-    @Test
-    void formatsDecimalSize() {
-        assertEquals("4.7 GB", new Quantity(4.7, "GB").format());
-    }
+   @Test
+   void formatsDecimalSize() {
+      assertEquals("4.7 GB", new Quantity(4.7, "GB").format());
+   }
 
-    @Test
-    void parsesFromString() {
-        assertEquals(new Quantity(1.5, "Mbps"), Quantity.parse("1.5 Mbps"));
-        assertEquals(new Quantity(800, "Kbps"), Quantity.parse("800 Kbps"));
-    }
+   @Test
+   void parsesFromString() {
+      assertEquals(new Quantity(1.5, "Mbps"), Quantity.parse("1.5 Mbps"));
+      assertEquals(new Quantity(800, "Kbps"), Quantity.parse("800 Kbps"));
+   }
 }
 ```
 
@@ -696,50 +698,52 @@ git commit -m "lang: language and country records"
 ```java
 package io.guessit.lang;
 
+import io.guessit.rules.lang.LanguageRegistry;
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class LanguageRegistryTest {
-    private final LanguageRegistry r = LanguageRegistry.instance();
+   private final LanguageRegistry r = LanguageRegistry.instance();
 
-    @Test
-    void findsByAlpha2() {
-        var l = r.find("en").orElseThrow();
-        assertEquals("English", l.name());
-        assertEquals("eng", l.alpha3());
-    }
+   @Test
+   void findsByAlpha2() {
+      var l = r.find("en").orElseThrow();
+      assertEquals("English", l.name());
+      assertEquals("eng", l.alpha3());
+   }
 
-    @Test
-    void findsByAlpha3() {
-        assertEquals("French", r.find("fra").orElseThrow().name());
-        assertEquals("French", r.find("fre").orElseThrow().name()); // bibliographic alias
-    }
+   @Test
+   void findsByAlpha3() {
+      assertEquals("French", r.find("fra").orElseThrow().name());
+      assertEquals("French", r.find("fre").orElseThrow().name()); // bibliographic alias
+   }
 
-    @Test
-    void findsByName() {
-        assertEquals("eng", r.find("English").orElseThrow().alpha3());
-    }
+   @Test
+   void findsByName() {
+      assertEquals("eng", r.find("English").orElseThrow().alpha3());
+   }
 
-    @Test
-    void caseInsensitive() {
-        assertEquals("en", r.find("ENGLISH").orElseThrow().alpha2());
-    }
+   @Test
+   void caseInsensitive() {
+      assertEquals("en", r.find("ENGLISH").orElseThrow().alpha2());
+   }
 
-    @Test
-    void resolvesAliasVo() {
-        var l = r.find("vo").orElseThrow();
-        assertEquals("Original Version", l.name());
-    }
+   @Test
+   void resolvesAliasVo() {
+      var l = r.find("vo").orElseThrow();
+      assertEquals("Original Version", l.name());
+   }
 
-    @Test
-    void resolvesCountryAliasUk() {
-        assertEquals("GB", r.findCountry("uk").orElseThrow().alpha2());
-    }
+   @Test
+   void resolvesCountryAliasUk() {
+      assertEquals("GB", r.findCountry("uk").orElseThrow().alpha2());
+   }
 
-    @Test
-    void unknownReturnsEmpty() {
-        assertTrue(r.find("zzz-not-a-lang").isEmpty());
-    }
+   @Test
+   void unknownReturnsEmpty() {
+      assertTrue(r.find("zzz-not-a-lang").isEmpty());
+   }
 }
 ```
 
@@ -753,6 +757,8 @@ Expected: compilation failure (`LanguageRegistry` not defined).
 ```java
 package io.guessit.lang;
 
+import io.guessit.api.models.Country;
+import io.guessit.api.models.Language;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -769,7 +775,10 @@ import java.util.Optional;
 
 public final class LanguageRegistry {
     private static final LanguageRegistry INSTANCE = new LanguageRegistry();
-    public static LanguageRegistry instance() { return INSTANCE; }
+
+    public static LanguageRegistry instance() {
+        return INSTANCE;
+    }
 
     private final Map<String, Language> langByKey = new HashMap<>();
     private final Map<String, Country> countryByKey = new HashMap<>();
@@ -882,11 +891,11 @@ public final class LanguageRegistry {
             if (in == null) throw new IllegalStateException("Missing classpath resource: " + path);
             try (var parser = CSVParser.parse(new InputStreamReader(in, StandardCharsets.UTF_8),
                     CSVFormat.DEFAULT.builder()
-                        .setHeader()
-                        .setSkipHeaderRecord(true)
-                        .setIgnoreEmptyLines(true)
-                        .setIgnoreSurroundingSpaces(true)
-                        .get())) {
+                            .setHeader()
+                            .setSkipHeaderRecord(true)
+                            .setIgnoreEmptyLines(true)
+                            .setIgnoreSurroundingSpaces(true)
+                            .get())) {
                 for (var record : parser) consumer.accept(record);
             }
         } catch (IOException e) {
@@ -999,9 +1008,9 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import io.guessit.lang.Country;
-import io.guessit.lang.Language;
-import io.guessit.util.Quantity;
+import io.guessit.api.models.Country;
+import io.guessit.api.models.Language;
+import io.guessit.api.models.Quantity;
 import org.jilt.Builder;
 import org.jilt.BuilderStyle;
 import org.jilt.Opt;
@@ -1015,112 +1024,117 @@ import java.util.Map;
 
 @Builder(style = BuilderStyle.CLASSIC, factoryMethod = "result")
 public record GuessResult(
-    @Opt String title,
-    @Opt String alternativeTitle,
-    @Opt Integer year,
-    @Opt LocalDate date,
-    @Opt Integer season, @Opt List<Integer> seasonList,
-    @Opt Integer episode, @Opt List<Integer> episodeList,
-    @Opt Integer episodeCount, @Opt Integer seasonCount,
-    @Opt String episodeTitle,
-    @Opt String episodeFormat,
-    @Opt String type,
-    @Opt List<Language> language, @Opt List<Language> subtitleLanguage,
-    @Opt List<Country> country,
-    @Opt String source, @Opt List<String> other,
-    @Opt List<String> videoCodec, @Opt List<String> audioCodec,
-    @Opt List<String> audioChannels, @Opt List<String> audioProfile,
-    @Opt List<String> videoProfile, @Opt List<String> videoApi,
-    @Opt String screenSize, @Opt String aspectRatio, @Opt Integer frameRate,
-    @Opt Quantity bitRate, @Opt Quantity size,
-    @Opt String container, @Opt String mimetype,
-    @Opt String releaseGroup, @Opt String streamingService, @Opt String website,
-    @Opt String edition, @Opt Integer cd, @Opt Integer cdCount,
-    @Opt Integer part, @Opt Integer version, @Opt Integer film, @Opt String filmTitle,
-    @Opt Integer bonus, @Opt String bonusTitle, @Opt String crc32,
-    @Opt Map<String, Object> extras
+        @Opt String title,
+        @Opt String alternativeTitle,
+        @Opt Integer year,
+        @Opt LocalDate date,
+        @Opt Integer season, @Opt List<Integer> seasonList,
+        @Opt Integer episode, @Opt List<Integer> episodeList,
+        @Opt Integer episodeCount, @Opt Integer seasonCount,
+        @Opt String episodeTitle,
+        @Opt String episodeFormat,
+        @Opt String type,
+        @Opt List<Language> language, @Opt List<Language> subtitleLanguage,
+        @Opt List<Country> country,
+        @Opt String source, @Opt List<String> other,
+        @Opt List<String> videoCodec, @Opt List<String> audioCodec,
+        @Opt List<String> audioChannels, @Opt List<String> audioProfile,
+        @Opt List<String> videoProfile, @Opt List<String> videoApi,
+        @Opt String screenSize, @Opt String aspectRatio, @Opt Integer frameRate,
+        @Opt Quantity bitRate, @Opt Quantity size,
+        @Opt String container, @Opt String mimetype,
+        @Opt String releaseGroup, @Opt String streamingService, @Opt String website,
+        @Opt String edition, @Opt Integer cd, @Opt Integer cdCount,
+        @Opt Integer part, @Opt Integer version, @Opt Integer film, @Opt String filmTitle,
+        @Opt Integer bonus, @Opt String bonusTitle, @Opt String crc32,
+        @Opt Map<String, Object> extras
 ) {
-    private static final ObjectMapper JSON = new ObjectMapper()
-        .registerModule(new JavaTimeModule())
-        .setSerializationInclusion(JsonInclude.Include.NON_NULL)
-        .enable(SerializationFeature.INDENT_OUTPUT)
-        .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+   private static final ObjectMapper JSON = new ObjectMapper()
+           .registerModule(new JavaTimeModule())
+           .setSerializationInclusion(JsonInclude.Include.NON_NULL)
+           .enable(SerializationFeature.INDENT_OUTPUT)
+           .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-    public Map<String, Object> toMap() {
-        var m = new LinkedHashMap<String, Object>();
-        putIfNotNull(m, "title", title);
-        putIfNotNull(m, "alternative_title", alternativeTitle);
-        putIfNotNull(m, "year", year);
-        putIfNotNull(m, "date", date);
-        putSeasonOrEpisode(m, "season", season, seasonList);
-        putSeasonOrEpisode(m, "episode", episode, episodeList);
-        putIfNotNull(m, "episode_count", episodeCount);
-        putIfNotNull(m, "season_count", seasonCount);
-        putIfNotNull(m, "episode_title", episodeTitle);
-        putIfNotNull(m, "episode_format", episodeFormat);
-        putIfNotNull(m, "type", type);
-        putList(m, "language", language);
-        putList(m, "subtitle_language", subtitleLanguage);
-        putList(m, "country", country);
-        putIfNotNull(m, "source", source);
-        putList(m, "other", other);
-        putList(m, "video_codec", videoCodec);
-        putList(m, "audio_codec", audioCodec);
-        putList(m, "audio_channels", audioChannels);
-        putList(m, "audio_profile", audioProfile);
-        putList(m, "video_profile", videoProfile);
-        putList(m, "video_api", videoApi);
-        putIfNotNull(m, "screen_size", screenSize);
-        putIfNotNull(m, "aspect_ratio", aspectRatio);
-        putIfNotNull(m, "frame_rate", frameRate);
-        if (bitRate != null) m.put("bit_rate", bitRate.format());
-        if (size != null) m.put("size", size.format());
-        putIfNotNull(m, "container", container);
-        putIfNotNull(m, "mimetype", mimetype);
-        putIfNotNull(m, "release_group", releaseGroup);
-        putIfNotNull(m, "streaming_service", streamingService);
-        putIfNotNull(m, "website", website);
-        putIfNotNull(m, "edition", edition);
-        putIfNotNull(m, "cd", cd);
-        putIfNotNull(m, "cd_count", cdCount);
-        putIfNotNull(m, "part", part);
-        putIfNotNull(m, "version", version);
-        putIfNotNull(m, "film", film);
-        putIfNotNull(m, "film_title", filmTitle);
-        putIfNotNull(m, "bonus", bonus);
-        putIfNotNull(m, "bonus_title", bonusTitle);
-        putIfNotNull(m, "crc32", crc32);
-        if (extras != null) extras.forEach(m::putIfAbsent);
-        return m;
-    }
+   public Map<String, Object> toMap() {
+      var m = new LinkedHashMap<String, Object>();
+      putIfNotNull(m, "title", title);
+      putIfNotNull(m, "alternative_title", alternativeTitle);
+      putIfNotNull(m, "year", year);
+      putIfNotNull(m, "date", date);
+      putSeasonOrEpisode(m, "season", season, seasonList);
+      putSeasonOrEpisode(m, "episode", episode, episodeList);
+      putIfNotNull(m, "episode_count", episodeCount);
+      putIfNotNull(m, "season_count", seasonCount);
+      putIfNotNull(m, "episode_title", episodeTitle);
+      putIfNotNull(m, "episode_format", episodeFormat);
+      putIfNotNull(m, "type", type);
+      putList(m, "language", language);
+      putList(m, "subtitle_language", subtitleLanguage);
+      putList(m, "country", country);
+      putIfNotNull(m, "source", source);
+      putList(m, "other", other);
+      putList(m, "video_codec", videoCodec);
+      putList(m, "audio_codec", audioCodec);
+      putList(m, "audio_channels", audioChannels);
+      putList(m, "audio_profile", audioProfile);
+      putList(m, "video_profile", videoProfile);
+      putList(m, "video_api", videoApi);
+      putIfNotNull(m, "screen_size", screenSize);
+      putIfNotNull(m, "aspect_ratio", aspectRatio);
+      putIfNotNull(m, "frame_rate", frameRate);
+      if (bitRate != null) m.put("bit_rate", bitRate.format());
+      if (size != null) m.put("size", size.format());
+      putIfNotNull(m, "container", container);
+      putIfNotNull(m, "mimetype", mimetype);
+      putIfNotNull(m, "release_group", releaseGroup);
+      putIfNotNull(m, "streaming_service", streamingService);
+      putIfNotNull(m, "website", website);
+      putIfNotNull(m, "edition", edition);
+      putIfNotNull(m, "cd", cd);
+      putIfNotNull(m, "cd_count", cdCount);
+      putIfNotNull(m, "part", part);
+      putIfNotNull(m, "version", version);
+      putIfNotNull(m, "film", film);
+      putIfNotNull(m, "film_title", filmTitle);
+      putIfNotNull(m, "bonus", bonus);
+      putIfNotNull(m, "bonus_title", bonusTitle);
+      putIfNotNull(m, "crc32", crc32);
+      if (extras != null) extras.forEach(m::putIfAbsent);
+      return m;
+   }
 
-    private static void putIfNotNull(Map<String, Object> m, String k, Object v) {
-        if (v != null) m.put(k, v);
-    }
+   private static void putIfNotNull(Map<String, Object> m, String k, Object v) {
+      if (v != null) m.put(k, v);
+   }
 
-    private static void putSeasonOrEpisode(Map<String, Object> m, String k, Integer single, List<Integer> list) {
-        if (list != null && !list.isEmpty()) m.put(k, list.size() == 1 ? list.get(0) : list);
-        else if (single != null) m.put(k, single);
-    }
+   private static void putSeasonOrEpisode(Map<String, Object> m, String k, Integer single, List<Integer> list) {
+      if (list != null && !list.isEmpty()) m.put(k, list.size() == 1 ? list.get(0) : list);
+      else if (single != null) m.put(k, single);
+   }
 
-    private static void putList(Map<String, Object> m, String k, List<?> list) {
-        if (list == null || list.isEmpty()) return;
-        m.put(k, list.size() == 1 ? list.get(0) : list);
-    }
+   private static void putList(Map<String, Object> m, String k, List<?> list) {
+      if (list == null || list.isEmpty()) return;
+      m.put(k, list.size() == 1 ? list.get(0) : list);
+   }
 
-    public String toJson() {
-        try { return JSON.writeValueAsString(toMap()); }
-        catch (Exception e) { throw new RuntimeException(e); }
-    }
+   public String toJson() {
+      try {
+         return JSON.writeValueAsString(toMap());
+      } catch (Exception e) {
+         throw new RuntimeException(e);
+      }
+   }
 
-    public String toYaml() {
-        var opts = new DumperOptions();
-        opts.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-        return new Yaml(opts).dump(toMap());
-    }
+   public String toYaml() {
+      var opts = new DumperOptions();
+      opts.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+      return new Yaml(opts).dump(toMap());
+   }
 
-    /** Convenience alias so callers can write `GuessResult.builder().title(...)...build()`. */
-    public static GuessResultBuilder builder() { return GuessResultBuilder.result(); }
+   /** Convenience alias so callers can write `GuessResult.builder().title(...)...build()`. */
+   public static GuessResultBuilder builder() {
+      return GuessResultBuilder.result();
+   }
 }
 ```
 
@@ -1226,6 +1240,9 @@ git commit -m "engine: marker and match records"
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchSet;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -1235,58 +1252,59 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MatchSetTest {
 
-    @Test
-    void addAndAll() {
-        var s = new MatchSet();
-        s.add(Match.of("year", 2020, 0, 4, "2020"));
-        s.add(Match.of("source", "BluRay", 5, 11, "BluRay"));
-        assertEquals(2, s.all().count());
-    }
+   @Test
+   void addAndAll() {
+      var s = new MatchSet();
+      s.add(Match.of("year", 2020, 0, 4, "2020"));
+      s.add(Match.of("source", "BluRay", 5, 11, "BluRay"));
+      assertEquals(2, s.all().count());
+   }
 
-    @Test
-    void namedFilter() {
-        var s = new MatchSet();
-        s.add(Match.of("year", 2020, 0, 4, "2020"));
-        s.add(Match.of("source", "BluRay", 5, 11, "BluRay"));
-        var years = s.named("year").collect(Collectors.toList());
-        assertEquals(1, years.size());
-        assertEquals(2020, years.get(0).value());
-    }
+   @Test
+   void namedFilter() {
+      var s = new MatchSet();
+      s.add(Match.of("year", 2020, 0, 4, "2020"));
+      s.add(Match.of("source", "BluRay", 5, 11, "BluRay"));
+      var years = s.named("year").collect(Collectors.toList());
+      assertEquals(1, years.size());
+      assertEquals(2020, years.get(0).value());
+   }
 
-    @Test
-    void overlapping() {
-        var s = new MatchSet();
-        var a = Match.of("year", 2020, 0, 4, "2020");
-        var b = Match.of("season", 20, 1, 3, "20");
-        s.add(a); s.add(b);
-        var overs = s.overlapping(0, 5).collect(Collectors.toList());
-        assertEquals(2, overs.size());
-        var nonOver = s.overlapping(10, 20).collect(Collectors.toList());
-        assertTrue(nonOver.isEmpty());
-    }
+   @Test
+   void overlapping() {
+      var s = new MatchSet();
+      var a = Match.of("year", 2020, 0, 4, "2020");
+      var b = Match.of("season", 20, 1, 3, "20");
+      s.add(a);
+      s.add(b);
+      var overs = s.overlapping(0, 5).collect(Collectors.toList());
+      assertEquals(2, overs.size());
+      var nonOver = s.overlapping(10, 20).collect(Collectors.toList());
+      assertTrue(nonOver.isEmpty());
+   }
 
-    @Test
-    void inMarker() {
-        var s = new MatchSet();
-        var marker = new Marker("path", 0, 10, "abcdefghij");
-        s.add(Match.of("year", 2020, 0, 4, "2020"));
-        s.add(Match.of("year", 1999, 12, 16, "1999"));
-        var inside = s.inMarker(marker).collect(Collectors.toList());
-        assertEquals(1, inside.size());
-        assertEquals(2020, inside.get(0).value());
-    }
+   @Test
+   void inMarker() {
+      var s = new MatchSet();
+      var marker = new Marker("path", 0, 10, "abcdefghij");
+      s.add(Match.of("year", 2020, 0, 4, "2020"));
+      s.add(Match.of("year", 1999, 12, 16, "1999"));
+      var inside = s.inMarker(marker).collect(Collectors.toList());
+      assertEquals(1, inside.size());
+      assertEquals(2020, inside.get(0).value());
+   }
 
-    @Test
-    void removeAndReplace() {
-        var s = new MatchSet();
-        var a = Match.of("year", 2020, 0, 4, "2020");
-        var b = Match.of("year", 1999, 0, 4, "1999");
-        s.add(a);
-        s.replace(a, b);
-        assertEquals(List.of(b), s.all().collect(Collectors.toList()));
-        s.remove(b);
-        assertEquals(0, s.all().count());
-    }
+   @Test
+   void removeAndReplace() {
+      var s = new MatchSet();
+      var a = Match.of("year", 2020, 0, 4, "2020");
+      var b = Match.of("year", 1999, 0, 4, "1999");
+      s.add(a);
+      s.replace(a, b);
+      assertEquals(List.of(b), s.all().collect(Collectors.toList()));
+      s.remove(b);
+      assertEquals(0, s.all().count());
+   }
 }
 ```
 
@@ -1300,36 +1318,49 @@ Expected: compilation failure (`MatchSet` not defined).
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
 public final class MatchSet {
-    private final List<Match> matches = new ArrayList<>();
+   private final List<Match> matches = new ArrayList<>();
 
-    public void add(Match m) { matches.add(m); }
+   public void add(Match m) {
+      matches.add(m);
+   }
 
-    public boolean remove(Match m) { return matches.remove(m); }
+   public boolean remove(Match m) {
+      return matches.remove(m);
+   }
 
-    public void replace(Match oldMatch, Match newMatch) {
-        var idx = matches.indexOf(oldMatch);
-        if (idx < 0) throw new IllegalArgumentException("Match not present: " + oldMatch);
-        matches.set(idx, newMatch);
-    }
+   public void replace(Match oldMatch, Match newMatch) {
+      var idx = matches.indexOf(oldMatch);
+      if (idx < 0) throw new IllegalArgumentException("Match not present: " + oldMatch);
+      matches.set(idx, newMatch);
+   }
 
-    public Stream<Match> all() { return matches.stream(); }
+   public Stream<Match> all() {
+      return matches.stream();
+   }
 
-    public Stream<Match> named(String name) { return matches.stream().filter(m -> m.name().equals(name)); }
+   public Stream<Match> named(String name) {
+      return matches.stream().filter(m -> m.name().equals(name));
+   }
 
-    public Stream<Match> overlapping(int start, int end) {
-        return matches.stream().filter(m -> m.start() < end && start < m.end());
-    }
+   public Stream<Match> overlapping(int start, int end) {
+      return matches.stream().filter(m -> m.start() < end && start < m.end());
+   }
 
-    public Stream<Match> inMarker(Marker marker) {
-        return matches.stream().filter(m -> marker.covers(m.start(), m.end()));
-    }
+   public Stream<Match> inMarker(Marker marker) {
+      return matches.stream().filter(m -> marker.covers(m.start(), m.end()));
+   }
 
-    public int size() { return matches.size(); }
+   public int size() {
+      return matches.size();
+   }
 }
 ```
 
@@ -1416,6 +1447,10 @@ public record StringOpts(
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.text.PatternMatcher;
+import io.guessit.core.text.RegexOpts;
+import io.guessit.core.text.StringOpts;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -1427,54 +1462,54 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PatternMatcherTest {
 
-    @Test
-    void regexFindsAllMatches() {
-        var p = Pattern.compile("\\b(?<value>\\d{4})\\b");
-        var matches = PatternMatcher.regex("Movie 1999 Sequel 2020", p, "year", RegexOpts.defaults());
-        assertEquals(2, matches.size());
-        assertEquals("1999", matches.get(0).raw());
-        assertEquals("1999", matches.get(0).value());
-    }
+   @Test
+   void regexFindsAllMatches() {
+      var p = Pattern.compile("\\b(?<value>\\d{4})\\b");
+      var matches = PatternMatcher.regex("Movie 1999 Sequel 2020", p, "year", RegexOpts.defaults());
+      assertEquals(2, matches.size());
+      assertEquals("1999", matches.get(0).raw());
+      assertEquals("1999", matches.get(0).value());
+   }
 
-    @Test
-    void regexValueExtractorParsesInt() {
-        var p = Pattern.compile("\\b(?<value>\\d{4})\\b");
-        var opts = RegexOpts.defaults().withValue(Integer::parseInt);
-        var matches = PatternMatcher.regex("y2020", p, "year", opts);
-        assertEquals(1, matches.size());
-        assertEquals(2020, matches.get(0).value());
-    }
+   @Test
+   void regexValueExtractorParsesInt() {
+      var p = Pattern.compile("\\b(?<value>\\d{4})\\b");
+      var opts = RegexOpts.defaults().withValue(Integer::parseInt);
+      var matches = PatternMatcher.regex("y2020", p, "year", opts);
+      assertEquals(1, matches.size());
+      assertEquals(2020, matches.get(0).value());
+   }
 
-    @Test
-    void regexNamedValueGroupOptional() {
-        var p = Pattern.compile("\\bBluRay\\b");
-        var matches = PatternMatcher.regex("ALPHA.BluRay.x264", p, "source", RegexOpts.defaults());
-        assertEquals(1, matches.size());
-        assertEquals("BluRay", matches.get(0).raw());
-        assertEquals("BluRay", matches.get(0).value());
-    }
+   @Test
+   void regexNamedValueGroupOptional() {
+      var p = Pattern.compile("\\bBluRay\\b");
+      var matches = PatternMatcher.regex("ALPHA.BluRay.x264", p, "source", RegexOpts.defaults());
+      assertEquals(1, matches.size());
+      assertEquals("BluRay", matches.get(0).raw());
+      assertEquals("BluRay", matches.get(0).value());
+   }
 
-    @Test
-    void stringMatchesNeedles() {
-        var matches = PatternMatcher.string("Foo.AAC.x264.AAC.mkv", Set.of("AAC"), "audio_codec", StringOpts.defaults());
-        assertEquals(2, matches.size());
-        assertEquals(List.of(4, 13), matches.stream().map(Match::start).collect(Collectors.toList()));
-    }
+   @Test
+   void stringMatchesNeedles() {
+      var matches = PatternMatcher.string("Foo.AAC.x264.AAC.mkv", Set.of("AAC"), "audio_codec", StringOpts.defaults());
+      assertEquals(2, matches.size());
+      assertEquals(List.of(4, 13), matches.stream().map(Match::start).collect(Collectors.toList()));
+   }
 
-    @Test
-    void stringWholeWord() {
-        var matches = PatternMatcher.string("hauac.AAC.mkv", Set.of("AAC"), "x", StringOpts.defaults());
-        assertEquals(1, matches.size());
-        assertEquals(6, matches.get(0).start());  // not the AAC inside hauac
-    }
+   @Test
+   void stringWholeWord() {
+      var matches = PatternMatcher.string("hauac.AAC.mkv", Set.of("AAC"), "x", StringOpts.defaults());
+      assertEquals(1, matches.size());
+      assertEquals(6, matches.get(0).start());  // not the AAC inside hauac
+   }
 
-    @Test
-    void stringCaseSensitive() {
-        var matches = PatternMatcher.string("Foo.aac.AAC.mkv", Set.of("AAC"), "x",
-            StringOpts.defaults().caseSensitive(true));
-        assertEquals(1, matches.size());
-        assertEquals(8, matches.get(0).start());
-    }
+   @Test
+   void stringCaseSensitive() {
+      var matches = PatternMatcher.string("Foo.aac.AAC.mkv", Set.of("AAC"), "x",
+              StringOpts.defaults().caseSensitive(true));
+      assertEquals(1, matches.size());
+      assertEquals(8, matches.get(0).start());
+   }
 }
 ```
 
@@ -1488,6 +1523,10 @@ Expected: compilation failure.
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.text.RegexOpts;
+import io.guessit.core.text.StringOpts;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -1495,62 +1534,68 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class PatternMatcher {
-    private PatternMatcher() {}
+   private PatternMatcher() {
+   }
 
-    public static List<Match> regex(String input, Pattern pattern, String name, RegexOpts opts) {
-        var out = new ArrayList<Match>();
-        var m = pattern.matcher(input);
-        while (m.find()) {
-            String raw;
-            int start, end;
-            String valueText;
-            if (hasGroup(m, "value")) {
-                raw = m.group();
-                start = m.start();
-                end = m.end();
-                valueText = m.group("value");
-            } else {
-                raw = m.group();
-                start = m.start();
-                end = m.end();
-                valueText = raw;
+   public static List<Match> regex(String input, Pattern pattern, String name, RegexOpts opts) {
+      var out = new ArrayList<Match>();
+      var m = pattern.matcher(input);
+      while (m.find()) {
+         String raw;
+         int start, end;
+         String valueText;
+         if (hasGroup(m, "value")) {
+            raw = m.group();
+            start = m.start();
+            end = m.end();
+            valueText = m.group("value");
+         } else {
+            raw = m.group();
+            start = m.start();
+            end = m.end();
+            valueText = raw;
+         }
+         Object extracted = opts.valueExtractor().apply(valueText);
+         Object formatted = opts.valueFormatter().apply(extracted);
+         out.add(new Match(name, formatted, start, end, raw, opts.priority(), opts.tags(), opts.isPrivate()));
+      }
+      return out;
+   }
+
+   public static List<Match> string(String input, Set<String> needles, String name, StringOpts opts) {
+      var out = new ArrayList<Match>();
+      var hay = opts.caseSensitive() ? input : input.toLowerCase(java.util.Locale.ROOT);
+      for (var raw : needles) {
+         var n = opts.caseSensitive() ? raw : raw.toLowerCase(java.util.Locale.ROOT);
+         int from = 0;
+         while (true) {
+            int idx = hay.indexOf(n, from);
+            if (idx < 0) break;
+            int end = idx + n.length();
+            if (!opts.wholeWord() || isWordBoundary(hay, idx, end)) {
+               out.add(new Match(name, raw, idx, end, input.substring(idx, end),
+                       opts.priority(), opts.tags(), opts.isPrivate()));
             }
-            Object extracted = opts.valueExtractor().apply(valueText);
-            Object formatted = opts.valueFormatter().apply(extracted);
-            out.add(new Match(name, formatted, start, end, raw, opts.priority(), opts.tags(), opts.isPrivate()));
-        }
-        return out;
-    }
+            from = idx + 1;
+         }
+      }
+      out.sort((a, b) -> Integer.compare(a.start(), b.start()));
+      return out;
+   }
 
-    public static List<Match> string(String input, Set<String> needles, String name, StringOpts opts) {
-        var out = new ArrayList<Match>();
-        var hay = opts.caseSensitive() ? input : input.toLowerCase(java.util.Locale.ROOT);
-        for (var raw : needles) {
-            var n = opts.caseSensitive() ? raw : raw.toLowerCase(java.util.Locale.ROOT);
-            int from = 0;
-            while (true) {
-                int idx = hay.indexOf(n, from);
-                if (idx < 0) break;
-                int end = idx + n.length();
-                if (!opts.wholeWord() || isWordBoundary(hay, idx, end)) {
-                    out.add(new Match(name, raw, idx, end, input.substring(idx, end),
-                        opts.priority(), opts.tags(), opts.isPrivate()));
-                }
-                from = idx + 1;
-            }
-        }
-        out.sort((a, b) -> Integer.compare(a.start(), b.start()));
-        return out;
-    }
+   private static boolean hasGroup(Matcher m, String name) {
+      try {
+         m.group(name);
+         return true;
+      } catch (IllegalArgumentException e) {
+         return false;
+      }
+   }
 
-    private static boolean hasGroup(Matcher m, String name) {
-        try { m.group(name); return true; } catch (IllegalArgumentException e) { return false; }
-    }
-
-    private static boolean isWordBoundary(String s, int start, int end) {
-        if (start > 0 && Character.isLetterOrDigit(s.charAt(start - 1))) return false;
-        return end >= s.length() || !Character.isLetterOrDigit(s.charAt(end));
-    }
+   private static boolean isWordBoundary(String s, int start, int end) {
+      if (start > 0 && Character.isLetterOrDigit(s.charAt(start - 1))) return false;
+      return end >= s.length() || !Character.isLetterOrDigit(s.charAt(end));
+   }
 }
 ```
 
@@ -1579,6 +1624,9 @@ git commit -m "engine: PatternMatcher with regex + string helpers"
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.phases.ConflictSolver;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchSet;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -1588,52 +1636,52 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ConflictSolverTest {
 
-    @Test
-    void higherPriorityWinsOverlap() {
-        var s = new MatchSet();
-        s.add(Match.of("year", 2020, 0, 4, "2020").withPriority(2000));
-        s.add(Match.of("season", 20, 0, 2, "20").withPriority(1000));
-        ConflictSolver.solve(s);
-        var names = s.all().map(Match::name).collect(Collectors.toList());
-        assertEquals(List.of("year"), names);
-    }
+   @Test
+   void higherPriorityWinsOverlap() {
+      var s = new MatchSet();
+      s.add(Match.of("year", 2020, 0, 4, "2020").withPriority(2000));
+      s.add(Match.of("season", 20, 0, 2, "20").withPriority(1000));
+      ConflictSolver.solve(s);
+      var names = s.all().map(Match::name).collect(Collectors.toList());
+      assertEquals(List.of("year"), names);
+   }
 
-    @Test
-    void longerWinsOnTiePriority() {
-        var s = new MatchSet();
-        s.add(Match.of("a", 1, 0, 4, "abcd"));
-        s.add(Match.of("b", 2, 0, 2, "ab"));
-        ConflictSolver.solve(s);
-        assertEquals(List.of("a"), s.all().map(Match::name).collect(Collectors.toList()));
-    }
+   @Test
+   void longerWinsOnTiePriority() {
+      var s = new MatchSet();
+      s.add(Match.of("a", 1, 0, 4, "abcd"));
+      s.add(Match.of("b", 2, 0, 2, "ab"));
+      ConflictSolver.solve(s);
+      assertEquals(List.of("a"), s.all().map(Match::name).collect(Collectors.toList()));
+   }
 
-    @Test
-    void earlierStartWinsOnTiePriorityAndLength() {
-        var s = new MatchSet();
-        s.add(Match.of("a", 1, 2, 4, "ab"));
-        s.add(Match.of("b", 2, 0, 2, "cd"));
-        ConflictSolver.solve(s);
-        // both length 2, same priority, b starts earlier — both keep since they don't overlap
-        assertEquals(2, s.all().count());
-    }
+   @Test
+   void earlierStartWinsOnTiePriorityAndLength() {
+      var s = new MatchSet();
+      s.add(Match.of("a", 1, 2, 4, "ab"));
+      s.add(Match.of("b", 2, 0, 2, "cd"));
+      ConflictSolver.solve(s);
+      // both length 2, same priority, b starts earlier — both keep since they don't overlap
+      assertEquals(2, s.all().count());
+   }
 
-    @Test
-    void coexistTagSurvives() {
-        var s = new MatchSet();
-        s.add(Match.of("country", "FR", 0, 2, "FR").withPriority(1000));
-        s.add(Match.of("language", "fr", 0, 2, "fr").withPriority(1000).withTags(java.util.Set.of("coexist")));
-        ConflictSolver.solve(s);
-        assertEquals(2, s.all().count());
-    }
+   @Test
+   void coexistTagSurvives() {
+      var s = new MatchSet();
+      s.add(Match.of("country", "FR", 0, 2, "FR").withPriority(1000));
+      s.add(Match.of("language", "fr", 0, 2, "fr").withPriority(1000).withTags(java.util.Set.of("coexist")));
+      ConflictSolver.solve(s);
+      assertEquals(2, s.all().count());
+   }
 
-    @Test
-    void noOverlapKeepsAll() {
-        var s = new MatchSet();
-        s.add(Match.of("a", 1, 0, 2, "ab"));
-        s.add(Match.of("b", 2, 5, 7, "cd"));
-        ConflictSolver.solve(s);
-        assertEquals(2, s.all().count());
-    }
+   @Test
+   void noOverlapKeepsAll() {
+      var s = new MatchSet();
+      s.add(Match.of("a", 1, 0, 2, "ab"));
+      s.add(Match.of("b", 2, 5, 7, "cd"));
+      ConflictSolver.solve(s);
+      assertEquals(2, s.all().count());
+   }
 }
 ```
 
@@ -1647,39 +1695,42 @@ Expected: compilation failure.
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchSet;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.List;
 
 public final class ConflictSolver {
-    private ConflictSolver() {}
+   private ConflictSolver() {
+   }
 
-    public static void solve(MatchSet matches) {
-        var all = matches.all().toList();
-        // Comparator: priority desc, length desc, start asc, name asc (stable tiebreak)
-        var cmp = Comparator
-            .comparingInt((Match m) -> m.priority()).reversed()
-            .thenComparing(Comparator.comparingInt(Match::length).reversed())
-            .thenComparingInt(Match::start)
-            .thenComparing(Match::name);
-        var sorted = new ArrayList<>(all);
-        sorted.sort(cmp);
-        var kept = new ArrayList<Match>();
-        var dropped = new HashSet<Match>();
-        for (var candidate : sorted) {
-            boolean dropThis = false;
-            for (var winner : kept) {
-                if (candidate.overlaps(winner) && !candidate.tags().contains("coexist") && !winner.tags().contains("coexist")) {
-                    dropThis = true;
-                    break;
-                }
+   public static void solve(MatchSet matches) {
+      var all = matches.all().toList();
+      // Comparator: priority desc, length desc, start asc, name asc (stable tiebreak)
+      var cmp = Comparator
+              .comparingInt((Match m) -> m.priority()).reversed()
+              .thenComparing(Comparator.comparingInt(Match::length).reversed())
+              .thenComparingInt(Match::start)
+              .thenComparing(Match::name);
+      var sorted = new ArrayList<>(all);
+      sorted.sort(cmp);
+      var kept = new ArrayList<Match>();
+      var dropped = new HashSet<Match>();
+      for (var candidate : sorted) {
+         boolean dropThis = false;
+         for (var winner : kept) {
+            if (candidate.overlaps(winner) && !candidate.tags().contains("coexist") && !winner.tags().contains("coexist")) {
+               dropThis = true;
+               break;
             }
-            if (dropThis) dropped.add(candidate);
-            else kept.add(candidate);
-        }
-        for (var d : dropped) matches.remove(d);
-    }
+         }
+         if (dropThis) dropped.add(candidate);
+         else kept.add(candidate);
+      }
+      for (var d : dropped) matches.remove(d);
+   }
 }
 ```
 
@@ -1714,8 +1765,11 @@ git commit -m "engine: ConflictSolver with priority/length/start tiebreak + coex
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.phases.*;
+import io.guessit.core.pipeline.state.ParseContext;
+
 public sealed interface Phase permits MarkerPhase, ExtractorPhase, ConflictPhase, PostPhase, OutputPhase {
-    void apply(ParseContext ctx);
+   void apply(ParseContext ctx);
 }
 ```
 
@@ -1724,11 +1778,19 @@ public sealed interface Phase permits MarkerPhase, ExtractorPhase, ConflictPhase
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.ParseContext;
+
 public interface Extractor {
-    String name();
-    default int priority() { return 1000; }
-    void extract(ParseContext ctx);
-    default void postProcess(ParseContext ctx) {}
+   String name();
+
+   default int priority() {
+      return 1000;
+   }
+
+   void extract(ParseContext ctx);
+
+   default void postProcess(ParseContext ctx) {
+   }
 }
 ```
 
@@ -1737,28 +1799,29 @@ public interface Extractor {
 ```java
 package io.guessit.engine;
 
-import io.guessit.GuessResult;
-import io.guessit.Options;
+import io.guessit.api.GuessResult;
 import io.guessit.config.OptionsConfig;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.MatchSet;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public final class ParseContext {
-    public final String input;
-    public final Options options;
-    public final OptionsConfig config;
-    public final MatchSet matches = new MatchSet();
-    public final List<Marker> markers = new ArrayList<>();
-    public Marker titleMarker;          // chosen by TitleMarkerSelector
-    public io.guessit.GuessResultBuilder resultBuilder = GuessResult.builder();
-    public GuessResult result;
+   public final String input;
+   public final io.guessit.api.Options options;
+   public final OptionsConfig config;
+   public final MatchSet matches = new MatchSet();
+   public final List<Marker> markers = new ArrayList<>();
+   public Marker titleMarker;          // chosen by TitleMarkerSelector
+   public io.guessit.GuessResultBuilder resultBuilder = GuessResult.builder();
+   public GuessResult result;
 
-    public ParseContext(String input, Options options, OptionsConfig config) {
-        this.input = input;
-        this.options = options;
-        this.config = config;
-    }
+   public ParseContext(String input, io.guessit.api.Options options, OptionsConfig config) {
+      this.input = input;
+      this.options = options;
+      this.config = config;
+   }
 }
 ```
 
@@ -1767,20 +1830,25 @@ public final class ParseContext {
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.phases.Phase;
+import io.guessit.core.pipeline.state.ParseContext;
+
 import java.util.List;
 
 public record MarkerPhase(List<MarkerProducer> producers) implements Phase {
-    @FunctionalInterface
-    public interface MarkerProducer {
-        void produce(ParseContext ctx);
-    }
+   @FunctionalInterface
+   public interface MarkerProducer {
+      void produce(ParseContext ctx);
+   }
 
-    public MarkerPhase { producers = List.copyOf(producers); }
+   public MarkerPhase {
+      producers = List.copyOf(producers);
+   }
 
-    @Override
-    public void apply(ParseContext ctx) {
-        for (var p : producers) p.produce(ctx);
-    }
+   @Override
+   public void apply(ParseContext ctx) {
+      for (var p : producers) p.produce(ctx);
+   }
 }
 ```
 
@@ -1789,15 +1857,21 @@ public record MarkerPhase(List<MarkerProducer> producers) implements Phase {
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.phases.Phase;
+import io.guessit.core.pipeline.state.ParseContext;
+
 import java.util.List;
 
 public record ExtractorPhase(List<Extractor> extractors) implements Phase {
-    public ExtractorPhase { extractors = List.copyOf(extractors); }
+   public ExtractorPhase {
+      extractors = List.copyOf(extractors);
+   }
 
-    @Override
-    public void apply(ParseContext ctx) {
-        for (var e : extractors) e.extract(ctx);
-    }
+   @Override
+   public void apply(ParseContext ctx) {
+      for (var e : extractors) e.extract(ctx);
+   }
 }
 ```
 
@@ -1806,11 +1880,15 @@ public record ExtractorPhase(List<Extractor> extractors) implements Phase {
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.phases.ConflictSolver;
+import io.guessit.core.pipeline.phases.Phase;
+import io.guessit.core.pipeline.state.ParseContext;
+
 public record ConflictPhase() implements Phase {
-    @Override
-    public void apply(ParseContext ctx) {
-        ConflictSolver.solve(ctx.matches);
-    }
+   @Override
+   public void apply(ParseContext ctx) {
+      ConflictSolver.solve(ctx.matches);
+   }
 }
 ```
 
@@ -1819,20 +1897,25 @@ public record ConflictPhase() implements Phase {
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.phases.Phase;
+import io.guessit.core.pipeline.state.ParseContext;
+
 import java.util.List;
 
 public record PostPhase(List<PostProcessor> processors) implements Phase {
-    @FunctionalInterface
-    public interface PostProcessor {
-        void process(ParseContext ctx);
-    }
+   @FunctionalInterface
+   public interface PostProcessor {
+      void process(ParseContext ctx);
+   }
 
-    public PostPhase { processors = List.copyOf(processors); }
+   public PostPhase {
+      processors = List.copyOf(processors);
+   }
 
-    @Override
-    public void apply(ParseContext ctx) {
-        for (var p : processors) p.process(ctx);
-    }
+   @Override
+   public void apply(ParseContext ctx) {
+      for (var p : processors) p.process(ctx);
+   }
 }
 ```
 
@@ -1841,13 +1924,16 @@ public record PostPhase(List<PostProcessor> processors) implements Phase {
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.phases.Phase;
+import io.guessit.core.pipeline.state.ParseContext;
+
 import java.util.function.Consumer;
 
 public record OutputPhase(Consumer<ParseContext> assembler) implements Phase {
-    @Override
-    public void apply(ParseContext ctx) {
-        assembler.accept(ctx);
-    }
+   @Override
+   public void apply(ParseContext ctx) {
+      assembler.accept(ctx);
+   }
 }
 ```
 
@@ -1876,8 +1962,13 @@ git commit -m "engine: sealed Phase + Extractor + ParseContext + concrete phase 
 ```java
 package io.guessit.engine;
 
-import io.guessit.Options;
+import io.guessit.api.Options;
 import io.guessit.config.OptionsConfig;
+import io.guessit.core.pipeline.Pipeline;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.phases.*;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -1886,24 +1977,33 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PipelineTest {
 
-    @Test
-    void runsPhasesInOrder() {
-        var trace = new java.util.ArrayList<String>();
-        var pipeline = new Pipeline(List.of(
-            new MarkerPhase(List.of(c -> trace.add("marker"))),
-            new ExtractorPhase(List.of(new Extractor() {
-                public String name() { return "test"; }
-                public void extract(ParseContext c) { trace.add("extract"); c.matches.add(Match.of("test", "x", 0, 1, "x")); }
-            })),
-            new ConflictPhase(),
-            new PostPhase(List.of(c -> trace.add("post"))),
-            new OutputPhase(c -> { trace.add("output"); c.result = c.resultBuilder.build(); })
-        ));
-        var ctx = new ParseContext("x", Options.defaults(), OptionsConfig.empty());
-        pipeline.run(ctx);
-        assertEquals(List.of("marker", "extract", "post", "output"), trace);
-        assertNotNull(ctx.result);
-    }
+   @Test
+   void runsPhasesInOrder() {
+      var trace = new java.util.ArrayList<String>();
+      var pipeline = new Pipeline(List.of(
+              new MarkerPhase(List.of(c -> trace.add("marker"))),
+              new ExtractorPhase(List.of(new Extractor() {
+                 public String name() {
+                    return "test";
+                 }
+
+                 public void extract(ParseContext c) {
+                    trace.add("extract");
+                    c.matches.add(Match.of("test", "x", 0, 1, "x"));
+                 }
+              })),
+              new ConflictPhase(),
+              new PostPhase(List.of(c -> trace.add("post"))),
+              new OutputPhase(c -> {
+                 trace.add("output");
+                 c.result = c.resultBuilder.build();
+              })
+      ));
+      var ctx = new ParseContext("x", Options.defaults(), OptionsConfig.empty());
+      pipeline.run(ctx);
+      assertEquals(List.of("marker", "extract", "post", "output"), trace);
+      assertNotNull(ctx.result);
+   }
 }
 ```
 
@@ -1917,16 +2017,21 @@ Expected: compilation failure (`Pipeline`/`OptionsConfig.empty()` missing — `O
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.phases.Phase;
+import io.guessit.core.pipeline.state.ParseContext;
+
 import java.util.List;
 
 public final class Pipeline {
-    private final List<Phase> phases;
+   private final List<Phase> phases;
 
-    public Pipeline(List<Phase> phases) { this.phases = List.copyOf(phases); }
+   public Pipeline(List<Phase> phases) {
+      this.phases = List.copyOf(phases);
+   }
 
-    public void run(ParseContext ctx) {
-        for (var phase : phases) phase.apply(ctx);
-    }
+   public void run(ParseContext ctx) {
+      for (var phase : phases) phase.apply(ctx);
+   }
 }
 ```
 
@@ -1975,7 +2080,7 @@ public record OptionsConfig(Map<String, Object> raw) {
 ```java
 package io.guessit.config;
 
-import io.guessit.Options;
+import io.guessit.api.Options;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -1987,65 +2092,65 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigLoaderTest {
 
-    @Test
-    void loadsBundledDefaults() {
-        var cfg = ConfigLoader.load(Options.defaults());
-        // bundled options.json has top-level "advanced_config" key per Python guessit
-        assertNotNull(cfg);
-        assertFalse(cfg.raw().isEmpty(), "bundled config must not be empty");
-    }
+   @Test
+   void loadsBundledDefaults() {
+      var cfg = ConfigLoader.load(Options.defaults());
+      // bundled options.json has top-level "advanced_config" key per Python guessit
+      assertNotNull(cfg);
+      assertFalse(cfg.raw().isEmpty(), "bundled config must not be empty");
+   }
 
-    @Test
-    void noDefaultConfigSkipsBundle() {
-        var opts = Options.builder().noDefaultConfig(true).noUserConfig(true).build();
-        var cfg = ConfigLoader.load(opts);
-        assertTrue(cfg.raw().isEmpty());
-    }
+   @Test
+   void noDefaultConfigSkipsBundle() {
+      var opts = Options.builder().noDefaultConfig(true).noUserConfig(true).build();
+      var cfg = ConfigLoader.load(opts);
+      assertTrue(cfg.raw().isEmpty());
+   }
 
-    @Test
-    void explicitConfigOverridesScalars(@TempDir Path tmp) throws IOException {
-        var f = tmp.resolve("override.json");
-        Files.writeString(f, "{\"some_key\": \"override\"}");
-        var opts = Options.builder()
-            .noDefaultConfig(true)
-            .noUserConfig(true)
-            .configPaths(java.util.List.of(f))
-            .build();
-        var cfg = ConfigLoader.load(opts);
-        assertEquals("override", cfg.raw().get("some_key"));
-    }
+   @Test
+   void explicitConfigOverridesScalars(@TempDir Path tmp) throws IOException {
+      var f = tmp.resolve("override.json");
+      Files.writeString(f, "{\"some_key\": \"override\"}");
+      var opts = Options.builder()
+              .noDefaultConfig(true)
+              .noUserConfig(true)
+              .configPaths(java.util.List.of(f))
+              .build();
+      var cfg = ConfigLoader.load(opts);
+      assertEquals("override", cfg.raw().get("some_key"));
+   }
 
-    @Test
-    void mergeListsConcatenates(@TempDir Path tmp) throws IOException {
-        var a = tmp.resolve("a.json");
-        var b = tmp.resolve("b.json");
-        Files.writeString(a, "{\"items\": [1, 2]}");
-        Files.writeString(b, "{\"items\": [3]}");
-        var opts = Options.builder()
-            .noDefaultConfig(true)
-            .noUserConfig(true)
-            .configPaths(java.util.List.of(a, b))
-            .build();
-        var cfg = ConfigLoader.load(opts);
-        assertEquals(java.util.List.of(1, 2, 3), cfg.raw().get("items"));
-    }
+   @Test
+   void mergeListsConcatenates(@TempDir Path tmp) throws IOException {
+      var a = tmp.resolve("a.json");
+      var b = tmp.resolve("b.json");
+      Files.writeString(a, "{\"items\": [1, 2]}");
+      Files.writeString(b, "{\"items\": [3]}");
+      var opts = Options.builder()
+              .noDefaultConfig(true)
+              .noUserConfig(true)
+              .configPaths(java.util.List.of(a, b))
+              .build();
+      var cfg = ConfigLoader.load(opts);
+      assertEquals(java.util.List.of(1, 2, 3), cfg.raw().get("items"));
+   }
 
-    @Test
-    void mergeMapsDeep(@TempDir Path tmp) throws IOException {
-        var a = tmp.resolve("a.json");
-        var b = tmp.resolve("b.json");
-        Files.writeString(a, "{\"nested\": {\"x\": 1, \"y\": 2}}");
-        Files.writeString(b, "{\"nested\": {\"y\": 3, \"z\": 4}}");
-        var opts = Options.builder()
-            .noDefaultConfig(true).noUserConfig(true)
-            .configPaths(java.util.List.of(a, b)).build();
-        var cfg = ConfigLoader.load(opts);
-        @SuppressWarnings("unchecked")
-        var nested = (java.util.Map<String, Object>) cfg.raw().get("nested");
-        assertEquals(1, nested.get("x"));
-        assertEquals(3, nested.get("y"));
-        assertEquals(4, nested.get("z"));
-    }
+   @Test
+   void mergeMapsDeep(@TempDir Path tmp) throws IOException {
+      var a = tmp.resolve("a.json");
+      var b = tmp.resolve("b.json");
+      Files.writeString(a, "{\"nested\": {\"x\": 1, \"y\": 2}}");
+      Files.writeString(b, "{\"nested\": {\"y\": 3, \"z\": 4}}");
+      var opts = Options.builder()
+              .noDefaultConfig(true).noUserConfig(true)
+              .configPaths(java.util.List.of(a, b)).build();
+      var cfg = ConfigLoader.load(opts);
+      @SuppressWarnings("unchecked")
+      var nested = (java.util.Map<String, Object>) cfg.raw().get("nested");
+      assertEquals(1, nested.get("x"));
+      assertEquals(3, nested.get("y"));
+      assertEquals(4, nested.get("z"));
+   }
 }
 ```
 
@@ -2060,7 +2165,6 @@ Expected: compilation failure.
 package io.guessit.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.guessit.Options;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
@@ -2074,107 +2178,109 @@ import java.util.List;
 import java.util.Map;
 
 public final class ConfigLoader {
-    private static final ObjectMapper JSON = new ObjectMapper();
+   private static final ObjectMapper JSON = new ObjectMapper();
 
-    private ConfigLoader() {}
+   private ConfigLoader() {
+   }
 
-    public static OptionsConfig load(Options options) {
-        Map<String, Object> merged = new LinkedHashMap<>();
+   public static OptionsConfig load(io.guessit.api.Options options) {
+      Map<String, Object> merged = new LinkedHashMap<>();
 
-        if (!options.noDefaultConfig()) {
-            var bundled = readBundled();
-            if (bundled != null) merged = deepMerge(merged, bundled);
-        }
+      if (!options.noDefaultConfig()) {
+         var bundled = readBundled();
+         if (bundled != null) merged = deepMerge(merged, bundled);
+      }
 
-        if (!options.noUserConfig()) {
-            for (var p : userConfigPaths()) {
-                var loaded = readFile(p);
-                if (loaded != null) merged = deepMerge(merged, loaded);
-            }
-        }
-
-        for (var p : options.configPaths()) {
+      if (!options.noUserConfig()) {
+         for (var p : userConfigPaths()) {
             var loaded = readFile(p);
             if (loaded != null) merged = deepMerge(merged, loaded);
-        }
+         }
+      }
 
-        if (!options.raw().isEmpty()) {
-            merged = deepMerge(merged, options.raw());
-        }
+      for (var p : options.configPaths()) {
+         var loaded = readFile(p);
+         if (loaded != null) merged = deepMerge(merged, loaded);
+      }
 
-        return new OptionsConfig(merged);
-    }
+      if (!options.raw().isEmpty()) {
+         merged = deepMerge(merged, options.raw());
+      }
 
-    private static Map<String, Object> readBundled() {
-        try (InputStream in = ConfigLoader.class.getResourceAsStream("/io/guessit/config/options.json")) {
-            if (in == null) return null;
-            return JSON.readValue(in, Map.class);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to read bundled options.json", e);
-        }
-    }
+      return new OptionsConfig(merged);
+   }
 
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> readFile(Path p) {
-        if (!Files.isReadable(p)) return null;
-        try {
-            var name = p.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
-            try (var r = Files.newBufferedReader(p, StandardCharsets.UTF_8)) {
-                if (name.endsWith(".json")) {
-                    return JSON.readValue(r, Map.class);
-                }
-                if (name.endsWith(".yml") || name.endsWith(".yaml")) {
-                    Object v = new Yaml().load(r);
-                    return v instanceof Map<?, ?> m ? (Map<String, Object>) m : null;
-                }
-                // unknown extension — try JSON first, then YAML
-                var content = Files.readString(p, StandardCharsets.UTF_8);
-                try { return JSON.readValue(content, Map.class); }
-                catch (IOException ignored) {
-                    Object v = new Yaml().load(content);
-                    return v instanceof Map<?, ?> m ? (Map<String, Object>) m : null;
-                }
+   private static Map<String, Object> readBundled() {
+      try (InputStream in = ConfigLoader.class.getResourceAsStream("/io/guessit/config/options.json")) {
+         if (in == null) return null;
+         return JSON.readValue(in, Map.class);
+      } catch (IOException e) {
+         throw new RuntimeException("Failed to read bundled options.json", e);
+      }
+   }
+
+   @SuppressWarnings("unchecked")
+   private static Map<String, Object> readFile(Path p) {
+      if (!Files.isReadable(p)) return null;
+      try {
+         var name = p.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
+         try (var r = Files.newBufferedReader(p, StandardCharsets.UTF_8)) {
+            if (name.endsWith(".json")) {
+               return JSON.readValue(r, Map.class);
             }
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to read config: " + p, e);
-        }
-    }
-
-    private static List<Path> userConfigPaths() {
-        var paths = new ArrayList<Path>();
-        var xdg = System.getenv("XDG_CONFIG_HOME");
-        var home = System.getProperty("user.home");
-        Path xdgBase = xdg != null && !xdg.isBlank()
-            ? Path.of(xdg)
-            : Path.of(home, ".config");
-        for (var ext : List.of(".json", ".yml", ".yaml")) {
-            paths.add(xdgBase.resolve("guessit").resolve("options" + ext));
-        }
-        for (var ext : List.of(".json", ".yml", ".yaml")) {
-            paths.add(Path.of(home, ".guessit", "options" + ext));
-        }
-        return paths;
-    }
-
-    @SuppressWarnings("unchecked")
-    static Map<String, Object> deepMerge(Map<String, Object> base, Map<String, Object> overlay) {
-        var out = new LinkedHashMap<>(base);
-        for (var e : overlay.entrySet()) {
-            var k = e.getKey();
-            var v = e.getValue();
-            var existing = out.get(k);
-            if (existing instanceof Map<?, ?> em && v instanceof Map<?, ?> vm) {
-                out.put(k, deepMerge((Map<String, Object>) em, (Map<String, Object>) vm));
-            } else if (existing instanceof List<?> el && v instanceof List<?> vl) {
-                var combined = new ArrayList<Object>(el);
-                combined.addAll(vl);
-                out.put(k, combined);
-            } else {
-                out.put(k, v);
+            if (name.endsWith(".yml") || name.endsWith(".yaml")) {
+               Object v = new Yaml().load(r);
+               return v instanceof Map<?, ?> m ? (Map<String, Object>) m : null;
             }
-        }
-        return out;
-    }
+            // unknown extension — try JSON first, then YAML
+            var content = Files.readString(p, StandardCharsets.UTF_8);
+            try {
+               return JSON.readValue(content, Map.class);
+            } catch (IOException ignored) {
+               Object v = new Yaml().load(content);
+               return v instanceof Map<?, ?> m ? (Map<String, Object>) m : null;
+            }
+         }
+      } catch (IOException e) {
+         throw new RuntimeException("Failed to read config: " + p, e);
+      }
+   }
+
+   private static List<Path> userConfigPaths() {
+      var paths = new ArrayList<Path>();
+      var xdg = System.getenv("XDG_CONFIG_HOME");
+      var home = System.getProperty("user.home");
+      Path xdgBase = xdg != null && !xdg.isBlank()
+              ? Path.of(xdg)
+              : Path.of(home, ".config");
+      for (var ext : List.of(".json", ".yml", ".yaml")) {
+         paths.add(xdgBase.resolve("guessit").resolve("options" + ext));
+      }
+      for (var ext : List.of(".json", ".yml", ".yaml")) {
+         paths.add(Path.of(home, ".guessit", "options" + ext));
+      }
+      return paths;
+   }
+
+   @SuppressWarnings("unchecked")
+   static Map<String, Object> deepMerge(Map<String, Object> base, Map<String, Object> overlay) {
+      var out = new LinkedHashMap<>(base);
+      for (var e : overlay.entrySet()) {
+         var k = e.getKey();
+         var v = e.getValue();
+         var existing = out.get(k);
+         if (existing instanceof Map<?, ?> em && v instanceof Map<?, ?> vm) {
+            out.put(k, deepMerge((Map<String, Object>) em, (Map<String, Object>) vm));
+         } else if (existing instanceof List<?> el && v instanceof List<?> vl) {
+            var combined = new ArrayList<Object>(el);
+            combined.addAll(vl);
+            out.put(k, combined);
+         } else {
+            out.put(k, v);
+         }
+      }
+      return out;
+   }
 }
 ```
 
@@ -2205,25 +2311,25 @@ Splits input on `/` and `\` separators; each segment gets a `Marker` named `path
 ```java
 package io.guessit.rules.markers;
 
-import io.guessit.engine.Marker;
-import io.guessit.engine.MarkerPhase.MarkerProducer;
-import io.guessit.engine.ParseContext;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.phases.MarkerPhase.MarkerProducer;
+import io.guessit.core.pipeline.state.ParseContext;
 
 public final class PathMarker implements MarkerProducer {
-    @Override
-    public void produce(ParseContext ctx) {
-        var input = ctx.input;
-        ctx.markers.add(new Marker("whole", 0, input.length(), input));
-        int start = 0;
-        for (int i = 0; i < input.length(); i++) {
-            char c = input.charAt(i);
-            if (c == '/' || c == '\\') {
-                if (i > start) ctx.markers.add(new Marker("path", start, i, input.substring(start, i)));
-                start = i + 1;
-            }
-        }
-        if (start < input.length()) ctx.markers.add(new Marker("path", start, input.length(), input.substring(start)));
-    }
+   @Override
+   public void produce(ParseContext ctx) {
+      var input = ctx.input;
+      ctx.markers.add(new Marker("whole", 0, input.length(), input));
+      int start = 0;
+      for (int i = 0; i < input.length(); i++) {
+         char c = input.charAt(i);
+         if (c == '/' || c == '\\') {
+            if (i > start) ctx.markers.add(new Marker("path", start, i, input.substring(start, i)));
+            start = i + 1;
+         }
+      }
+      if (start < input.length()) ctx.markers.add(new Marker("path", start, input.length(), input.substring(start)));
+   }
 }
 ```
 
@@ -2234,35 +2340,35 @@ Captures parenthesized/bracketed/braced segments inside the input.
 ```java
 package io.guessit.rules.markers;
 
-import io.guessit.engine.Marker;
-import io.guessit.engine.MarkerPhase.MarkerProducer;
-import io.guessit.engine.ParseContext;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.phases.MarkerPhase.MarkerProducer;
 
 public final class GroupMarker implements MarkerProducer {
-    @Override
-    public void produce(ParseContext ctx) {
-        var input = ctx.input;
-        var open = "([{";
-        var close = ")]}";
-        var stack = new java.util.ArrayDeque<int[]>(); // {openIdx, openCharIdxInOpen}
-        for (int i = 0; i < input.length(); i++) {
-            char c = input.charAt(i);
-            int oi = open.indexOf(c);
-            int ci = close.indexOf(c);
-            if (oi >= 0) {
-                stack.push(new int[]{i, oi});
-            } else if (ci >= 0) {
-                if (!stack.isEmpty() && stack.peek()[1] == ci) {
-                    var openInfo = stack.pop();
-                    int s = openInfo[0];
-                    int e = i + 1;
-                    if (e - s > 2) {
-                        ctx.markers.add(new Marker("group", s + 1, e - 1, input.substring(s + 1, e - 1)));
-                    }
-                }
+   @Override
+   public void produce(ParseContext ctx) {
+      var input = ctx.input;
+      var open = "([{";
+      var close = ")]}";
+      var stack = new java.util.ArrayDeque<int[]>(); // {openIdx, openCharIdxInOpen}
+      for (int i = 0; i < input.length(); i++) {
+         char c = input.charAt(i);
+         int oi = open.indexOf(c);
+         int ci = close.indexOf(c);
+         if (oi >= 0) {
+            stack.push(new int[]{i, oi});
+         } else if (ci >= 0) {
+            if (!stack.isEmpty() && stack.peek()[1] == ci) {
+               var openInfo = stack.pop();
+               int s = openInfo[0];
+               int e = i + 1;
+               if (e - s > 2) {
+                  ctx.markers.add(new Marker("group", s + 1, e - 1, input.substring(s + 1, e - 1)));
+               }
             }
-        }
-    }
+         }
+      }
+   }
 }
 ```
 
@@ -2292,18 +2398,18 @@ git commit -m "markers: PathMarker (path/whole) and GroupMarker (paren/bracket/b
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.engine.Match;
-import io.guessit.engine.PostPhase.PostProcessor;
-import io.guessit.engine.ParseContext;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.phases.PostPhase.PostProcessor;
+import io.guessit.core.pipeline.state.ParseContext;
 
 import java.util.List;
 
 public final class PrivateRemover implements PostProcessor {
-    @Override
-    public void process(ParseContext ctx) {
-        List<Match> privates = ctx.matches.all().filter(Match::isPrivate).toList();
-        for (var m : privates) ctx.matches.remove(m);
-    }
+   @Override
+   public void process(ParseContext ctx) {
+      List<Match> privates = ctx.matches.all().filter(Match::isPrivate).toList();
+      for (var m : privates) ctx.matches.remove(m);
+   }
 }
 ```
 
@@ -2314,29 +2420,29 @@ Picks the path-segment marker with the most non-`whole`, non-`group`, non-`path`
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.engine.Marker;
-import io.guessit.engine.PostPhase.PostProcessor;
-import io.guessit.engine.ParseContext;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.phases.PostPhase.PostProcessor;
+import io.guessit.core.pipeline.state.ParseContext;
 
 import java.util.Comparator;
 
 public final class TitleMarkerSelector implements PostProcessor {
-    @Override
-    public void process(ParseContext ctx) {
-        Marker best = ctx.markers.stream()
-            .filter(m -> m.name().equals("path"))
-            .max(Comparator.comparingLong(m ->
-                ctx.matches.all().filter(x -> m.covers(x.start(), x.end())).count()))
-            .orElse(null);
+   @Override
+   public void process(ParseContext ctx) {
+      Marker best = ctx.markers.stream()
+              .filter(m -> m.name().equals("path"))
+              .max(Comparator.comparingLong(m ->
+                      ctx.matches.all().filter(x -> m.covers(x.start(), x.end())).count()))
+              .orElse(null);
 
-        if (best == null) {
-            best = ctx.markers.stream()
-                .filter(m -> m.name().equals("whole"))
-                .findFirst()
-                .orElse(new Marker("whole", 0, ctx.input.length(), ctx.input));
-        }
-        ctx.titleMarker = best;
-    }
+      if (best == null) {
+         best = ctx.markers.stream()
+                 .filter(m -> m.name().equals("whole"))
+                 .findFirst()
+                 .orElse(new Marker("whole", 0, ctx.input.length(), ctx.input));
+      }
+      ctx.titleMarker = best;
+   }
 }
 ```
 
@@ -2347,12 +2453,11 @@ Walks `ctx.matches` and pushes values into `ctx.resultBuilder`. Per-property col
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.GuessResult;
-import io.guessit.engine.Match;
-import io.guessit.engine.ParseContext;
-import io.guessit.lang.Country;
-import io.guessit.lang.Language;
-import io.guessit.util.Quantity;
+import io.guessit.api.models.Language;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.api.models.Country;
+import io.guessit.api.models.Quantity;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -2361,83 +2466,96 @@ import java.util.List;
 import java.util.function.Consumer;
 
 public final class OutputBuilder implements Consumer<ParseContext> {
-    @Override
-    public void accept(ParseContext ctx) {
-        var b = ctx.resultBuilder;
-        var grouped = new LinkedHashMap<String, List<Match>>();
-        ctx.matches.all().sorted(java.util.Comparator.comparingInt(Match::start)).forEach(m ->
-            grouped.computeIfAbsent(m.name(), k -> new ArrayList<>()).add(m));
+   @Override
+   public void accept(ParseContext ctx) {
+      var b = ctx.resultBuilder;
+      var grouped = new LinkedHashMap<String, List<Match>>();
+      ctx.matches.all().sorted(java.util.Comparator.comparingInt(Match::start)).forEach(m ->
+              grouped.computeIfAbsent(m.name(), k -> new ArrayList<>()).add(m));
 
-        var extras = new LinkedHashMap<String, Object>();
-        for (var e : grouped.entrySet()) {
-            switch (e.getKey()) {
-                case "title" -> b.title(asString(e.getValue().get(0)));
-                case "alternative_title" -> b.alternativeTitle(asString(e.getValue().get(0)));
-                case "year" -> b.year(asInt(e.getValue().get(0)));
-                case "date" -> b.date((LocalDate) e.getValue().get(0).value());
-                case "season" -> applyIntList(e.getValue(), b::season, b::seasonList);
-                case "episode" -> applyIntList(e.getValue(), b::episode, b::episodeList);
-                case "episode_count" -> b.episodeCount(asInt(e.getValue().get(0)));
-                case "season_count" -> b.seasonCount(asInt(e.getValue().get(0)));
-                case "episode_title" -> b.episodeTitle(asString(e.getValue().get(0)));
-                case "episode_format" -> b.episodeFormat(asString(e.getValue().get(0)));
-                case "type" -> b.type(asString(e.getValue().get(0)));
-                case "language" -> b.language(asLangList(e.getValue()));
-                case "subtitle_language" -> b.subtitleLanguage(asLangList(e.getValue()));
-                case "country" -> b.country(asCountryList(e.getValue()));
-                case "source" -> b.source(asString(e.getValue().get(0)));
-                case "other" -> b.other(asStringList(e.getValue()));
-                case "video_codec" -> b.videoCodec(asStringList(e.getValue()));
-                case "audio_codec" -> b.audioCodec(asStringList(e.getValue()));
-                case "audio_channels" -> b.audioChannels(asStringList(e.getValue()));
-                case "audio_profile" -> b.audioProfile(asStringList(e.getValue()));
-                case "video_profile" -> b.videoProfile(asStringList(e.getValue()));
-                case "video_api" -> b.videoApi(asStringList(e.getValue()));
-                case "screen_size" -> b.screenSize(asString(e.getValue().get(0)));
-                case "aspect_ratio" -> b.aspectRatio(asString(e.getValue().get(0)));
-                case "frame_rate" -> b.frameRate(asInt(e.getValue().get(0)));
-                case "bit_rate" -> b.bitRate((Quantity) e.getValue().get(0).value());
-                case "size" -> b.size((Quantity) e.getValue().get(0).value());
-                case "container" -> b.container(asString(e.getValue().get(0)));
-                case "mimetype" -> b.mimetype(asString(e.getValue().get(0)));
-                case "release_group" -> b.releaseGroup(asString(e.getValue().get(0)));
-                case "streaming_service" -> b.streamingService(asString(e.getValue().get(0)));
-                case "website" -> b.website(asString(e.getValue().get(0)));
-                case "edition" -> b.edition(asString(e.getValue().get(0)));
-                case "cd" -> b.cd(asInt(e.getValue().get(0)));
-                case "cd_count" -> b.cdCount(asInt(e.getValue().get(0)));
-                case "part" -> b.part(asInt(e.getValue().get(0)));
-                case "version" -> b.version(asInt(e.getValue().get(0)));
-                case "film" -> b.film(asInt(e.getValue().get(0)));
-                case "film_title" -> b.filmTitle(asString(e.getValue().get(0)));
-                case "bonus" -> b.bonus(asInt(e.getValue().get(0)));
-                case "bonus_title" -> b.bonusTitle(asString(e.getValue().get(0)));
-                case "crc32" -> b.crc32(asString(e.getValue().get(0)));
-                default -> extras.put(e.getKey(), e.getValue().size() == 1 ? e.getValue().get(0).value()
+      var extras = new LinkedHashMap<String, Object>();
+      for (var e : grouped.entrySet()) {
+         switch (e.getKey()) {
+            case "title" -> b.title(asString(e.getValue().get(0)));
+            case "alternative_title" -> b.alternativeTitle(asString(e.getValue().get(0)));
+            case "year" -> b.year(asInt(e.getValue().get(0)));
+            case "date" -> b.date((LocalDate) e.getValue().get(0).value());
+            case "season" -> applyIntList(e.getValue(), b::season, b::seasonList);
+            case "episode" -> applyIntList(e.getValue(), b::episode, b::episodeList);
+            case "episode_count" -> b.episodeCount(asInt(e.getValue().get(0)));
+            case "season_count" -> b.seasonCount(asInt(e.getValue().get(0)));
+            case "episode_title" -> b.episodeTitle(asString(e.getValue().get(0)));
+            case "episode_format" -> b.episodeFormat(asString(e.getValue().get(0)));
+            case "type" -> b.type(asString(e.getValue().get(0)));
+            case "language" -> b.language(asLangList(e.getValue()));
+            case "subtitle_language" -> b.subtitleLanguage(asLangList(e.getValue()));
+            case "country" -> b.country(asCountryList(e.getValue()));
+            case "source" -> b.source(asString(e.getValue().get(0)));
+            case "other" -> b.other(asStringList(e.getValue()));
+            case "video_codec" -> b.videoCodec(asStringList(e.getValue()));
+            case "audio_codec" -> b.audioCodec(asStringList(e.getValue()));
+            case "audio_channels" -> b.audioChannels(asStringList(e.getValue()));
+            case "audio_profile" -> b.audioProfile(asStringList(e.getValue()));
+            case "video_profile" -> b.videoProfile(asStringList(e.getValue()));
+            case "video_api" -> b.videoApi(asStringList(e.getValue()));
+            case "screen_size" -> b.screenSize(asString(e.getValue().get(0)));
+            case "aspect_ratio" -> b.aspectRatio(asString(e.getValue().get(0)));
+            case "frame_rate" -> b.frameRate(asInt(e.getValue().get(0)));
+            case "bit_rate" -> b.bitRate((Quantity) e.getValue().get(0).value());
+            case "size" -> b.size((Quantity) e.getValue().get(0).value());
+            case "container" -> b.container(asString(e.getValue().get(0)));
+            case "mimetype" -> b.mimetype(asString(e.getValue().get(0)));
+            case "release_group" -> b.releaseGroup(asString(e.getValue().get(0)));
+            case "streaming_service" -> b.streamingService(asString(e.getValue().get(0)));
+            case "website" -> b.website(asString(e.getValue().get(0)));
+            case "edition" -> b.edition(asString(e.getValue().get(0)));
+            case "cd" -> b.cd(asInt(e.getValue().get(0)));
+            case "cd_count" -> b.cdCount(asInt(e.getValue().get(0)));
+            case "part" -> b.part(asInt(e.getValue().get(0)));
+            case "version" -> b.version(asInt(e.getValue().get(0)));
+            case "film" -> b.film(asInt(e.getValue().get(0)));
+            case "film_title" -> b.filmTitle(asString(e.getValue().get(0)));
+            case "bonus" -> b.bonus(asInt(e.getValue().get(0)));
+            case "bonus_title" -> b.bonusTitle(asString(e.getValue().get(0)));
+            case "crc32" -> b.crc32(asString(e.getValue().get(0)));
+            default -> extras.put(e.getKey(), e.getValue().size() == 1 ? e.getValue().get(0).value()
                     : e.getValue().stream().map(Match::value).toList());
-            }
-        }
-        if (!extras.isEmpty()) b.extras(extras);
+         }
+      }
+      if (!extras.isEmpty()) b.extras(extras);
 
-        ctx.result = b.build();
-    }
+      ctx.result = b.build();
+   }
 
-    private static String asString(Match m) { return m.value() == null ? null : m.value().toString(); }
-    private static Integer asInt(Match m) {
-        var v = m.value();
-        if (v instanceof Integer i) return i;
-        if (v instanceof Number n) return n.intValue();
-        if (v instanceof String s) return Integer.parseInt(s);
-        return null;
-    }
-    private static List<String> asStringList(List<Match> ms) { return ms.stream().map(OutputBuilder::asString).toList(); }
-    private static List<Language> asLangList(List<Match> ms) { return ms.stream().map(m -> (Language) m.value()).toList(); }
-    private static List<Country> asCountryList(List<Match> ms) { return ms.stream().map(m -> (Country) m.value()).toList(); }
-    private static void applyIntList(List<Match> ms, java.util.function.Consumer<Integer> single,
-                                     java.util.function.Consumer<List<Integer>> list) {
-        if (ms.size() == 1) single.accept(asInt(ms.get(0)));
-        else list.accept(ms.stream().map(OutputBuilder::asInt).toList());
-    }
+   private static String asString(Match m) {
+      return m.value() == null ? null : m.value().toString();
+   }
+
+   private static Integer asInt(Match m) {
+      var v = m.value();
+      if (v instanceof Integer i) return i;
+      if (v instanceof Number n) return n.intValue();
+      if (v instanceof String s) return Integer.parseInt(s);
+      return null;
+   }
+
+   private static List<String> asStringList(List<Match> ms) {
+      return ms.stream().map(OutputBuilder::asString).toList();
+   }
+
+   private static List<Language> asLangList(List<Match> ms) {
+      return ms.stream().map(m -> (Language) m.value()).toList();
+   }
+
+   private static List<Country> asCountryList(List<Match> ms) {
+      return ms.stream().map(m -> (Country) m.value()).toList();
+   }
+
+   private static void applyIntList(List<Match> ms, java.util.function.Consumer<Integer> single,
+                                    java.util.function.Consumer<List<Integer>> list) {
+      if (ms.size() == 1) single.accept(asInt(ms.get(0)));
+      else list.accept(ms.stream().map(OutputBuilder::asInt).toList());
+   }
 }
 ```
 
@@ -2468,7 +2586,8 @@ Empty extractor list for Plan 0; later plans append.
 ```java
 package io.guessit.rules;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.phases.*;
 import io.guessit.rules.markers.GroupMarker;
 import io.guessit.rules.markers.PathMarker;
 import io.guessit.rules.post.OutputBuilder;
@@ -2478,24 +2597,25 @@ import io.guessit.rules.post.TitleMarkerSelector;
 import java.util.List;
 
 public final class Rules {
-    private Rules() {}
+   private Rules() {
+   }
 
-    public static List<Phase> defaultPipeline() {
-        return List.of(
-            new MarkerPhase(List.of(new PathMarker(), new GroupMarker())),
-            new ExtractorPhase(allInOrder()),
-            new ConflictPhase(),
-            new PostPhase(List.of(
-                new PrivateRemover(),
-                new TitleMarkerSelector()
-            )),
-            new OutputPhase(new OutputBuilder())
-        );
-    }
+   public static List<Phase> defaultPipeline() {
+      return List.of(
+              new MarkerPhase(List.of(new PathMarker(), new GroupMarker())),
+              new ExtractorPhase(allInOrder()),
+              new ConflictPhase(),
+              new PostPhase(List.of(
+                      new PrivateRemover(),
+                      new TitleMarkerSelector()
+              )),
+              new OutputPhase(new OutputBuilder())
+      );
+   }
 
-    public static List<Extractor> allInOrder() {
-        return List.of(); // Plan 1+ append here
-    }
+   public static List<Extractor> allInOrder() {
+      return List.of(); // Plan 1+ append here
+   }
 }
 ```
 
@@ -2504,47 +2624,53 @@ public final class Rules {
 ```java
 package io.guessit;
 
+import io.guessit.api.GuessResult;
+import io.guessit.api.Options;
 import io.guessit.config.ConfigLoader;
 import io.guessit.config.OptionsConfig;
-import io.guessit.engine.ParseContext;
-import io.guessit.engine.Pipeline;
+import io.guessit.core.pipeline.Pipeline;
+import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.rules.Rules;
 
 public final class Guessit {
 
-    private final Options options;
-    private final OptionsConfig config;
-    private final Pipeline pipeline;
+   private final Options options;
+   private final OptionsConfig config;
+   private final Pipeline pipeline;
 
-    private Guessit(Options options) {
-        this.options = options;
-        this.config = ConfigLoader.load(options);
-        this.pipeline = new Pipeline(Rules.defaultPipeline());
-    }
+   private Guessit(Options options) {
+      this.options = options;
+      this.config = ConfigLoader.load(options);
+      this.pipeline = new Pipeline(Rules.defaultPipeline());
+   }
 
-    public static Guessit withOptions(Options options) { return new Guessit(options); }
+   public static Guessit withOptions(Options options) {
+      return new Guessit(options);
+   }
 
-    public static GuessResult parse(String input) { return parse(input, Options.defaults()); }
+   public static GuessResult parse(String input) {
+      return parse(input, Options.defaults());
+   }
 
-    public static GuessResult parse(String input, Options options) {
-        return withOptions(options).guess(input);
-    }
+   public static GuessResult parse(String input, Options options) {
+      return withOptions(options).guess(input);
+   }
 
-    public GuessResult guess(String input) {
-        var ctx = new ParseContext(input, options, config);
-        pipeline.run(ctx);
-        return ctx.result;
-    }
+   public GuessResult guess(String input) {
+      var ctx = new ParseContext(input, options, config);
+      pipeline.run(ctx);
+      return ctx.result;
+   }
 
-    public java.util.Map<String, java.util.List<Object>> properties() {
-        // Stub: no extractors yet, so no known properties. Returned for API completeness.
-        return java.util.Map.of();
-    }
+   public java.util.Map<String, java.util.List<Object>> properties() {
+      // Stub: no extractors yet, so no known properties. Returned for API completeness.
+      return java.util.Map.of();
+   }
 
-    public java.util.List<String> suggestedExpected(java.util.Collection<String> titles) {
-        // Stub: returns unique titles unchanged. Real heuristic lands when title rule does (Plan 4).
-        return titles.stream().distinct().toList();
-    }
+   public java.util.List<String> suggestedExpected(java.util.Collection<String> titles) {
+      // Stub: returns unique titles unchanged. Real heuristic lands when title rule does (Plan 4).
+      return titles.stream().distinct().toList();
+   }
 }
 ```
 
@@ -2552,7 +2678,7 @@ public final class Guessit {
 
 ```bash
 mvn -q -DskipTests compile
-mvn -q exec:java -Dexec.mainClass=io.guessit.Guessit -Dexec.args="" 2>/dev/null || true
+mvn -q exec:java -Dexec.mainClass=io.guessit.api.Guessit -Dexec.args="" 2>/dev/null || true
 ```
 (No exec plugin yet — verify only that compile succeeds.)
 
@@ -2584,22 +2710,22 @@ git commit -m "api: Rules registry stub + Guessit entry point"
 ```java
 package io.guessit.parity;
 
-import io.guessit.Options;
+import io.guessit.api.Options;
 
 import java.util.Map;
 
 public record YmlCase(
-    String file,
-    int line,
-    String input,
-    Map<String, Object> expected,
-    Options options,
-    boolean negative
+        String file,
+        int line,
+        String input,
+        Map<String, Object> expected,
+        Options options,
+        boolean negative
 ) {
-    @Override
-    public String toString() {
-        return file + ":" + line + " \"" + input + "\"";
-    }
+   @Override
+   public String toString() {
+      return file + ":" + line + " \"" + input + "\"";
+   }
 }
 ```
 
@@ -2714,7 +2840,7 @@ Note on YML format quirks: Python guessit's YAML uses block-style sequences with
 ```java
 package io.guessit.parity;
 
-import io.guessit.Options;
+import io.guessit.api.Options;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
@@ -2733,219 +2859,246 @@ import java.util.stream.Stream;
 
 public final class YmlTestLoader {
 
-    private YmlTestLoader() {}
+   private YmlTestLoader() {
+   }
 
-    /**
-     * Walk classpath resource directory, returning all cases across all .yml/.yaml files under it.
-     */
-    public static Stream<YmlCase> discoverAll(String classpathRoot) {
-        var loader = Thread.currentThread().getContextClassLoader();
-        try {
-            var url = loader.getResource(classpathRoot);
-            if (url == null) return Stream.empty();
-            // Walk via filesystem (test resources are unpacked under target/test-classes/)
-            var rootPath = java.nio.file.Path.of(url.toURI());
-            return java.nio.file.Files.walk(rootPath)
-                .filter(p -> {
+   /**
+    * Walk classpath resource directory, returning all cases across all .yml/.yaml files under it.
+    */
+   public static Stream<YmlCase> discoverAll(String classpathRoot) {
+      var loader = Thread.currentThread().getContextClassLoader();
+      try {
+         var url = loader.getResource(classpathRoot);
+         if (url == null) return Stream.empty();
+         // Walk via filesystem (test resources are unpacked under target/test-classes/)
+         var rootPath = java.nio.file.Path.of(url.toURI());
+         return java.nio.file.Files.walk(rootPath)
+                 .filter(p -> {
                     var n = p.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
                     return n.endsWith(".yml") || n.endsWith(".yaml");
-                })
-                .flatMap(p -> {
+                 })
+                 .flatMap(p -> {
                     var rel = rootPath.getParent().relativize(p).toString();
                     return loadResource(rel).stream();
-                });
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
+                 });
+      } catch (Exception e) {
+         throw new RuntimeException(e);
+      }
+   }
 
-    public static List<YmlCase> loadResource(String classpathPath) {
-        var loader = Thread.currentThread().getContextClassLoader();
-        try (InputStream in = loader.getResourceAsStream(classpathPath)) {
-            if (in == null) throw new IllegalArgumentException("Resource not found: " + classpathPath);
-            try (var br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-                var content = br.lines().reduce("", (a, b) -> a + b + "\n");
-                return parseContent(content, classpathPath);
+   public static List<YmlCase> loadResource(String classpathPath) {
+      var loader = Thread.currentThread().getContextClassLoader();
+      try (InputStream in = loader.getResourceAsStream(classpathPath)) {
+         if (in == null) throw new IllegalArgumentException("Resource not found: " + classpathPath);
+         try (var br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+            var content = br.lines().reduce("", (a, b) -> a + b + "\n");
+            return parseContent(content, classpathPath);
+         }
+      } catch (IOException e) {
+         throw new UncheckedIOException(e);
+      }
+   }
+
+   /**
+    * Parses the guessit YAML test format. Returns one YmlCase per `?` input.
+    * Multiple consecutive `?` entries before a `:` share the expected block.
+    * Inputs starting with `-` are negative cases (input has the `-` stripped).
+    */
+   @SuppressWarnings("unchecked")
+   static List<YmlCase> parseContent(String content, String fileLabel) {
+      // SnakeYAML: when it sees `? key : value`, it treats it as block mapping.
+      // We need ordered traversal, hence LinkedHashMap via SafeConstructor.
+      var loaderOpts = new LoaderOptions();
+      loaderOpts.setMaxAliasesForCollections(Integer.MAX_VALUE);
+      var yaml = new Yaml(new SafeConstructor(loaderOpts));
+
+      var topLevel = (Map<Object, Object>) yaml.load(content);
+      if (topLevel == null) return List.of();
+
+      // Compute approximate line numbers by scanning the source
+      var lineByKey = computeLineMap(content, topLevel.keySet());
+
+      var out = new ArrayList<YmlCase>();
+      // Handle __default__ block if present
+      Map<String, Object> defaults = Map.of();
+      if (topLevel.containsKey("__default__")) {
+         var d = topLevel.get("__default__");
+         if (d instanceof Map<?, ?> dm) defaults = (Map<String, Object>) dm;
+         topLevel.remove("__default__");
+      }
+
+      // Walk in insertion order. Group consecutive null-value entries with the next non-null entry.
+      var pending = new ArrayList<Object>();
+      for (var entry : topLevel.entrySet()) {
+         var k = entry.getKey();
+         var v = entry.getValue();
+         pending.add(k);
+         if (v != null) {
+            Map<String, Object> expected = new LinkedHashMap<>(defaults);
+            if (v instanceof Map<?, ?> vm) {
+               expected.putAll((Map<String, Object>) vm);
             }
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
+            io.guessit.api.Options options = extractOptions(expected);
+            expected.remove("options");
 
-    /**
-     * Parses the guessit YAML test format. Returns one YmlCase per `?` input.
-     * Multiple consecutive `?` entries before a `:` share the expected block.
-     * Inputs starting with `-` are negative cases (input has the `-` stripped).
-     */
-    @SuppressWarnings("unchecked")
-    static List<YmlCase> parseContent(String content, String fileLabel) {
-        // SnakeYAML: when it sees `? key : value`, it treats it as block mapping.
-        // We need ordered traversal, hence LinkedHashMap via SafeConstructor.
-        var loaderOpts = new LoaderOptions();
-        loaderOpts.setMaxAliasesForCollections(Integer.MAX_VALUE);
-        var yaml = new Yaml(new SafeConstructor(loaderOpts));
-
-        var topLevel = (Map<Object, Object>) yaml.load(content);
-        if (topLevel == null) return List.of();
-
-        // Compute approximate line numbers by scanning the source
-        var lineByKey = computeLineMap(content, topLevel.keySet());
-
-        var out = new ArrayList<YmlCase>();
-        // Handle __default__ block if present
-        Map<String, Object> defaults = Map.of();
-        if (topLevel.containsKey("__default__")) {
-            var d = topLevel.get("__default__");
-            if (d instanceof Map<?, ?> dm) defaults = (Map<String, Object>) dm;
-            topLevel.remove("__default__");
-        }
-
-        // Walk in insertion order. Group consecutive null-value entries with the next non-null entry.
-        var pending = new ArrayList<Object>();
-        for (var entry : topLevel.entrySet()) {
-            var k = entry.getKey();
-            var v = entry.getValue();
-            pending.add(k);
-            if (v != null) {
-                Map<String, Object> expected = new LinkedHashMap<>(defaults);
-                if (v instanceof Map<?, ?> vm) {
-                    expected.putAll((Map<String, Object>) vm);
-                }
-                Options options = extractOptions(expected);
-                expected.remove("options");
-
-                for (var input : pending) {
-                    var raw = input.toString();
-                    boolean negative = raw.startsWith("-");
-                    var cleaned = negative ? raw.substring(1) : raw;
-                    var line = lineByKey.getOrDefault(input, 0);
-                    out.add(new YmlCase(fileLabel, line, cleaned, expected, options, negative));
-                }
-                pending.clear();
-            }
-        }
-        // Trailing inputs without a `:` block — treat as expecting empty
-        if (!pending.isEmpty()) {
             for (var input : pending) {
-                var raw = input.toString();
-                boolean negative = raw.startsWith("-");
-                var cleaned = negative ? raw.substring(1) : raw;
-                var line = lineByKey.getOrDefault(input, 0);
-                out.add(new YmlCase(fileLabel, line, cleaned, Map.of(), Options.defaults(), negative));
+               var raw = input.toString();
+               boolean negative = raw.startsWith("-");
+               var cleaned = negative ? raw.substring(1) : raw;
+               var line = lineByKey.getOrDefault(input, 0);
+               out.add(new YmlCase(fileLabel, line, cleaned, expected, options, negative));
             }
-        }
-        return out;
-    }
+            pending.clear();
+         }
+      }
+      // Trailing inputs without a `:` block — treat as expecting empty
+      if (!pending.isEmpty()) {
+         for (var input : pending) {
+            var raw = input.toString();
+            boolean negative = raw.startsWith("-");
+            var cleaned = negative ? raw.substring(1) : raw;
+            var line = lineByKey.getOrDefault(input, 0);
+            out.add(new YmlCase(fileLabel, line, cleaned, Map.of(), Options.defaults(), negative));
+         }
+      }
+      return out;
+   }
 
-    /**
-     * Mutable accumulator for building Options across multiple option-string / option-map fragments.
-     * The Jilt-generated OptionsBuilder only accepts whole lists in setters, so we buffer here
-     * then materialize the Options once at the end.
-     */
-    private static final class OptionsAccum {
-        String type, name;
-        Boolean dateYearFirst, dateDayFirst, episodePreferNumber, enforceListWhenSingle;
-        boolean noUserConfig, noDefaultConfig;
-        final java.util.List<String> expectedTitle = new java.util.ArrayList<>();
-        final java.util.List<String> expectedGroup = new java.util.ArrayList<>();
-        final java.util.List<String> excludes = new java.util.ArrayList<>();
-        final java.util.List<String> includes = new java.util.ArrayList<>();
-        final java.util.List<String> allowedLanguages = new java.util.ArrayList<>();
-        final java.util.List<String> allowedCountries = new java.util.ArrayList<>();
-        final java.util.List<java.nio.file.Path> configPaths = new java.util.ArrayList<>();
-        final java.util.Map<String, Object> raw = new java.util.LinkedHashMap<>();
+   /**
+    * Mutable accumulator for building Options across multiple option-string / option-map fragments.
+    * The Jilt-generated OptionsBuilder only accepts whole lists in setters, so we buffer here
+    * then materialize the Options once at the end.
+    */
+   private static final class OptionsAccum {
+      String type, name;
+      Boolean dateYearFirst, dateDayFirst, episodePreferNumber, enforceListWhenSingle;
+      boolean noUserConfig, noDefaultConfig;
+      final java.util.List<String> expectedTitle = new java.util.ArrayList<>();
+      final java.util.List<String> expectedGroup = new java.util.ArrayList<>();
+      final java.util.List<String> excludes = new java.util.ArrayList<>();
+      final java.util.List<String> includes = new java.util.ArrayList<>();
+      final java.util.List<String> allowedLanguages = new java.util.ArrayList<>();
+      final java.util.List<String> allowedCountries = new java.util.ArrayList<>();
+      final java.util.List<java.nio.file.Path> configPaths = new java.util.ArrayList<>();
+      final java.util.Map<String, Object> raw = new java.util.LinkedHashMap<>();
 
-        Options build() {
-            return Options.builder()
-                .type(type).name(name)
-                .expectedTitle(expectedTitle).expectedGroup(expectedGroup)
-                .excludes(excludes).includes(includes)
-                .allowedLanguages(allowedLanguages).allowedCountries(allowedCountries)
-                .dateYearFirst(dateYearFirst).dateDayFirst(dateDayFirst)
-                .episodePreferNumber(episodePreferNumber).enforceListWhenSingle(enforceListWhenSingle)
-                .configPaths(configPaths)
-                .noUserConfig(noUserConfig).noDefaultConfig(noDefaultConfig)
-                .raw(raw)
-                .build();
-        }
-    }
+      io.guessit.api.Options build() {
+         return io.guessit.api.Options.builder()
+                 .type(type).name(name)
+                 .expectedTitle(expectedTitle).expectedGroup(expectedGroup)
+                 .excludes(excludes).includes(includes)
+                 .allowedLanguages(allowedLanguages).allowedCountries(allowedCountries)
+                 .dateYearFirst(dateYearFirst).dateDayFirst(dateDayFirst)
+                 .episodePreferNumber(episodePreferNumber).enforceListWhenSingle(enforceListWhenSingle)
+                 .configPaths(configPaths)
+                 .noUserConfig(noUserConfig).noDefaultConfig(noDefaultConfig)
+                 .raw(raw)
+                 .build();
+      }
+   }
 
-    @SuppressWarnings("unchecked")
-    private static Options extractOptions(Map<String, Object> expected) {
-        var o = expected.get("options");
-        if (o == null) return Options.defaults();
-        var acc = new OptionsAccum();
-        if (o instanceof String s) {
-            applyArgString(acc, s);
-        } else if (o instanceof Map<?, ?> m) {
-            m.forEach((k, v) -> applyKv(acc, k.toString(), v));
-        } else if (o instanceof List<?> l) {
-            for (var item : l) applyArgString(acc, item.toString());
-        }
-        return acc.build();
-    }
+   @SuppressWarnings("unchecked")
+   private static io.guessit.api.Options extractOptions(Map<String, Object> expected) {
+      var o = expected.get("options");
+      if (o == null) return io.guessit.api.Options.defaults();
+      var acc = new OptionsAccum();
+      if (o instanceof String s) {
+         applyArgString(acc, s);
+      } else if (o instanceof Map<?, ?> m) {
+         m.forEach((k, v) -> applyKv(acc, k.toString(), v));
+      } else if (o instanceof List<?> l) {
+         for (var item : l) applyArgString(acc, item.toString());
+      }
+      return acc.build();
+   }
 
-    private static void applyArgString(OptionsAccum a, String s) {
-        // Supports flags like "--episode-prefer-number", "-T Title", "--type movie"
-        var tokens = s.trim().split("\\s+");
-        for (int i = 0; i < tokens.length; i++) {
-            switch (tokens[i]) {
-                case "--episode-prefer-number" -> a.episodePreferNumber = true;
-                case "--date-year-first", "-Y" -> a.dateYearFirst = true;
-                case "--date-day-first", "-D" -> a.dateDayFirst = true;
-                case "--no-default-config" -> a.noDefaultConfig = true;
-                case "--no-user-config" -> a.noUserConfig = true;
-                case "--type", "-t" -> { if (i + 1 < tokens.length) a.type = tokens[++i]; }
-                case "--name", "-n" -> { if (i + 1 < tokens.length) a.name = tokens[++i]; }
-                case "--expected-title", "-T" -> { if (i + 1 < tokens.length) a.expectedTitle.add(tokens[++i]); }
-                case "--expected-group", "-G" -> { if (i + 1 < tokens.length) a.expectedGroup.add(tokens[++i]); }
-                case "--allowed-language", "-L" -> { if (i + 1 < tokens.length) a.allowedLanguages.add(tokens[++i]); }
-                case "--allowed-country", "-C" -> { if (i + 1 < tokens.length) a.allowedCountries.add(tokens[++i]); }
-                case "--excludes" -> { if (i + 1 < tokens.length) a.excludes.add(tokens[++i]); }
-                case "--includes" -> { if (i + 1 < tokens.length) a.includes.add(tokens[++i]); }
-                default -> { /* ignore unknown for now */ }
+   private static void applyArgString(OptionsAccum a, String s) {
+      // Supports flags like "--episode-prefer-number", "-T Title", "--type movie"
+      var tokens = s.trim().split("\\s+");
+      for (int i = 0; i < tokens.length; i++) {
+         switch (tokens[i]) {
+            case "--episode-prefer-number" -> a.episodePreferNumber = true;
+            case "--date-year-first", "-Y" -> a.dateYearFirst = true;
+            case "--date-day-first", "-D" -> a.dateDayFirst = true;
+            case "--no-default-config" -> a.noDefaultConfig = true;
+            case "--no-user-config" -> a.noUserConfig = true;
+            case "--type", "-t" -> {
+               if (i + 1 < tokens.length) a.type = tokens[++i];
             }
-        }
-    }
-
-    private static void applyKv(OptionsAccum a, String k, Object v) {
-        switch (k) {
-            case "type" -> a.type = v.toString();
-            case "name" -> a.name = v.toString();
-            case "expected_title" -> { if (v instanceof List<?> l) l.forEach(x -> a.expectedTitle.add(x.toString())); else a.expectedTitle.add(v.toString()); }
-            case "expected_group" -> { if (v instanceof List<?> l) l.forEach(x -> a.expectedGroup.add(x.toString())); else a.expectedGroup.add(v.toString()); }
-            case "allowed_languages" -> { if (v instanceof List<?> l) l.forEach(x -> a.allowedLanguages.add(x.toString())); }
-            case "allowed_countries" -> { if (v instanceof List<?> l) l.forEach(x -> a.allowedCountries.add(x.toString())); }
-            case "date_year_first" -> a.dateYearFirst = toBool(v);
-            case "date_day_first" -> a.dateDayFirst = toBool(v);
-            case "episode_prefer_number" -> a.episodePreferNumber = toBool(v);
-            default -> a.raw.put(k, v);
-        }
-    }
-
-    private static Boolean toBool(Object v) {
-        if (v instanceof Boolean b) return b;
-        return Boolean.parseBoolean(v.toString());
-    }
-
-    private static Map<Object, Integer> computeLineMap(String content, java.util.Set<Object> keys) {
-        var map = new java.util.HashMap<Object, Integer>();
-        var lines = content.split("\n", -1);
-        var remaining = new java.util.HashSet<>(keys);
-        for (int i = 0; i < lines.length; i++) {
-            var trimmed = lines[i].trim();
-            if (!trimmed.startsWith("?")) continue;
-            var literal = trimmed.substring(1).trim();
-            for (var k : new java.util.ArrayList<>(remaining)) {
-                if (k.toString().equals(literal)) {
-                    map.put(k, i + 1);
-                    remaining.remove(k);
-                    break;
-                }
+            case "--name", "-n" -> {
+               if (i + 1 < tokens.length) a.name = tokens[++i];
             }
-        }
-        return map;
-    }
+            case "--expected-title", "-T" -> {
+               if (i + 1 < tokens.length) a.expectedTitle.add(tokens[++i]);
+            }
+            case "--expected-group", "-G" -> {
+               if (i + 1 < tokens.length) a.expectedGroup.add(tokens[++i]);
+            }
+            case "--allowed-language", "-L" -> {
+               if (i + 1 < tokens.length) a.allowedLanguages.add(tokens[++i]);
+            }
+            case "--allowed-country", "-C" -> {
+               if (i + 1 < tokens.length) a.allowedCountries.add(tokens[++i]);
+            }
+            case "--excludes" -> {
+               if (i + 1 < tokens.length) a.excludes.add(tokens[++i]);
+            }
+            case "--includes" -> {
+               if (i + 1 < tokens.length) a.includes.add(tokens[++i]);
+            }
+            default -> { /* ignore unknown for now */ }
+         }
+      }
+   }
+
+   private static void applyKv(OptionsAccum a, String k, Object v) {
+      switch (k) {
+         case "type" -> a.type = v.toString();
+         case "name" -> a.name = v.toString();
+         case "expected_title" -> {
+            if (v instanceof List<?> l) l.forEach(x -> a.expectedTitle.add(x.toString()));
+            else a.expectedTitle.add(v.toString());
+         }
+         case "expected_group" -> {
+            if (v instanceof List<?> l) l.forEach(x -> a.expectedGroup.add(x.toString()));
+            else a.expectedGroup.add(v.toString());
+         }
+         case "allowed_languages" -> {
+            if (v instanceof List<?> l) l.forEach(x -> a.allowedLanguages.add(x.toString()));
+         }
+         case "allowed_countries" -> {
+            if (v instanceof List<?> l) l.forEach(x -> a.allowedCountries.add(x.toString()));
+         }
+         case "date_year_first" -> a.dateYearFirst = toBool(v);
+         case "date_day_first" -> a.dateDayFirst = toBool(v);
+         case "episode_prefer_number" -> a.episodePreferNumber = toBool(v);
+         default -> a.raw.put(k, v);
+      }
+   }
+
+   private static Boolean toBool(Object v) {
+      if (v instanceof Boolean b) return b;
+      return Boolean.parseBoolean(v.toString());
+   }
+
+   private static Map<Object, Integer> computeLineMap(String content, java.util.Set<Object> keys) {
+      var map = new java.util.HashMap<Object, Integer>();
+      var lines = content.split("\n", -1);
+      var remaining = new java.util.HashSet<>(keys);
+      for (int i = 0; i < lines.length; i++) {
+         var trimmed = lines[i].trim();
+         if (!trimmed.startsWith("?")) continue;
+         var literal = trimmed.substring(1).trim();
+         for (var k : new java.util.ArrayList<>(remaining)) {
+            if (k.toString().equals(literal)) {
+               map.put(k, i + 1);
+               remaining.remove(k);
+               break;
+            }
+         }
+      }
+      return map;
+   }
 }
 ```
 
@@ -2975,7 +3128,7 @@ git commit -m "test: YmlCase + YmlTestLoader for guessit yaml fixture format"
 ```java
 package io.guessit.parity;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -2986,21 +3139,21 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class YmlParityTest {
 
-    @Disabled("phase-0: no rules yet; enable per phase as rules ship")
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("allYmlCases")
-    void ymlParity(YmlCase c) {
-        var result = Guessit.parse(c.input(), c.options()).toMap();
-        if (c.negative()) {
-            assertNotEquals(c.expected(), result, "negative case unexpectedly matched");
-        } else {
-            assertEquals(c.expected(), result);
-        }
-    }
+   @Disabled("phase-0: no rules yet; enable per phase as rules ship")
+   @ParameterizedTest(name = "{0}")
+   @MethodSource("allYmlCases")
+   void ymlParity(YmlCase c) {
+      var result = Guessit.parse(c.input(), c.options()).toMap();
+      if (c.negative()) {
+         assertNotEquals(c.expected(), result, "negative case unexpectedly matched");
+      } else {
+         assertEquals(c.expected(), result);
+      }
+   }
 
-    static Stream<YmlCase> allYmlCases() {
-        return YmlTestLoader.discoverAll("yml/");
-    }
+   static Stream<YmlCase> allYmlCases() {
+      return YmlTestLoader.discoverAll("yml/");
+   }
 }
 ```
 
@@ -3030,22 +3183,23 @@ git commit -m "test: YML parity test scaffold (disabled until phase-1 rules ship
 ```java
 package io.guessit.cli;
 
-import io.guessit.GuessResult;
+import io.guessit.api.GuessResult;
 
 public final class PlainFormatter {
-    private PlainFormatter() {}
+   private PlainFormatter() {
+   }
 
-    public static String format(GuessResult r) {
-        var sb = new StringBuilder();
-        for (var e : r.toMap().entrySet()) {
-            var v = e.getValue();
-            String rendered = v instanceof java.util.List<?> l
-                ? String.join(", ", l.stream().map(Object::toString).toList())
-                : v.toString();
-            sb.append(e.getKey()).append(": ").append(rendered).append("\n");
-        }
-        return sb.toString();
-    }
+   public static String format(GuessResult r) {
+      var sb = new StringBuilder();
+      for (var e : r.toMap().entrySet()) {
+         var v = e.getValue();
+         String rendered = v instanceof java.util.List<?> l
+                 ? String.join(", ", l.stream().map(Object::toString).toList())
+                 : v.toString();
+         sb.append(e.getKey()).append(": ").append(rendered).append("\n");
+      }
+      return sb.toString();
+   }
 }
 ```
 
@@ -3054,11 +3208,15 @@ public final class PlainFormatter {
 ```java
 package io.guessit.cli;
 
-import io.guessit.GuessResult;
+import io.guessit.api.GuessResult;
 
 public final class JsonFormatter {
-    private JsonFormatter() {}
-    public static String format(GuessResult r) { return r.toJson(); }
+   private JsonFormatter() {
+   }
+
+   public static String format(GuessResult r) {
+      return r.toJson();
+   }
 }
 ```
 
@@ -3067,11 +3225,15 @@ public final class JsonFormatter {
 ```java
 package io.guessit.cli;
 
-import io.guessit.GuessResult;
+import io.guessit.api.GuessResult;
 
 public final class YamlFormatter {
-    private YamlFormatter() {}
-    public static String format(GuessResult r) { return r.toYaml(); }
+   private YamlFormatter() {
+   }
+
+   public static String format(GuessResult r) {
+      return r.toYaml();
+   }
 }
 ```
 
@@ -3170,8 +3332,7 @@ Expected: compilation failure (`GuessitCli` not defined).
 ```java
 package io.guessit.cli;
 
-import io.guessit.Guessit;
-import io.guessit.Options;
+import io.guessit.api.Options;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -3183,113 +3344,121 @@ import java.util.List;
 import java.util.concurrent.Callable;
 
 @Command(
-    name = "guessit-java",
-    mixinStandardHelpOptions = true,
-    versionProvider = GuessitCli.VersionProvider.class,
-    description = "Parse video filenames into structured metadata."
+        name = "guessit-java",
+        mixinStandardHelpOptions = true,
+        versionProvider = GuessitCli.VersionProvider.class,
+        description = "Parse video filenames into structured metadata."
 )
 public final class GuessitCli implements Callable<Integer> {
 
-    @Parameters(arity = "0..*", description = "Filenames to parse.")
-    List<String> filenames = new ArrayList<>();
+   @Parameters(arity = "0..*", description = "Filenames to parse.")
+   List<String> filenames = new ArrayList<>();
 
-    @Option(names = {"-t", "--type"}, description = "movie or episode hint.")
-    String type;
+   @Option(names = {"-t", "--type"}, description = "movie or episode hint.")
+   String type;
 
-    @Option(names = {"-n", "--name"}, description = "Override input name.")
-    String name;
+   @Option(names = {"-n", "--name"}, description = "Override input name.")
+   String name;
 
-    @Option(names = {"-Y", "--date-year-first"}) boolean dateYearFirst;
-    @Option(names = {"-D", "--date-day-first"})  boolean dateDayFirst;
+   @Option(names = {"-Y", "--date-year-first"})
+   boolean dateYearFirst;
+   @Option(names = {"-D", "--date-day-first"})
+   boolean dateDayFirst;
 
-    @Option(names = {"-L", "--allowed-language"}, arity = "1..*")
-    List<String> allowedLanguages = new ArrayList<>();
+   @Option(names = {"-L", "--allowed-language"}, arity = "1..*")
+   List<String> allowedLanguages = new ArrayList<>();
 
-    @Option(names = {"-C", "--allowed-country"}, arity = "1..*")
-    List<String> allowedCountries = new ArrayList<>();
+   @Option(names = {"-C", "--allowed-country"}, arity = "1..*")
+   List<String> allowedCountries = new ArrayList<>();
 
-    @Option(names = {"-E", "--episode-prefer-number"})
-    boolean episodePreferNumber;
+   @Option(names = {"-E", "--episode-prefer-number"})
+   boolean episodePreferNumber;
 
-    @Option(names = {"-T", "--expected-title"}, arity = "1..*")
-    List<String> expectedTitles = new ArrayList<>();
+   @Option(names = {"-T", "--expected-title"}, arity = "1..*")
+   List<String> expectedTitles = new ArrayList<>();
 
-    @Option(names = {"-G", "--expected-group"}, arity = "1..*")
-    List<String> expectedGroups = new ArrayList<>();
+   @Option(names = {"-G", "--expected-group"}, arity = "1..*")
+   List<String> expectedGroups = new ArrayList<>();
 
-    @Option(names = "--excludes", arity = "1..*")
-    List<String> excludes = new ArrayList<>();
+   @Option(names = "--excludes", arity = "1..*")
+   List<String> excludes = new ArrayList<>();
 
-    @Option(names = "--includes", arity = "1..*")
-    List<String> includes = new ArrayList<>();
+   @Option(names = "--includes", arity = "1..*")
+   List<String> includes = new ArrayList<>();
 
-    @Option(names = {"-c", "--config"}, arity = "1..*")
-    List<Path> configs = new ArrayList<>();
+   @Option(names = {"-c", "--config"}, arity = "1..*")
+   List<Path> configs = new ArrayList<>();
 
-    @Option(names = "--no-user-config")    boolean noUserConfig;
-    @Option(names = "--no-default-config") boolean noDefaultConfig;
+   @Option(names = "--no-user-config")
+   boolean noUserConfig;
+   @Option(names = "--no-default-config")
+   boolean noDefaultConfig;
 
-    @Option(names = {"-j", "--json"}) boolean json;
-    @Option(names = {"-y", "--yaml"}) boolean yaml;
-    @Option(names = {"-v", "--verbose"}) boolean verbose;
+   @Option(names = {"-j", "--json"})
+   boolean json;
+   @Option(names = {"-y", "--yaml"})
+   boolean yaml;
+   @Option(names = {"-v", "--verbose"})
+   boolean verbose;
 
-    @Option(names = {"-P", "--show-property"})
-    String showProperty;
+   @Option(names = {"-P", "--show-property"})
+   String showProperty;
 
-    @Option(names = "--advanced") boolean advanced;
+   @Option(names = "--advanced")
+   boolean advanced;
 
-    @Override
-    public Integer call() {
-        if (filenames.isEmpty()) {
-            System.err.println("No input filename provided. See --help.");
-            return 2;
-        }
-        var opts = Options.builder()
-            .type(type)
-            .name(name)
-            .expectedTitle(expectedTitles)
-            .expectedGroup(expectedGroups)
-            .excludes(excludes)
-            .includes(includes)
-            .allowedLanguages(allowedLanguages)
-            .allowedCountries(allowedCountries)
-            .dateYearFirst(dateYearFirst ? Boolean.TRUE : null)
-            .dateDayFirst(dateDayFirst ? Boolean.TRUE : null)
-            .episodePreferNumber(episodePreferNumber ? Boolean.TRUE : null)
-            .configPaths(configs)
-            .noUserConfig(noUserConfig)
-            .noDefaultConfig(noDefaultConfig)
-            .build();
-        var guessit = Guessit.withOptions(opts);
+   @Override
+   public Integer call() {
+      if (filenames.isEmpty()) {
+         System.err.println("No input filename provided. See --help.");
+         return 2;
+      }
+      var opts = Options.builder()
+              .type(type)
+              .name(name)
+              .expectedTitle(expectedTitles)
+              .expectedGroup(expectedGroups)
+              .excludes(excludes)
+              .includes(includes)
+              .allowedLanguages(allowedLanguages)
+              .allowedCountries(allowedCountries)
+              .dateYearFirst(dateYearFirst ? Boolean.TRUE : null)
+              .dateDayFirst(dateDayFirst ? Boolean.TRUE : null)
+              .episodePreferNumber(episodePreferNumber ? Boolean.TRUE : null)
+              .configPaths(configs)
+              .noUserConfig(noUserConfig)
+              .noDefaultConfig(noDefaultConfig)
+              .build();
+      var guessit = io.guessit.api.Guessit.withOptions(opts);
 
-        for (var fn : filenames) {
-            var result = guessit.guess(fn);
-            String output;
-            if (showProperty != null) {
-                var v = result.toMap().get(showProperty);
-                output = v == null ? "" : v.toString();
-            } else if (json) {
-                output = JsonFormatter.format(result);
-            } else if (yaml) {
-                output = YamlFormatter.format(result);
-            } else {
-                output = PlainFormatter.format(result);
-            }
-            System.out.println(output);
-        }
-        return 0;
-    }
+      for (var fn : filenames) {
+         var result = guessit.guess(fn);
+         String output;
+         if (showProperty != null) {
+            var v = result.toMap().get(showProperty);
+            output = v == null ? "" : v.toString();
+         } else if (json) {
+            output = JsonFormatter.format(result);
+         } else if (yaml) {
+            output = YamlFormatter.format(result);
+         } else {
+            output = PlainFormatter.format(result);
+         }
+         System.out.println(output);
+      }
+      return 0;
+   }
 
-    static void main(String[] args) {
-        System.exit(new CommandLine(new GuessitCli()).execute(args));
-    }
+   static void main(String[] args) {
+      System.exit(new CommandLine(new GuessitCli()).execute(args));
+   }
 
-    public static final class VersionProvider implements CommandLine.IVersionProvider {
-        @Override
-        public String[] getVersion() {
-            return new String[]{"guessit-java 0.1.0-SNAPSHOT"};
-        }
-    }
+   public static final class VersionProvider implements CommandLine.IVersionProvider {
+      @Override
+      public String[] getVersion() {
+         return new String[]{"guessit-java 0.1.0-SNAPSHOT"};
+      }
+   }
 }
 ```
 

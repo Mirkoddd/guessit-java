@@ -1,13 +1,13 @@
 package io.guessit.rules.post;
 
-import io.guessit.engine.Match;
-import io.guessit.engine.ParseContext;
-import io.guessit.engine.PostPhase.PostProcessor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.contracts.PostProcessor;
 
 import java.util.List;
 
 /**
- * Drops every match flagged {@link io.guessit.engine.Match#isPrivate}. Private
+ * Drops every match flagged {@link Match#isPrivate}. Private
  * matches exist only as scaffolding for other extractors (anchors, guards,
  * intermediate signals); they must not appear in the final result.
  */

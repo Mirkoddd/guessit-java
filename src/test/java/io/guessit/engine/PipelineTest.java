@@ -1,12 +1,17 @@
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.Pipeline;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.phases.*;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 
-import static io.guessit.Options.defaults;
+import static io.guessit.api.Options.defaults;
 import static io.guessit.config.OptionsConfig.empty;
-import static io.guessit.engine.MatchName.EDITION;
+import static io.guessit.core.pipeline.state.MatchName.EDITION;
 import static java.util.List.of;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

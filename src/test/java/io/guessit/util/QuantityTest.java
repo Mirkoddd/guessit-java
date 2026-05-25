@@ -1,5 +1,8 @@
 package io.guessit.util;
 
+import io.guessit.api.models.BitRate;
+import io.guessit.api.models.Quantity;
+import io.guessit.api.models.Size;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

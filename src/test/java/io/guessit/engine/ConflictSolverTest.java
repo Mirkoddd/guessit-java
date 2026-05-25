@@ -1,13 +1,16 @@
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.phases.ConflictSolver;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchSet;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Set;
 
-import static io.guessit.engine.ConflictSolver.solve;
-import static io.guessit.engine.Match.of;
-import static io.guessit.engine.MatchName.*;
+import static io.guessit.core.pipeline.phases.ConflictSolver.solve;
+import static io.guessit.core.pipeline.state.Match.of;
+import static io.guessit.core.pipeline.state.MatchName.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ConflictSolverTest {

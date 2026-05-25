@@ -6,7 +6,7 @@
 
 **Architecture:**
 
-- New extractors live in `io.guessit.rules.property` and follow the existing `Extractor` interface (regex+config in `extract`, post-rules in `postProcess`). All deferred extractors are config-driven via the existing `ConfigLoader` patterns under `config/options.json` — no new config wiring.
+- New extractors live in `io.guessit.rules.extractors` and follow the existing `Extractor` interface (regex+config in `extract`, post-rules in `postProcess`). All deferred extractors are config-driven via the existing `ConfigLoader` patterns under `config/options.json` — no new config wiring.
 - Two new sub-rules attach to existing extractors: `BonusTitleRule` (run after `TitleExtractor.postProcess`) builds `bonus_title` from the trailing hole, and `FilmTitleRule` builds `film_title` from the leading hole. Both reuse `Holes.compute(...)`.
 - `Quantity` is split into a base record + two specialised parsers (`Size.fromString`, `BitRate.fromString`) to mirror Python `rules/common/quantity.py`.
 - Five processor rules port to Java `PostProcessor`s in `io.guessit.rules.post`. Order in `defaultPipeline()`'s `PostPhase`:
@@ -124,35 +124,56 @@ Responsibilities (one per file):
 ```java
 package io.guessit.util;
 
-public sealed class Quantity permits Size, BitRate {
-    public final double value;
-    public final String unit;
-    protected Quantity(double value, String unit) {
-        this.value = value;
-        this.unit = unit;
-    }
-    public double value() { return value; }
-    public String unit() { return unit; }
-    public String format() {
-        if (value == Math.floor(value) && !Double.isInfinite(value)) {
-            return ((long) value) + " " + unit;
-        }
-        return String.format(java.util.Locale.ROOT, "%.1f %s", value, unit);
-    }
-    @Override public boolean equals(Object o) {
-        return o instanceof Quantity q && Double.compare(value, q.value) == 0 && unit.equals(q.unit);
-    }
-    @Override public int hashCode() { return java.util.Objects.hash(value, unit); }
-    @Override public String toString() { return format(); }
+import io.guessit.api.models.BitRate;
+import io.guessit.api.models.Size;
 
-    /** Generic dispatch parser kept for Phase-1 callers that handed us free-form text. */
-    public static Quantity parse(String s) {
-        var t = s.trim();
-        var lower = t.toLowerCase(java.util.Locale.ROOT);
-        if (lower.endsWith("bps") || lower.endsWith("bit") || lower.endsWith("bits"))
-            return BitRate.fromString(t);
-        return Size.fromString(t);
+public sealed class Quantity permits Size, BitRate {
+  public final double value;
+  public final String unit;
+
+  protected Quantity(double value, String unit) {
+    this.value = value;
+    this.unit = unit;
+  }
+
+  public double value() {
+    return value;
+  }
+
+  public String unit() {
+    return unit;
+  }
+
+  public String format() {
+    if (value == Math.floor(value) && !Double.isInfinite(value)) {
+      return ((long) value) + " " + unit;
     }
+    return String.format(java.util.Locale.ROOT, "%.1f %s", value, unit);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    return o instanceof Quantity q && Double.compare(value, q.value) == 0 && unit.equals(q.unit);
+  }
+
+  @Override
+  public int hashCode() {
+    return java.util.Objects.hash(value, unit);
+  }
+
+  @Override
+  public String toString() {
+    return format();
+  }
+
+  /** Generic dispatch parser kept for Phase-1 callers that handed us free-form text. */
+  public static Quantity parse(String s) {
+    var t = s.trim();
+    var lower = t.toLowerCase(java.util.Locale.ROOT);
+    if (lower.endsWith("bps") || lower.endsWith("bit") || lower.endsWith("bits"))
+      return BitRate.fromString(t);
+    return Size.fromString(t);
+  }
 }
 ```
 
@@ -161,24 +182,31 @@ public sealed class Quantity permits Size, BitRate {
 ```java
 package io.guessit.util;
 
+import io.guessit.api.models.Size;
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class SizeTest {
-    @Test void parsesIntMagnitude() {
-        var s = Size.fromString("300MB");
-        assertEquals(300.0, s.value(), 0.0);
-        assertEquals("MB", s.unit());
-        assertEquals("300 MB", s.format());
-    }
-    @Test void parsesFloatMagnitude() {
-        var s = Size.fromString("1.5GB");
-        assertEquals("1.5 GB", s.format());
-    }
-    @Test void normalisesUnitToUpperCaseStripsSeps() {
-        assertEquals("4.7 GB", Size.fromString("4.7-gb").format());
-        assertEquals("700 MB", Size.fromString("700.mb").format());
-    }
+  @Test
+  void parsesIntMagnitude() {
+    var s = Size.fromString("300MB");
+    assertEquals(300.0, s.value(), 0.0);
+    assertEquals("MB", s.unit());
+    assertEquals("300 MB", s.format());
+  }
+
+  @Test
+  void parsesFloatMagnitude() {
+    var s = Size.fromString("1.5GB");
+    assertEquals("1.5 GB", s.format());
+  }
+
+  @Test
+  void normalisesUnitToUpperCaseStripsSeps() {
+    assertEquals("4.7 GB", Size.fromString("4.7-gb").format());
+    assertEquals("700 MB", Size.fromString("700.mb").format());
+  }
 }
 ```
 
@@ -192,26 +220,33 @@ Expected: FAIL — class `Size` does not exist.
 ```java
 package io.guessit.util;
 
-import io.guessit.engine.Seps;
+import io.guessit.api.models.Quantity;
+import io.guessit.core.text.Seps;
+
 import java.util.Locale;
 import java.util.regex.Pattern;
 
 public final class Size extends Quantity {
-    private static final Pattern P = Pattern.compile("(?<m>\\d+(?:\\.\\d+)?)(?<u>[^\\d]+)?");
-    private Size(double v, String u) { super(v, u); }
-    public static Size fromString(String s) {
-        var m = P.matcher(s.trim());
-        if (!m.matches()) throw new IllegalArgumentException("Not a size: " + s);
-        var raw = m.group("u") == null ? "" : m.group("u");
-        var u = trimSeps(raw).toUpperCase(Locale.ROOT);
-        return new Size(Double.parseDouble(m.group("m")), u);
-    }
-    private static String trimSeps(String s) {
-        int a = 0, b = s.length();
-        while (a < b && Seps.isSep(s.charAt(a))) a++;
-        while (b > a && Seps.isSep(s.charAt(b - 1))) b--;
-        return s.substring(a, b);
-    }
+  private static final Pattern P = Pattern.compile("(?<m>\\d+(?:\\.\\d+)?)(?<u>[^\\d]+)?");
+
+  private Size(double v, String u) {
+    super(v, u);
+  }
+
+  public static Size fromString(String s) {
+    var m = P.matcher(s.trim());
+    if (!m.matches()) throw new IllegalArgumentException("Not a size: " + s);
+    var raw = m.group("u") == null ? "" : m.group("u");
+    var u = trimSeps(raw).toUpperCase(Locale.ROOT);
+    return new Size(Double.parseDouble(m.group("m")), u);
+  }
+
+  private static String trimSeps(String s) {
+    int a = 0, b = s.length();
+    while (a < b && Seps.isSep(s.charAt(a))) a++;
+    while (b > a && Seps.isSep(s.charAt(b - 1))) b--;
+    return s.substring(a, b);
+  }
 }
 ```
 
@@ -225,24 +260,33 @@ Expected: PASS.
 ```java
 package io.guessit.util;
 
+import io.guessit.api.models.BitRate;
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class BitRateTest {
-    @Test void parsesKbps() {
-        assertEquals("320 Kbps", BitRate.fromString("320Kbps").format());
-    }
-    @Test void parsesMbpsFloat() {
-        assertEquals("1.5 Mbps", BitRate.fromString("1.5Mbps").format());
-    }
-    @Test void normalisesBitsToBps() {
-        assertEquals("128 Kbps", BitRate.fromString("128kbits").format());
-        assertEquals("128 Kbps", BitRate.fromString("128kbit").format());
-    }
-    @Test void capitaliseUnitFirstLetterOnly() {
-        assertEquals("320 Kbps", BitRate.fromString("320KBPS").format());
-        assertEquals("320 Kbps", BitRate.fromString("320kbps").format());
-    }
+  @Test
+  void parsesKbps() {
+    assertEquals("320 Kbps", BitRate.fromString("320Kbps").format());
+  }
+
+  @Test
+  void parsesMbpsFloat() {
+    assertEquals("1.5 Mbps", BitRate.fromString("1.5Mbps").format());
+  }
+
+  @Test
+  void normalisesBitsToBps() {
+    assertEquals("128 Kbps", BitRate.fromString("128kbits").format());
+    assertEquals("128 Kbps", BitRate.fromString("128kbit").format());
+  }
+
+  @Test
+  void capitaliseUnitFirstLetterOnly() {
+    assertEquals("320 Kbps", BitRate.fromString("320KBPS").format());
+    assertEquals("320 Kbps", BitRate.fromString("320kbps").format());
+  }
 }
 ```
 
@@ -256,33 +300,41 @@ Expected: FAIL.
 ```java
 package io.guessit.util;
 
-import io.guessit.engine.Seps;
+import io.guessit.api.models.Quantity;
+import io.guessit.core.text.Seps;
+
 import java.util.Locale;
 import java.util.regex.Pattern;
 
 public final class BitRate extends Quantity {
-    private static final Pattern P = Pattern.compile("(?<m>\\d+(?:\\.\\d+)?)(?<u>[^\\d]+)?");
-    private BitRate(double v, String u) { super(v, u); }
-    public static BitRate fromString(String s) {
-        var m = P.matcher(s.trim());
-        if (!m.matches()) throw new IllegalArgumentException("Not a bit rate: " + s);
-        var raw = m.group("u") == null ? "" : m.group("u");
-        var u = trimSeps(raw);
-        u = capitalise(u);
-        u = u.replace("bits", "bps").replace("bit", "bps");
-        return new BitRate(Double.parseDouble(m.group("m")), u);
-    }
-    private static String capitalise(String s) {
-        if (s.isEmpty()) return s;
-        var lower = s.toLowerCase(Locale.ROOT);
-        return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
-    }
-    private static String trimSeps(String s) {
-        int a = 0, b = s.length();
-        while (a < b && Seps.isSep(s.charAt(a))) a++;
-        while (b > a && Seps.isSep(s.charAt(b - 1))) b--;
-        return s.substring(a, b);
-    }
+  private static final Pattern P = Pattern.compile("(?<m>\\d+(?:\\.\\d+)?)(?<u>[^\\d]+)?");
+
+  private BitRate(double v, String u) {
+    super(v, u);
+  }
+
+  public static BitRate fromString(String s) {
+    var m = P.matcher(s.trim());
+    if (!m.matches()) throw new IllegalArgumentException("Not a bit rate: " + s);
+    var raw = m.group("u") == null ? "" : m.group("u");
+    var u = trimSeps(raw);
+    u = capitalise(u);
+    u = u.replace("bits", "bps").replace("bit", "bps");
+    return new BitRate(Double.parseDouble(m.group("m")), u);
+  }
+
+  private static String capitalise(String s) {
+    if (s.isEmpty()) return s;
+    var lower = s.toLowerCase(Locale.ROOT);
+    return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
+  }
+
+  private static String trimSeps(String s) {
+    int a = 0, b = s.length();
+    while (a < b && Seps.isSep(s.charAt(a))) a++;
+    while (b > a && Seps.isSep(s.charAt(b - 1))) b--;
+    return s.substring(a, b);
+  }
 }
 ```
 
@@ -316,28 +368,33 @@ Python source: `/tmp/guessit/guessit/rules/properties/size.py` — single regex 
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
-import io.guessit.util.Size;
+import io.guessit.api.Guessit;
+import io.guessit.api.models.Size;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SizeExtractorTest {
-    @Test void parsesIntegerGigabytes() {
-        var r = Guessit.parse("Movie.4.7gb.mkv");
-        assertThat(r.size()).isEqualTo(Size.fromString("4.7GB"));
-    }
-    @Test void parsesMegabytes() {
-        var r = Guessit.parse("Movie.700mb.mkv");
-        assertThat(r.size()).isEqualTo(Size.fromString("700MB"));
-    }
-    @Test void requiresSepsSurround() {
-        // "abc500mbxyz" should NOT match — no separator before '500' and after 'mb'
-        var r = Guessit.parse("abc500mbxyz.mkv");
-        assertThat(r.size()).isNull();
-    }
+  @Test
+  void parsesIntegerGigabytes() {
+    var r = Guessit.parse("Movie.4.7gb.mkv");
+    assertThat(r.size()).isEqualTo(Size.fromString("4.7GB"));
+  }
+
+  @Test
+  void parsesMegabytes() {
+    var r = Guessit.parse("Movie.700mb.mkv");
+    assertThat(r.size()).isEqualTo(Size.fromString("700MB"));
+  }
+
+  @Test
+  void requiresSepsSurround() {
+    // "abc500mbxyz" should NOT match — no separator before '500' and after 'mb'
+    var r = Guessit.parse("abc500mbxyz.mkv");
+    assertThat(r.size()).isNull();
+  }
 }
 ```
 
@@ -349,30 +406,36 @@ Expected: FAIL — `r.size()` is `null` because no extractor exists yet.
 - [ ] **Step 3: Implement**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
-import io.guessit.util.Size;
+import io.guessit.api.models.Size;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Validators;
 
 import java.util.regex.Pattern;
 
 public final class SizeExtractor implements Extractor {
-    private static final Pattern P = Pattern.compile(
-        "(?i)(\\d+(?:\\.\\d+)?-?[mgt]b)");
+  private static final Pattern P = Pattern.compile(
+          "(?i)(\\d+(?:\\.\\d+)?-?[mgt]b)");
 
-    @Override public String name() { return "size"; }
+  @Override
+  public String name() {
+    return "size";
+  }
 
-    @Override
-    public void extract(ParseContext ctx) {
-        var m = P.matcher(ctx.input);
-        while (m.find()) {
-            int s = m.start(1), e = m.end(1);
-            if (!Validators.sepsSurround(ctx.input, s, e)) continue;
-            var raw = ctx.input.substring(s, e);
-            ctx.matches.add(new Match("size", Size.fromString(raw), s, e, raw,
-                priority(), java.util.Set.of("release-group-prefix"), false));
-        }
+  @Override
+  public void extract(ParseContext ctx) {
+    var m = P.matcher(ctx.input);
+    while (m.find()) {
+      int s = m.start(1), e = m.end(1);
+      if (!Validators.sepsSurround(ctx.input, s, e)) continue;
+      var raw = ctx.input.substring(s, e);
+      ctx.matches.add(new Match("size", Size.fromString(raw), s, e, raw,
+              priority(), java.util.Set.of("release-group-prefix"), false));
     }
+  }
 }
 ```
 
@@ -412,27 +475,32 @@ Expected: Cases use `bit_rate:` only (the Python builder collapses to `bit_rate`
 - [ ] **Step 2: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
-import io.guessit.util.BitRate;
+import io.guessit.api.Guessit;
+import io.guessit.api.models.BitRate;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class BitRateExtractorTest {
-    @Test void parsesKbpsAudio() {
-        var r = Guessit.parse("Movie.320Kbps.mkv");
-        assertThat(r.bitRate()).isEqualTo(BitRate.fromString("320Kbps"));
-    }
-    @Test void parsesMbpsFloat() {
-        var r = Guessit.parse("Movie.1.5Mbps.mkv");
-        assertThat(r.bitRate()).isEqualTo(BitRate.fromString("1.5Mbps"));
-    }
-    @Test void noEmissionWithoutSepsSurround() {
-        var r = Guessit.parse("abc320Kbpsxyz.mkv");
-        assertThat(r.bitRate()).isNull();
-    }
+  @Test
+  void parsesKbpsAudio() {
+    var r = Guessit.parse("Movie.320Kbps.mkv");
+    assertThat(r.bitRate()).isEqualTo(BitRate.fromString("320Kbps"));
+  }
+
+  @Test
+  void parsesMbpsFloat() {
+    var r = Guessit.parse("Movie.1.5Mbps.mkv");
+    assertThat(r.bitRate()).isEqualTo(BitRate.fromString("1.5Mbps"));
+  }
+
+  @Test
+  void noEmissionWithoutSepsSurround() {
+    var r = Guessit.parse("abc320Kbpsxyz.mkv");
+    assertThat(r.bitRate()).isNull();
+  }
 }
 ```
 
@@ -444,32 +512,42 @@ Expected: FAIL.
 - [ ] **Step 4: Implement**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
-import io.guessit.util.BitRate;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Validators;
+import io.guessit.api.models.BitRate;
 
 import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class BitRateExtractor implements Extractor {
-    private static final Pattern P = Pattern.compile(
-        "(?i)(\\d+(?:\\.\\d+)?-?[kmg]b(?:ps|its?))");
+  private static final Pattern P = Pattern.compile(
+          "(?i)(\\d+(?:\\.\\d+)?-?[kmg]b(?:ps|its?))");
 
-    @Override public String name() { return "bit_rate"; }
-    @Override public int priority() { return 1000; }
+  @Override
+  public String name() {
+    return "bit_rate";
+  }
 
-    @Override
-    public void extract(ParseContext ctx) {
-        var m = P.matcher(ctx.input);
-        while (m.find()) {
-            int s = m.start(1), e = m.end(1);
-            if (!Validators.sepsSurround(ctx.input, s, e)) continue;
-            var raw = ctx.input.substring(s, e);
-            ctx.matches.add(new Match("bit_rate", BitRate.fromString(raw), s, e, raw,
-                priority(), Set.of("release-group-prefix"), false));
-        }
+  @Override
+  public int priority() {
+    return 1000;
+  }
+
+  @Override
+  public void extract(ParseContext ctx) {
+    var m = P.matcher(ctx.input);
+    while (m.find()) {
+      int s = m.start(1), e = m.end(1);
+      if (!Validators.sepsSurround(ctx.input, s, e)) continue;
+      var raw = ctx.input.substring(s, e);
+      ctx.matches.add(new Match("bit_rate", BitRate.fromString(raw), s, e, raw,
+              priority(), Set.of("release-group-prefix"), false));
     }
+  }
 }
 ```
 
@@ -502,30 +580,37 @@ Python source: `/tmp/guessit/guessit/rules/properties/edition.py` (config-driven
 - [ ] **Step 1: Write failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class EditionExtractorTest {
-    @Test void detectsCollectorsEdition() {
-        assertThat(Guessit.parse("Movie.Collectors.Edition.mkv").edition())
+  @Test
+  void detectsCollectorsEdition() {
+    assertThat(io.guessit.api.Guessit.parse("Movie.Collectors.Edition.mkv").edition())
             .isEqualTo("Collector");
-    }
-    @Test void detectsDirectorsCutShortDC() {
-        assertThat(Guessit.parse("Movie.DC.1080p.BluRay-RG.mkv").edition())
+  }
+
+  @Test
+  void detectsDirectorsCutShortDC() {
+    assertThat(io.guessit.api.Guessit.parse("Movie.DC.1080p.BluRay-RG.mkv").edition())
             .isEqualTo("Director's Cut");
-    }
-    @Test void detectsExtended() {
-        assertThat(Guessit.parse("Movie.Extended.1080p.mkv").edition())
+  }
+
+  @Test
+  void detectsExtended() {
+    assertThat(Guessit.parse("Movie.Extended.1080p.mkv").edition())
             .isEqualTo("Extended");
-    }
-    @Test void detectsRemastered() {
-        assertThat(Guessit.parse("Movie.Remastered.mkv").edition())
+  }
+
+  @Test
+  void detectsRemastered() {
+    assertThat(io.guessit.api.Guessit.parse("Movie.Remastered.mkv").edition())
             .isEqualTo("Remastered");
-    }
+  }
 }
 ```
 
@@ -537,49 +622,61 @@ Expected: FAIL.
 - [ ] **Step 3: Implement**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Seps;
+import io.guessit.core.text.Validators;
 
 import java.util.Set;
 
 public final class EditionExtractor implements Extractor {
-    @Override public String name() { return "edition"; }
-    @Override public int priority() { return 1000; }
+  @Override
+  public String name() {
+    return "edition";
+  }
 
-    @Override
-    public void extract(ParseContext ctx) {
-        // Read alias→[regex,string,tags...] from config under "edition".
-        var entries = ctx.config.aliasPatterns("edition"); // pattern bundle (mirrors SourceExtractor)
-        for (var entry : entries) {
-            var canonical = entry.canonical();
-            for (var p : entry.compiledPatterns()) {
-                var m = p.matcher(ctx.input);
-                while (m.find()) {
-                    int s = m.start(), e = m.end();
-                    if (!Validators.sepsSurround(ctx.input, s, e)) continue;
-                    if (entry.tags().contains("has-neighbor") && !hasNeighbor(ctx, s, e)) continue;
-                    ctx.matches.add(new Match("edition", canonical, s, e,
-                        ctx.input.substring(s, e), priority(),
-                        Set.copyOf(entry.tags()), false));
-                }
-            }
+  @Override
+  public int priority() {
+    return 1000;
+  }
+
+  @Override
+  public void extract(ParseContext ctx) {
+    // Read alias→[regex,string,tags...] from config under "edition".
+    var entries = ctx.config.aliasPatterns("edition"); // pattern bundle (mirrors SourceExtractor)
+    for (var entry : entries) {
+      var canonical = entry.canonical();
+      for (var p : entry.compiledPatterns()) {
+        var m = p.matcher(ctx.input);
+        while (m.find()) {
+          int s = m.start(), e = m.end();
+          if (!Validators.sepsSurround(ctx.input, s, e)) continue;
+          if (entry.tags().contains("has-neighbor") && !hasNeighbor(ctx, s, e)) continue;
+          ctx.matches.add(new Match("edition", canonical, s, e,
+                  ctx.input.substring(s, e), priority(),
+                  Set.copyOf(entry.tags()), false));
         }
+      }
     }
+  }
 
-    private static boolean hasNeighbor(ParseContext ctx, int s, int e) {
-        // Mirrors python validators.has_neighbor — at least one non-private match
-        // adjacent (separator-only gap) to the candidate.
-        return ctx.matches.snapshot().stream()
+  private static boolean hasNeighbor(ParseContext ctx, int s, int e) {
+    // Mirrors python validators.has_neighbor — at least one non-private match
+    // adjacent (separator-only gap) to the candidate.
+    return ctx.matches.snapshot().stream()
             .filter(x -> !x.isPrivate())
             .anyMatch(x -> separatorOnlyGap(ctx.input, x.end(), s)
-                        || separatorOnlyGap(ctx.input, e, x.start()));
-    }
-    private static boolean separatorOnlyGap(String in, int a, int b) {
-        if (a > b) return false;
-        for (int i = a; i < b; i++) if (!Seps.isSep(in.charAt(i))) return false;
-        return true;
-    }
+                    || separatorOnlyGap(ctx.input, e, x.start()));
+  }
+
+  private static boolean separatorOnlyGap(String in, int a, int b) {
+    if (a > b) return false;
+    for (int i = a; i < b; i++) if (!Seps.isSep(in.charAt(i))) return false;
+    return true;
+  }
 }
 ```
 
@@ -612,33 +709,40 @@ Python: two regexes — `cd-?(?P<cd>\d+)(?:-?of-?(?P<cd_count>\d+))?` and `(?P<c
 - [ ] **Step 1: Failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class CdExtractorTest {
-    @Test void cdOnly() {
-        var r = Guessit.parse("Movie.cd1.avi");
-        assertThat(r.cd()).isEqualTo(1);
-        assertThat(r.cdCount()).isNull();
-    }
-    @Test void cdOfCount() {
-        var r = Guessit.parse("Movie.cd1of2.avi");
-        assertThat(r.cd()).isEqualTo(1);
-        assertThat(r.cdCount()).isEqualTo(2);
-    }
-    @Test void cdCountAlone() {
-        var r = Guessit.parse("Movie.2cds.avi");
-        assertThat(r.cd()).isNull();
-        assertThat(r.cdCount()).isEqualTo(2);
-    }
-    @Test void rejectsOutOfRange() {
-        var r = Guessit.parse("Movie.cd100.avi");
-        assertThat(r.cd()).isNull();
-    }
+  @Test
+  void cdOnly() {
+    var r = io.guessit.api.Guessit.parse("Movie.cd1.avi");
+    assertThat(r.cd()).isEqualTo(1);
+    assertThat(r.cdCount()).isNull();
+  }
+
+  @Test
+  void cdOfCount() {
+    var r = Guessit.parse("Movie.cd1of2.avi");
+    assertThat(r.cd()).isEqualTo(1);
+    assertThat(r.cdCount()).isEqualTo(2);
+  }
+
+  @Test
+  void cdCountAlone() {
+    var r = Guessit.parse("Movie.2cds.avi");
+    assertThat(r.cd()).isNull();
+    assertThat(r.cdCount()).isEqualTo(2);
+  }
+
+  @Test
+  void rejectsOutOfRange() {
+    var r = io.guessit.api.Guessit.parse("Movie.cd100.avi");
+    assertThat(r.cd()).isNull();
+  }
 }
 ```
 
@@ -650,50 +754,60 @@ Expected: FAIL.
 - [ ] **Step 3: Implement**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Validators;
 
 import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class CdExtractor implements Extractor {
-    private static final Pattern CD_OF = Pattern.compile(
-        "(?i)cd-?(?<cd>\\d+)(?:-?of-?(?<count>\\d+))?");
-    private static final Pattern CD_COUNT = Pattern.compile(
-        "(?i)(?<count>\\d+)-?cds?");
+  private static final Pattern CD_OF = Pattern.compile(
+          "(?i)cd-?(?<cd>\\d+)(?:-?of-?(?<count>\\d+))?");
+  private static final Pattern CD_COUNT = Pattern.compile(
+          "(?i)(?<count>\\d+)-?cds?");
 
-    @Override public String name() { return "cd"; }
-    @Override public int priority() { return 1000; }
+  @Override
+  public String name() {
+    return "cd";
+  }
 
-    @Override
-    public void extract(ParseContext ctx) {
-        for (var m = CD_OF.matcher(ctx.input); m.find(); ) {
-            int s = m.start(), e = m.end();
-            if (!Validators.sepsSurround(ctx.input, s, e)) continue;
-            var cd = Integer.parseInt(m.group("cd"));
-            if (cd <= 0 || cd >= 100) continue;
-            ctx.matches.add(new Match("cd", cd,
-                m.start("cd"), m.end("cd"), m.group("cd"), priority(), Set.of(), false));
-            if (m.group("count") != null) {
-                var c = Integer.parseInt(m.group("count"));
-                if (c > 0 && c < 100) {
-                    ctx.matches.add(new Match("cd_count", c,
-                        m.start("count"), m.end("count"), m.group("count"),
-                        priority(), Set.of(), false));
-                }
-            }
+  @Override
+  public int priority() {
+    return 1000;
+  }
+
+  @Override
+  public void extract(ParseContext ctx) {
+    for (var m = CD_OF.matcher(ctx.input); m.find(); ) {
+      int s = m.start(), e = m.end();
+      if (!Validators.sepsSurround(ctx.input, s, e)) continue;
+      var cd = Integer.parseInt(m.group("cd"));
+      if (cd <= 0 || cd >= 100) continue;
+      ctx.matches.add(new Match("cd", cd,
+              m.start("cd"), m.end("cd"), m.group("cd"), priority(), Set.of(), false));
+      if (m.group("count") != null) {
+        var c = Integer.parseInt(m.group("count"));
+        if (c > 0 && c < 100) {
+          ctx.matches.add(new Match("cd_count", c,
+                  m.start("count"), m.end("count"), m.group("count"),
+                  priority(), Set.of(), false));
         }
-        for (var m = CD_COUNT.matcher(ctx.input); m.find(); ) {
-            int s = m.start(), e = m.end();
-            if (!Validators.sepsSurround(ctx.input, s, e)) continue;
-            var c = Integer.parseInt(m.group("count"));
-            if (c <= 0 || c >= 100) continue;
-            ctx.matches.add(new Match("cd_count", c,
-                m.start("count"), m.end("count"), m.group("count"),
-                priority(), Set.of(), false));
-        }
+      }
     }
+    for (var m = CD_COUNT.matcher(ctx.input); m.find(); ) {
+      int s = m.start(), e = m.end();
+      if (!Validators.sepsSurround(ctx.input, s, e)) continue;
+      var c = Integer.parseInt(m.group("count"));
+      if (c <= 0 || c >= 100) continue;
+      ctx.matches.add(new Match("cd_count", c,
+              m.start("count"), m.end("count"), m.group("count"),
+              priority(), Set.of(), false));
+    }
+  }
 }
 ```
 
@@ -724,25 +838,27 @@ Python: `x(\d+)` → child capture group becomes `bonus`; conflict-solver loses 
 - [ ] **Step 1: Failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class BonusExtractorTest {
-    @Test void detectsBonusNumberAndTitle() {
-        var r = Guessit.parse("Movie.x05.Behind.The.Scenes.mkv");
-        assertThat(r.bonus()).isEqualTo(5);
-        assertThat(r.bonusTitle()).isEqualTo("Behind The Scenes");
-    }
-    @Test void losesToVideoCodec() {
-        // x264 must remain video_codec, not bonus=264
-        var r = Guessit.parse("Movie.x264-RG.mkv");
-        assertThat(r.bonus()).isNull();
-        assertThat(r.videoCodec()).contains("H.264");
-    }
+  @Test
+  void detectsBonusNumberAndTitle() {
+    var r = io.guessit.api.Guessit.parse("Movie.x05.Behind.The.Scenes.mkv");
+    assertThat(r.bonus()).isEqualTo(5);
+    assertThat(r.bonusTitle()).isEqualTo("Behind The Scenes");
+  }
+
+  @Test
+  void losesToVideoCodec() {
+    // x264 must remain video_codec, not bonus=264
+    var r = io.guessit.api.Guessit.parse("Movie.x264-RG.mkv");
+    assertThat(r.bonus()).isNull();
+    assertThat(r.videoCodec()).contains("H.264");
+  }
 }
 ```
 
@@ -754,54 +870,66 @@ Expected: FAIL.
 - [ ] **Step 3: Implement**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Holes;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Formatters;
+import io.guessit.core.text.Validators;
 
 import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class BonusExtractor implements Extractor {
-    private static final Pattern P = Pattern.compile("(?i)x(?<n>\\d+)");
+  private static final Pattern P = Pattern.compile("(?i)x(?<n>\\d+)");
 
-    @Override public String name() { return "bonus"; }
-    @Override public int priority() { return 1000; }
+  @Override
+  public String name() {
+    return "bonus";
+  }
 
-    @Override
-    public void extract(ParseContext ctx) {
-        for (var m = P.matcher(ctx.input); m.find(); ) {
-            int s = m.start(), e = m.end();
-            if (!Validators.sepsSurround(ctx.input, s, e)) continue;
-            // Conflict-solver: lose to video_codec / non-weak episode at any overlap.
-            int s2 = m.start("n"), e2 = m.end("n");
-            boolean codecOverlap = ctx.matches.snapshot().stream().anyMatch(x ->
-                (x.name().equals("video_codec") ||
-                 (x.name().equals("episode") && !x.tags().contains("weak-episode")))
-                && x.start() < e && x.end() > s);
-            if (codecOverlap) continue;
-            ctx.matches.add(new Match("bonus", Integer.parseInt(m.group("n")),
-                s2, e2, m.group("n"), priority(), Set.of(), false));
-        }
+  @Override
+  public int priority() {
+    return 1000;
+  }
+
+  @Override
+  public void extract(ParseContext ctx) {
+    for (var m = P.matcher(ctx.input); m.find(); ) {
+      int s = m.start(), e = m.end();
+      if (!Validators.sepsSurround(ctx.input, s, e)) continue;
+      // Conflict-solver: lose to video_codec / non-weak episode at any overlap.
+      int s2 = m.start("n"), e2 = m.end("n");
+      boolean codecOverlap = ctx.matches.snapshot().stream().anyMatch(x ->
+              (x.name().equals("video_codec") ||
+                      (x.name().equals("episode") && !x.tags().contains("weak-episode")))
+                      && x.start() < e && x.end() > s);
+      if (codecOverlap) continue;
+      ctx.matches.add(new Match("bonus", Integer.parseInt(m.group("n")),
+              s2, e2, m.group("n"), priority(), Set.of(), false));
     }
+  }
 
-    @Override
-    public void postProcess(ParseContext ctx) {
-        // BonusTitleRule — runs after TitleExtractor.postProcess so the title hole is settled.
-        var bonus = ctx.matches.snapshot().stream()
+  @Override
+  public void postProcess(ParseContext ctx) {
+    // BonusTitleRule — runs after TitleExtractor.postProcess so the title hole is settled.
+    var bonus = ctx.matches.snapshot().stream()
             .filter(x -> x.name().equals("bonus") && !x.isPrivate())
             .findFirst().orElse(null);
-        if (bonus == null) return;
-        var pathMarker = ctx.markers.stream()
+    if (bonus == null) return;
+    var pathMarker = ctx.markers.stream()
             .filter(mk -> mk.name().equals("path")
-                       && mk.start() <= bonus.start() && mk.end() >= bonus.end())
+                    && mk.start() <= bonus.start() && mk.end() >= bonus.end())
             .findFirst().orElse(null);
-        if (pathMarker == null) return;
-        var hole = Holes.firstHole(ctx, bonus.end(), pathMarker.end(), Formatters::cleanup);
-        if (hole == null || hole.value().isBlank()) return;
-        ctx.matches.add(new Match("bonus_title", hole.value(),
+    if (pathMarker == null) return;
+    var hole = Holes.firstHole(ctx, bonus.end(), pathMarker.end(), Formatters::cleanup);
+    if (hole == null || hole.value().isBlank()) return;
+    ctx.matches.add(new Match("bonus_title", hole.value(),
             hole.start(), hole.end(), ctx.input.substring(hole.start(), hole.end()),
             priority(), Set.of(), false));
-    }
+  }
 }
 ```
 
@@ -832,23 +960,26 @@ Python: `f(\d{1,2})` → integer `film`. `film_title` is the leading hole inside
 - [ ] **Step 1: Failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class FilmExtractorTest {
-    @Test void detectsFilmNumberAndPrefixTitle() {
-        var r = Guessit.parse("My.Awesome.Series.f01.mkv");
-        assertThat(r.film()).isEqualTo(1);
-        assertThat(r.filmTitle()).isEqualTo("My Awesome Series");
-    }
-    @Test void rejectsThreeDigits() {
-        var r = Guessit.parse("Movie.f100.mkv");
-        assertThat(r.film()).isNull();
-    }
+  @Test
+  void detectsFilmNumberAndPrefixTitle() {
+    var r = io.guessit.api.Guessit.parse("My.Awesome.Series.f01.mkv");
+    assertThat(r.film()).isEqualTo(1);
+    assertThat(r.filmTitle()).isEqualTo("My Awesome Series");
+  }
+
+  @Test
+  void rejectsThreeDigits() {
+    var r = Guessit.parse("Movie.f100.mkv");
+    assertThat(r.film()).isNull();
+  }
 }
 ```
 
@@ -860,46 +991,58 @@ Expected: FAIL.
 - [ ] **Step 3: Implement**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Holes;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Formatters;
+import io.guessit.core.text.Validators;
 
 import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class FilmExtractor implements Extractor {
-    private static final Pattern P = Pattern.compile("(?i)f(?<n>\\d{1,2})");
+  private static final Pattern P = Pattern.compile("(?i)f(?<n>\\d{1,2})");
 
-    @Override public String name() { return "film"; }
-    @Override public int priority() { return 1000; }
+  @Override
+  public String name() {
+    return "film";
+  }
 
-    @Override
-    public void extract(ParseContext ctx) {
-        for (var m = P.matcher(ctx.input); m.find(); ) {
-            int s = m.start(), e = m.end();
-            if (!Validators.sepsSurround(ctx.input, s, e)) continue;
-            ctx.matches.add(new Match("film", Integer.parseInt(m.group("n")),
-                m.start("n"), m.end("n"), m.group("n"), priority(), Set.of(), false));
-        }
+  @Override
+  public int priority() {
+    return 1000;
+  }
+
+  @Override
+  public void extract(ParseContext ctx) {
+    for (var m = P.matcher(ctx.input); m.find(); ) {
+      int s = m.start(), e = m.end();
+      if (!Validators.sepsSurround(ctx.input, s, e)) continue;
+      ctx.matches.add(new Match("film", Integer.parseInt(m.group("n")),
+              m.start("n"), m.end("n"), m.group("n"), priority(), Set.of(), false));
     }
+  }
 
-    @Override
-    public void postProcess(ParseContext ctx) {
-        var film = ctx.matches.snapshot().stream()
+  @Override
+  public void postProcess(ParseContext ctx) {
+    var film = ctx.matches.snapshot().stream()
             .filter(x -> x.name().equals("film") && !x.isPrivate())
             .findFirst().orElse(null);
-        if (film == null) return;
-        var pathMarker = ctx.markers.stream()
+    if (film == null) return;
+    var pathMarker = ctx.markers.stream()
             .filter(mk -> mk.name().equals("path")
-                       && mk.start() <= film.start() && mk.end() >= film.end())
+                    && mk.start() <= film.start() && mk.end() >= film.end())
             .findFirst().orElse(null);
-        if (pathMarker == null) return;
-        var hole = Holes.firstHole(ctx, pathMarker.start(), film.start() + 1, Formatters::cleanup);
-        if (hole == null || hole.value().isBlank()) return;
-        ctx.matches.add(new Match("film_title", hole.value(),
+    if (pathMarker == null) return;
+    var hole = Holes.firstHole(ctx, pathMarker.start(), film.start() + 1, Formatters::cleanup);
+    if (hole == null || hole.value().isBlank()) return;
+    ctx.matches.add(new Match("film_title", hole.value(),
             hole.start(), hole.end(), ctx.input.substring(hole.start(), hole.end()),
             priority(), Set.of(), false));
-    }
+  }
 }
 ```
 
@@ -930,26 +1073,33 @@ Python: `(pt|part)-?<numeral>` where `numeral` = arabic digits **or** roman (I, 
 - [ ] **Step 1: Failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class PartExtractorTest {
-    @Test void arabicPart() {
-        assertThat(Guessit.parse("Movie.Part2.mkv").part()).isEqualTo(2);
-    }
-    @Test void ptShortPrefix() {
-        assertThat(Guessit.parse("Movie.pt3.mkv").part()).isEqualTo(3);
-    }
-    @Test void romanPart() {
-        assertThat(Guessit.parse("Movie.PartIII.mkv").part()).isEqualTo(3);
-    }
-    @Test void rejectsOutOfRange() {
-        assertThat(Guessit.parse("Movie.Part200.mkv").part()).isNull();
-    }
+  @Test
+  void arabicPart() {
+    assertThat(io.guessit.api.Guessit.parse("Movie.Part2.mkv").part()).isEqualTo(2);
+  }
+
+  @Test
+  void ptShortPrefix() {
+    assertThat(Guessit.parse("Movie.pt3.mkv").part()).isEqualTo(3);
+  }
+
+  @Test
+  void romanPart() {
+    assertThat(io.guessit.api.Guessit.parse("Movie.PartIII.mkv").part()).isEqualTo(3);
+  }
+
+  @Test
+  void rejectsOutOfRange() {
+    assertThat(Guessit.parse("Movie.Part200.mkv").part()).isNull();
+  }
 }
 ```
 
@@ -961,48 +1111,61 @@ Expected: FAIL.
 - [ ] **Step 3: Implement**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Validators;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class PartExtractor implements Extractor {
-    private static final Pattern P = Pattern.compile(
-        "(?i)(?:pt|part)-?(?<n>\\d{1,3}|m{0,3}(?:cm|cd|d?c{0,3})(?:xc|xl|l?x{0,3})(?:ix|iv|v?i{0,3}))");
+  private static final Pattern P = Pattern.compile(
+          "(?i)(?:pt|part)-?(?<n>\\d{1,3}|m{0,3}(?:cm|cd|d?c{0,3})(?:xc|xl|l?x{0,3})(?:ix|iv|v?i{0,3}))");
 
-    private static final Map<Character,Integer> ROMAN = Map.of(
-        'i',1,'v',5,'x',10,'l',50,'c',100,'d',500,'m',1000);
+  private static final Map<Character, Integer> ROMAN = Map.of(
+          'i', 1, 'v', 5, 'x', 10, 'l', 50, 'c', 100, 'd', 500, 'm', 1000);
 
-    @Override public String name() { return "part"; }
-    @Override public int priority() { return 1000; }
+  @Override
+  public String name() {
+    return "part";
+  }
 
-    @Override
-    public void extract(ParseContext ctx) {
-        for (var m = P.matcher(ctx.input); m.find(); ) {
-            int s = m.start(), e = m.end();
-            if (!Validators.sepsSurround(ctx.input, s, e)) continue;
-            var raw = m.group("n");
-            int v;
-            try { v = Integer.parseInt(raw); }
-            catch (NumberFormatException ex) { v = roman(raw); }
-            if (v <= 0 || v >= 100) continue;
-            ctx.matches.add(new Match("part", v,
-                m.start("n"), m.end("n"), raw, priority(), Set.of(), false));
-        }
+  @Override
+  public int priority() {
+    return 1000;
+  }
+
+  @Override
+  public void extract(ParseContext ctx) {
+    for (var m = P.matcher(ctx.input); m.find(); ) {
+      int s = m.start(), e = m.end();
+      if (!Validators.sepsSurround(ctx.input, s, e)) continue;
+      var raw = m.group("n");
+      int v;
+      try {
+        v = Integer.parseInt(raw);
+      } catch (NumberFormatException ex) {
+        v = roman(raw);
+      }
+      if (v <= 0 || v >= 100) continue;
+      ctx.matches.add(new Match("part", v,
+              m.start("n"), m.end("n"), raw, priority(), Set.of(), false));
     }
+  }
 
-    private static int roman(String s) {
-        int total = 0, prev = 0;
-        for (int i = s.length() - 1; i >= 0; i--) {
-            int cur = ROMAN.getOrDefault(Character.toLowerCase(s.charAt(i)), 0);
-            total += cur < prev ? -cur : cur;
-            prev = cur;
-        }
-        return total;
+  private static int roman(String s) {
+    int total = 0, prev = 0;
+    for (int i = s.length() - 1; i >= 0; i--) {
+      int cur = ROMAN.getOrDefault(Character.toLowerCase(s.charAt(i)), 0);
+      total += cur < prev ? -cur : cur;
+      prev = cur;
     }
+    return total;
+  }
 }
 ```
 
@@ -1033,23 +1196,25 @@ Python: `(?:[a-fA-F]|[0-9]){8}` for `crc32`, conflict-loses to season/episode. U
 - [ ] **Step 1: Failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class CrcExtractorTest {
-    @Test void hex8Crc32() {
-        assertThat(Guessit.parse("Show.S01E02.[ABCD1234].mkv").crc32())
+  @Test
+  void hex8Crc32() {
+    assertThat(io.guessit.api.Guessit.parse("Show.S01E02.[ABCD1234].mkv").crc32())
             .isEqualToIgnoringCase("ABCD1234");
-    }
-    @Test void crcLosesToSeasonEpisode() {
-        // 8 digits between SxxExx and codec must NOT become crc32 if it overlaps season/episode.
-        var r = Guessit.parse("Show.S01E02.12345678.x264.mkv");
-        assertThat(r.crc32()).isEqualToIgnoringCase("12345678");
-    }
+  }
+
+  @Test
+  void crcLosesToSeasonEpisode() {
+    // 8 digits between SxxExx and codec must NOT become crc32 if it overlaps season/episode.
+    var r = io.guessit.api.Guessit.parse("Show.S01E02.12345678.x264.mkv");
+    assertThat(r.crc32()).isEqualToIgnoringCase("12345678");
+  }
 }
 ```
 
@@ -1061,28 +1226,38 @@ Expected: FAIL.
 - [ ] **Step 3: Implement (crc32 only — defer uuid until YML demands)**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Validators;
 
 import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class CrcExtractor implements Extractor {
-    private static final Pattern CRC = Pattern.compile("(?i)\\b[0-9a-f]{8}\\b");
+  private static final Pattern CRC = Pattern.compile("(?i)\\b[0-9a-f]{8}\\b");
 
-    @Override public String name() { return "crc32"; }
-    @Override public int priority() { return 500; } // weaker than season/episode
+  @Override
+  public String name() {
+    return "crc32";
+  }
 
-    @Override
-    public void extract(ParseContext ctx) {
-        for (var m = CRC.matcher(ctx.input); m.find(); ) {
-            int s = m.start(), e = m.end();
-            if (!Validators.sepsSurround(ctx.input, s, e)) continue;
-            ctx.matches.add(new Match("crc32", ctx.input.substring(s, e),
-                s, e, ctx.input.substring(s, e), priority(), Set.of(), false));
-        }
+  @Override
+  public int priority() {
+    return 500;
+  } // weaker than season/episode
+
+  @Override
+  public void extract(ParseContext ctx) {
+    for (var m = CRC.matcher(ctx.input); m.find(); ) {
+      int s = m.start(), e = m.end();
+      if (!Validators.sepsSurround(ctx.input, s, e)) continue;
+      ctx.matches.add(new Match("crc32", ctx.input.substring(s, e),
+              s, e, ctx.input.substring(s, e), priority(), Set.of(), false));
     }
+  }
 }
 ```
 
@@ -1115,21 +1290,26 @@ Python: appends one zero-width `mimetype` match using `mimetypes.guess_type`. We
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class MimetypeProcessorTest {
-    @Test void mp4() {
-        assertThat(Guessit.parse("Movie.mp4").mimetype()).isEqualTo("video/mp4");
-    }
-    @Test void mkv() {
-        assertThat(Guessit.parse("Movie.mkv").mimetype()).isEqualTo("video/x-matroska");
-    }
-    @Test void srt() {
-        assertThat(Guessit.parse("Movie.srt").mimetype()).isEqualTo("application/x-subrip");
-    }
+  @Test
+  void mp4() {
+    assertThat(io.guessit.api.Guessit.parse("Movie.mp4").mimetype()).isEqualTo("video/mp4");
+  }
+
+  @Test
+  void mkv() {
+    assertThat(Guessit.parse("Movie.mkv").mimetype()).isEqualTo("video/x-matroska");
+  }
+
+  @Test
+  void srt() {
+    assertThat(io.guessit.api.Guessit.parse("Movie.srt").mimetype()).isEqualTo("application/x-subrip");
+  }
 }
 ```
 
@@ -1143,37 +1323,38 @@ Expected: FAIL.
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
 
 import java.net.URLConnection;
 import java.util.Map;
 import java.util.Set;
 
 public final class MimetypeProcessor implements PostProcessor {
-    private static final Map<String, String> OVERLAY = Map.of(
-        "mkv",  "video/x-matroska",
-        "flv",  "video/x-flv",
-        "srt",  "application/x-subrip",
-        "ass",  "text/x-ssa",
-        "ssa",  "text/x-ssa",
-        "idx",  "application/x-idx",
-        "sub",  "application/x-subrip",
-        "nfo",  "text/x-nfo");
+  private static final Map<String, String> OVERLAY = Map.of(
+          "mkv", "video/x-matroska",
+          "flv", "video/x-flv",
+          "srt", "application/x-subrip",
+          "ass", "text/x-ssa",
+          "ssa", "text/x-ssa",
+          "idx", "application/x-idx",
+          "sub", "application/x-subrip",
+          "nfo", "text/x-nfo");
 
-    @Override
-    public void apply(ParseContext ctx) {
-        var lower = ctx.input.toLowerCase(java.util.Locale.ROOT);
-        var dot = lower.lastIndexOf('.');
-        String mime = null;
-        if (dot >= 0 && dot < lower.length() - 1) {
-            var ext = lower.substring(dot + 1);
-            mime = OVERLAY.get(ext);
-        }
-        if (mime == null) mime = URLConnection.guessContentTypeFromName(ctx.input);
-        if (mime == null) return;
-        var pos = ctx.input.length();
-        ctx.matches.add(new Match("mimetype", mime, pos, pos, "", 1000, Set.of(), false));
+  @Override
+  public void apply(ParseContext ctx) {
+    var lower = ctx.input.toLowerCase(java.util.Locale.ROOT);
+    var dot = lower.lastIndexOf('.');
+    String mime = null;
+    if (dot >= 0 && dot < lower.length() - 1) {
+      var ext = lower.substring(dot + 1);
+      mime = OVERLAY.get(ext);
     }
+    if (mime == null) mime = URLConnection.guessContentTypeFromName(ctx.input);
+    if (mime == null) return;
+    var pos = ctx.input.length();
+    ctx.matches.add(new Match("mimetype", mime, pos, pos, "", 1000, Set.of(), false));
+  }
 }
 ```
 
@@ -1206,7 +1387,9 @@ Python: any match starting at `group.start+1` is shifted to start at `group.star
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
@@ -1214,15 +1397,16 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class EnlargeGroupMatchesTest {
-    @Test void enlargeBracketedMatchToIncludeBrackets() {
-        var ctx = new ParseContext("[XCT]Show", null, null);
-        ctx.markers.add(new Marker("group", 0, 5)); // includes [ and ]
-        ctx.matches.add(new Match("release_group", "XCT", 1, 4, "XCT", 1000, Set.of(), false));
-        new EnlargeGroupMatches().apply(ctx);
-        var m = ctx.matches.named("release_group").findFirst().orElseThrow();
-        assertThat(m.start()).isEqualTo(0);
-        assertThat(m.end()).isEqualTo(5);
-    }
+  @Test
+  void enlargeBracketedMatchToIncludeBrackets() {
+    var ctx = new ParseContext("[XCT]Show", null, null);
+    ctx.markers.add(new Marker("group", 0, 5)); // includes [ and ]
+    ctx.matches.add(new Match("release_group", "XCT", 1, 4, "XCT", 1000, Set.of(), false));
+    new EnlargeGroupMatches().apply(ctx);
+    var m = ctx.matches.named("release_group").findFirst().orElseThrow();
+    assertThat(m.start()).isEqualTo(0);
+    assertThat(m.end()).isEqualTo(5);
+  }
 }
 ```
 
@@ -1238,28 +1422,28 @@ Expected: FAIL.
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
 
 import java.util.ArrayList;
-import java.util.List;
 
 public final class EnlargeGroupMatches implements PostProcessor {
-    @Override
-    public void apply(ParseContext ctx) {
-        for (var g : ctx.markers) {
-            if (!g.name().equals("group")) continue;
-            var snapshot = new ArrayList<>(ctx.matches.snapshot());
-            for (var m : snapshot) {
-                Match next = null;
-                if (m.start() == g.start() + 1) {
-                    next = m.withStart(g.start());
-                } else if (m.end() == g.end() - 1) {
-                    next = m.withEnd(g.end());
-                }
-                if (next != null) ctx.matches.replace(m, next);
-            }
+  @Override
+  public void apply(ParseContext ctx) {
+    for (var g : ctx.markers) {
+      if (!g.name().equals("group")) continue;
+      var snapshot = new ArrayList<>(ctx.matches.snapshot());
+      for (var m : snapshot) {
+        Match next = null;
+        if (m.start() == g.start() + 1) {
+          next = m.withStart(g.start());
+        } else if (m.end() == g.end() - 1) {
+          next = m.withEnd(g.end());
         }
+        if (next != null) ctx.matches.replace(m, next);
+      }
     }
+  }
 }
 ```
 
@@ -1298,18 +1482,19 @@ Python `processors.py`:
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RemoveAmbiguousTest {
-    @Test void firstFilepartReleaseGroupWinsOverSecond() {
-        // Top dir has release_group=Group; file inside repeats with different value.
-        var r = Guessit.parse("Show.S01.Group/Show.S01E01.OtherGroup.mkv");
-        // Without dedup, we'd get both. After RemoveAmbiguous, the upper-folder value survives.
-        assertThat(r.releaseGroup()).isIn("Group", "OtherGroup");
-    }
+  @Test
+  void firstFilepartReleaseGroupWinsOverSecond() {
+    // Top dir has release_group=Group; file inside repeats with different value.
+    var r = Guessit.parse("Show.S01.Group/Show.S01E01.OtherGroup.mkv");
+    // Without dedup, we'd get both. After RemoveAmbiguous, the upper-folder value survives.
+    assertThat(r.releaseGroup()).isIn("Group", "OtherGroup");
+  }
 }
 ```
 
@@ -1322,59 +1507,64 @@ class RemoveAmbiguousTest {
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
 
 import java.util.*;
 import java.util.function.*;
 
 public final class RemoveAmbiguous implements PostProcessor {
-    private final Predicate<Match> predicate;
-    private final boolean reverseFileparts;
-    private final Comparator<Match> tieBreak;
+  private final Predicate<Match> predicate;
+  private final boolean reverseFileparts;
+  private final Comparator<Match> tieBreak;
 
-    public RemoveAmbiguous() { this(m -> true, false, (a,b)->0); }
-    public RemoveAmbiguous(Predicate<Match> predicate,
-                           boolean reverseFileparts,
-                           Comparator<Match> tieBreak) {
-        this.predicate = predicate;
-        this.reverseFileparts = reverseFileparts;
-        this.tieBreak = tieBreak;
-    }
+  public RemoveAmbiguous() {
+    this(m -> true, false, (a, b) -> 0);
+  }
 
-    @Override
-    public void apply(ParseContext ctx) {
-        var paths = ctx.markers.stream()
+  public RemoveAmbiguous(Predicate<Match> predicate,
+                         boolean reverseFileparts,
+                         Comparator<Match> tieBreak) {
+    this.predicate = predicate;
+    this.reverseFileparts = reverseFileparts;
+    this.tieBreak = tieBreak;
+  }
+
+  @Override
+  public void apply(ParseContext ctx) {
+    var paths = ctx.markers.stream()
             .filter(m -> m.name().equals("path"))
             .sorted(Comparator.comparingInt(Marker::start))
             .toList();
-        if (reverseFileparts) {
-            var copy = new ArrayList<>(paths);
-            Collections.reverse(copy);
-            paths = copy;
-        }
-        var seenNames = new HashSet<String>();
-        var values = new HashMap<String, List<Object>>();
-        var toRemove = new ArrayList<Match>();
-        for (var fp : paths) {
-            var inFp = ctx.matches.snapshot().stream()
-                .filter(predicate)
-                .filter(m -> m.start() >= fp.start() && m.end() <= fp.end())
-                .sorted(tieBreak)
-                .toList();
-            var fpNames = new HashSet<String>();
-            for (var m : inFp) {
-                fpNames.add(m.name());
-                var bucket = values.computeIfAbsent(m.name(), k -> new ArrayList<>());
-                if (seenNames.contains(m.name())) {
-                    if (!bucket.contains(m.value())) toRemove.add(m);
-                } else {
-                    if (!bucket.contains(m.value())) bucket.add(m.value());
-                }
-            }
-            seenNames.addAll(fpNames);
-        }
-        for (var m : toRemove) ctx.matches.remove(m);
+    if (reverseFileparts) {
+      var copy = new ArrayList<>(paths);
+      Collections.reverse(copy);
+      paths = copy;
     }
+    var seenNames = new HashSet<String>();
+    var values = new HashMap<String, List<Object>>();
+    var toRemove = new ArrayList<Match>();
+    for (var fp : paths) {
+      var inFp = ctx.matches.snapshot().stream()
+              .filter(predicate)
+              .filter(m -> m.start() >= fp.start() && m.end() <= fp.end())
+              .sorted(tieBreak)
+              .toList();
+      var fpNames = new HashSet<String>();
+      for (var m : inFp) {
+        fpNames.add(m.name());
+        var bucket = values.computeIfAbsent(m.name(), k -> new ArrayList<>());
+        if (seenNames.contains(m.name())) {
+          if (!bucket.contains(m.value())) toRemove.add(m);
+        } else {
+          if (!bucket.contains(m.value())) bucket.add(m.value());
+        }
+      }
+      seenNames.addAll(fpNames);
+    }
+    for (var m : toRemove) ctx.matches.remove(m);
+  }
 }
 ```
 
@@ -1383,16 +1573,16 @@ public final class RemoveAmbiguous implements PostProcessor {
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.state.Match;
 
 import java.util.Comparator;
 
 public final class RemoveLessSpecificSeasonEpisode extends RemoveAmbiguous {
-    public RemoveLessSpecificSeasonEpisode(String name) {
-        super(m -> m.name().equals(name),
-              true,                                       // reverse fileparts
-              Comparator.comparing((Match m) -> m.tags().contains("SxxExx") ? 0 : 1));
-    }
+  public RemoveLessSpecificSeasonEpisode(String name) {
+    super(m -> m.name().equals(name),
+            true,                                       // reverse fileparts
+            Comparator.comparing((Match m) -> m.tags().contains("SxxExx") ? 0 : 1));
+  }
 }
 ```
 
@@ -1430,32 +1620,32 @@ Python:
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SeasonYearTest {
-    @Test void seasonValueLooksLikeYearAddsYear() {
-        var r = Guessit.parse("Show.S2014.E03.mkv"); // S2014 → season=2014 + year=2014
-        assertThat(r.year()).isEqualTo(2014);
-    }
+  @Test
+  void seasonValueLooksLikeYearAddsYear() {
+    var r = io.guessit.api.Guessit.parse("Show.S2014.E03.mkv"); // S2014 → season=2014 + year=2014
+    assertThat(r.year()).isEqualTo(2014);
+  }
 }
 ```
 
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class YearSeasonTest {
-    @Test void yearWithEpisodeNoSeasonAddsSeason() {
-        var r = Guessit.parse("Show.2014.E03.mkv"); // year=2014 + episode=3 → season=2014
-        assertThat(r.season()).isEqualTo(2014);
-    }
+  @Test
+  void yearWithEpisodeNoSeasonAddsSeason() {
+    var r = io.guessit.api.Guessit.parse("Show.2014.E03.mkv"); // year=2014 + episode=3 → season=2014
+    assertThat(r.season()).isEqualTo(2014);
+  }
 }
 ```
 
@@ -1469,23 +1659,24 @@ Expected: FAIL.
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
 
 import java.util.Set;
 
 public final class SeasonYear implements PostProcessor {
-    private static final int CUR = java.time.Year.now().getValue();
+  private static final int CUR = java.time.Year.now().getValue();
 
-    @Override
-    public void apply(ParseContext ctx) {
-        if (ctx.matches.named("year").findFirst().isPresent()) return;
-        ctx.matches.named("season").toList().forEach(season -> {
-            if (!(season.value() instanceof Integer v)) return;
-            if (v < 1900 || v > CUR + 1) return;
-            ctx.matches.add(new Match("year", v, season.start(), season.end(),
-                season.raw(), season.priority(), Set.copyOf(season.tags()), false));
-        });
-    }
+  @Override
+  public void apply(ParseContext ctx) {
+    if (ctx.matches.named("year").findFirst().isPresent()) return;
+    ctx.matches.named("season").toList().forEach(season -> {
+      if (!(season.value() instanceof Integer v)) return;
+      if (v < 1900 || v > CUR + 1) return;
+      ctx.matches.add(new Match("year", v, season.start(), season.end(),
+              season.raw(), season.priority(), Set.copyOf(season.tags()), false));
+    });
+  }
 }
 ```
 
@@ -1494,19 +1685,20 @@ public final class SeasonYear implements PostProcessor {
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
 
 import java.util.Set;
 
 public final class YearSeason implements PostProcessor {
-    @Override
-    public void apply(ParseContext ctx) {
-        if (ctx.matches.named("season").findFirst().isPresent()) return;
-        if (ctx.matches.named("episode").findFirst().isEmpty()) return;
-        ctx.matches.named("year").toList().forEach(year ->
+  @Override
+  public void apply(ParseContext ctx) {
+    if (ctx.matches.named("season").findFirst().isPresent()) return;
+    if (ctx.matches.named("episode").findFirst().isEmpty()) return;
+    ctx.matches.named("year").toList().forEach(year ->
             ctx.matches.add(new Match("season", year.value(), year.start(), year.end(),
-                year.raw(), year.priority(), Set.copyOf(year.tags()), false)));
-    }
+                    year.raw(), year.priority(), Set.copyOf(year.tags()), false)));
+  }
 }
 ```
 
@@ -1539,20 +1731,22 @@ Python: trims leading/trailing separator chars from each match's `raw`, **but** 
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class StripSeparatorsTest {
-    @Test void trimsLeadingTrailingSeps() {
-        var ctx = new ParseContext(".Show Name.", null, null);
-        ctx.matches.add(new Match("title", "Show Name", 0, 11, ".Show Name.", 1000, java.util.Set.of(), false));
-        new StripSeparators().apply(ctx);
-        var m = ctx.matches.named("title").findFirst().orElseThrow();
-        assertThat(m.start()).isEqualTo(1);
-        assertThat(m.end()).isEqualTo(10);
-    }
+  @Test
+  void trimsLeadingTrailingSeps() {
+    var ctx = new ParseContext(".Show Name.", null, null);
+    ctx.matches.add(new Match("title", "Show Name", 0, 11, ".Show Name.", 1000, java.util.Set.of(), false));
+    new StripSeparators().apply(ctx);
+    var m = ctx.matches.named("title").findFirst().orElseThrow();
+    assertThat(m.start()).isEqualTo(1);
+    assertThat(m.end()).isEqualTo(10);
+  }
 }
 ```
 
@@ -1563,24 +1757,25 @@ class StripSeparatorsTest {
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Seps;
 
 import java.util.ArrayList;
 
 public final class StripSeparators implements PostProcessor {
-    @Override
-    public void apply(ParseContext ctx) {
-        for (var m : new ArrayList<>(ctx.matches.snapshot())) {
-            int s = m.start(), e = m.end();
-            while (s < e && Seps.isSep(ctx.input.charAt(s))
-                && (e - s < 3 || !Seps.isSep(ctx.input.charAt(s + 2)))) s++;
-            while (e > s && Seps.isSep(ctx.input.charAt(e - 1))
-                && (e - s < 3 || !Seps.isSep(ctx.input.charAt(e - 3)))) e--;
-            if (s != m.start() || e != m.end()) {
-                ctx.matches.replace(m, m.withStart(s).withEnd(e));
-            }
-        }
+  @Override
+  public void apply(ParseContext ctx) {
+    for (var m : new ArrayList<>(ctx.matches.snapshot())) {
+      int s = m.start(), e = m.end();
+      while (s < e && Seps.isSep(ctx.input.charAt(s))
+              && (e - s < 3 || !Seps.isSep(ctx.input.charAt(s + 2)))) s++;
+      while (e > s && Seps.isSep(ctx.input.charAt(e - 1))
+              && (e - s < 3 || !Seps.isSep(ctx.input.charAt(e - 3)))) e--;
+      if (s != m.start() || e != m.end()) {
+        ctx.matches.replace(m, m.withStart(s).withEnd(e));
+      }
     }
+  }
 }
 ```
 
@@ -1615,16 +1810,17 @@ Failure cluster: `Bleach 313-314`, `Hatsuyuki 16-20 (191-195)`.
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class EpisodeNumberSeparatorRangeTest {
-    @Test void expandsHyphenRange() {
-        var r = Guessit.parse("[Hatsuyuki]_Bleach_-_16-20_(191-195)_[1280x720].mkv");
-        assertThat(r.episodeList()).contains(16, 17, 18, 19, 20);
-    }
+  @Test
+  void expandsHyphenRange() {
+    var r = Guessit.parse("[Hatsuyuki]_Bleach_-_16-20_(191-195)_[1280x720].mkv");
+    assertThat(r.episodeList()).contains(16, 17, 18, 19, 20);
+  }
 }
 ```
 
@@ -1635,31 +1831,32 @@ class EpisodeNumberSeparatorRangeTest {
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
 
 import java.util.*;
 
 public final class EpisodeNumberSeparatorRange implements PostProcessor {
-    @Override
-    public void apply(ParseContext ctx) {
-        var eps = ctx.matches.named("episode")
+  @Override
+  public void apply(ParseContext ctx) {
+    var eps = ctx.matches.named("episode")
             .sorted(Comparator.comparingInt(Match::start))
             .toList();
-        for (int i = 0; i + 1 < eps.size(); i++) {
-            var a = eps.get(i);
-            var b = eps.get(i + 1);
-            if (!(a.value() instanceof Integer va && b.value() instanceof Integer vb)) continue;
-            if (vb <= va || vb - va > 100) continue;
-            if (a.end() > b.start()) continue;
-            var gap = ctx.input.substring(a.end(), b.start());
-            if (!gap.matches("(?i)[-_~]|\\s*to\\s*")) continue;
-            for (int v = va + 1; v < vb; v++) {
-                int pos = a.end();
-                ctx.matches.add(new Match("episode", v, pos, pos, "",
-                    a.priority(), Set.of("range-filled"), false));
-            }
-        }
+    for (int i = 0; i + 1 < eps.size(); i++) {
+      var a = eps.get(i);
+      var b = eps.get(i + 1);
+      if (!(a.value() instanceof Integer va && b.value() instanceof Integer vb)) continue;
+      if (vb <= va || vb - va > 100) continue;
+      if (a.end() > b.start()) continue;
+      var gap = ctx.input.substring(a.end(), b.start());
+      if (!gap.matches("(?i)[-_~]|\\s*to\\s*")) continue;
+      for (int v = va + 1; v < vb; v++) {
+        int pos = a.end();
+        ctx.matches.add(new Match("episode", v, pos, pos, "",
+                a.priority(), Set.of("range-filled"), false));
+      }
     }
+  }
 }
 ```
 
@@ -1695,7 +1892,9 @@ Failure cluster (4–6 cases): `pt-BR`, `de-CH`, `en-US` etc. attach to language
 If `Language` is currently `record Language(String alpha2, String alpha3, String name)`, add a fourth optional field:
 
 ```java
-public record Language(String alpha2, String alpha3, String name, io.guessit.lang.Country country) {
+import io.guessit.api.models.Country;
+
+public record Language(String alpha2, String alpha3, String name, Country country) {
     public Language(String alpha2, String alpha3, String name) {
         this(alpha2, alpha3, name, null);
     }
@@ -1709,27 +1908,29 @@ public record Language(String alpha2, String alpha3, String name, io.guessit.lan
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class LanguageCountryAttachTest {
-    @Test void ptBrBecomesPortugueseWithBrazilCountry() {
-        var r = Guessit.parse("Movie.pt-BR.1080p.mkv");
-        assertThat(r.language()).hasSize(1);
-        var l = r.language().getFirst();
-        assertThat(l.alpha3()).isEqualTo("por");
-        assertThat(l.country()).isNotNull();
-        assertThat(l.country().alpha2()).isEqualTo("BR");
-        assertThat(r.country()).isNullOrEmpty();
-    }
-    @Test void deChBecomesGermanWithSwissCountry() {
-        var r = Guessit.parse("Movie.de-CH.1080p.mkv");
-        var l = r.language().getFirst();
-        assertThat(l.alpha2()).isEqualTo("de");
-        assertThat(l.country().alpha2()).isEqualTo("CH");
-    }
+  @Test
+  void ptBrBecomesPortugueseWithBrazilCountry() {
+    var r = io.guessit.api.Guessit.parse("Movie.pt-BR.1080p.mkv");
+    assertThat(r.language()).hasSize(1);
+    var l = r.language().getFirst();
+    assertThat(l.alpha3()).isEqualTo("por");
+    assertThat(l.country()).isNotNull();
+    assertThat(l.country().alpha2()).isEqualTo("BR");
+    assertThat(r.country()).isNullOrEmpty();
+  }
+
+  @Test
+  void deChBecomesGermanWithSwissCountry() {
+    var r = io.guessit.api.Guessit.parse("Movie.de-CH.1080p.mkv");
+    var l = r.language().getFirst();
+    assertThat(l.alpha2()).isEqualTo("de");
+    assertThat(l.country().alpha2()).isEqualTo("CH");
+  }
 }
 ```
 
@@ -1743,36 +1944,39 @@ Expected: FAIL.
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.engine.*;
-import io.guessit.lang.*;
+import io.guessit.api.models.Language;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Seps;
+import io.guessit.rules.lang.LanguageRegistry;
 
 import java.util.*;
 
 public final class LanguageCountryAttach implements PostProcessor {
-    @Override
-    public void apply(ParseContext ctx) {
-        var lang = ctx.matches.named("language")
+  @Override
+  public void apply(ParseContext ctx) {
+    var lang = ctx.matches.named("language")
             .sorted(Comparator.comparingInt(Match::start))
             .toList();
-        for (var l : lang) {
-            // Look at the chars right after l.end() — must be sep + 2-letter country.
-            int s = l.end();
-            if (s + 3 > ctx.input.length()) continue;
-            if (!Seps.isSep(ctx.input.charAt(s))) continue;
-            var token = ctx.input.substring(s + 1, Math.min(s + 3, ctx.input.length()));
-            var country = LanguageRegistry.instance().findCountry(token).orElse(null);
-            if (country == null) continue;
-            // Drop any country match overlapping the [s+1, s+3) range we just consumed.
-            var countryMatches = ctx.matches.named("country")
-                .filter(m -> m.start() == s + 1 && m.end() == s + 3)
-                .toList();
-            countryMatches.forEach(ctx.matches::remove);
-            // Replace language with attached-country variant.
-            var oldLang = (Language) l.value();
-            var newLang = new Language(oldLang.alpha2(), oldLang.alpha3(), oldLang.name(), country);
-            ctx.matches.replace(l, l.withValue(newLang).withEnd(s + 3));
-        }
+    for (var l : lang) {
+      // Look at the chars right after l.end() — must be sep + 2-letter country.
+      int s = l.end();
+      if (s + 3 > ctx.input.length()) continue;
+      if (!Seps.isSep(ctx.input.charAt(s))) continue;
+      var token = ctx.input.substring(s + 1, Math.min(s + 3, ctx.input.length()));
+      var country = LanguageRegistry.instance().findCountry(token).orElse(null);
+      if (country == null) continue;
+      // Drop any country match overlapping the [s+1, s+3) range we just consumed.
+      var countryMatches = ctx.matches.named("country")
+              .filter(m -> m.start() == s + 1 && m.end() == s + 3)
+              .toList();
+      countryMatches.forEach(ctx.matches::remove);
+      // Replace language with attached-country variant.
+      var oldLang = (Language) l.value();
+      var newLang = new Language(oldLang.alpha2(), oldLang.alpha3(), oldLang.name(), country);
+      ctx.matches.replace(l, l.withValue(newLang).withEnd(s + 3));
     }
+  }
 }
 ```
 
@@ -1802,24 +2006,27 @@ Failure cluster (3 cases): `Echec et Mort - Hard to Kill - Steven Seagal Multi`,
 - [ ] **Step 1: Failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class EpisodeTitleExtractorAltSplitTest {
-    @Test void splitsTitleAndAlternativeOnDashSpaceDash() {
-        var r = Guessit.parse("Echec et Mort - Hard to Kill - Steven Seagal Multi.mkv");
-        assertThat(r.title()).isEqualTo("Echec et Mort");
-        assertThat(r.alternativeTitle()).isEqualTo("Hard to Kill");
-    }
-    @Test void singleDashSplitsBoth() {
-        var r = Guessit.parse("Lola At Your Service - Marc Dorcel.mkv");
-        assertThat(r.title()).isEqualTo("Lola At Your Service");
-        assertThat(r.alternativeTitle()).isEqualTo("Marc Dorcel");
-    }
+  @Test
+  void splitsTitleAndAlternativeOnDashSpaceDash() {
+    var r = Guessit.parse("Echec et Mort - Hard to Kill - Steven Seagal Multi.mkv");
+    assertThat(r.title()).isEqualTo("Echec et Mort");
+    assertThat(r.alternativeTitle()).isEqualTo("Hard to Kill");
+  }
+
+  @Test
+  void singleDashSplitsBoth() {
+    var r = Guessit.parse("Lola At Your Service - Marc Dorcel.mkv");
+    assertThat(r.title()).isEqualTo("Lola At Your Service");
+    assertThat(r.alternativeTitle()).isEqualTo("Marc Dorcel");
+  }
 }
 ```
 
@@ -1865,33 +2072,40 @@ Failure cluster (4 cases): `[401] Fun Run` → episode=1 (currently 401), `the.1
 - [ ] **Step 1: Failing tests** (one assertion per cluster case)
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SeasonEpisodeCompactLastTest {
-    @Test void the100_109_keepsSeason1Episode9() {
-        var r = Guessit.parse("the.100.109.mkv");
-        assertThat(r.season()).isEqualTo(1);
-        assertThat(r.episode()).isEqualTo(9);
-    }
-    @Test void bracket401_funRun_keepsEpisode1() {
-        var r = Guessit.parse("[401] Fun Run.mkv");
-        assertThat(r.episode()).isEqualTo(1);
-        assertThat(r.season()).isEqualTo(4);
-    }
-    @Test void e112263106_keepsEpisode6() {
-        var r = Guessit.parse("11.22.63.106.mkv");
-        assertThat(r.episode()).isEqualTo(6);
-    }
-    @Test void foobar_213_keepsEpisode13() {
-        var r = Guessit.parse("foobar.213.mkv");
-        assertThat(r.episode()).isEqualTo(13);
-        assertThat(r.season()).isEqualTo(2);
-    }
+  @Test
+  void the100_109_keepsSeason1Episode9() {
+    var r = Guessit.parse("the.100.109.mkv");
+    assertThat(r.season()).isEqualTo(1);
+    assertThat(r.episode()).isEqualTo(9);
+  }
+
+  @Test
+  void bracket401_funRun_keepsEpisode1() {
+    var r = io.guessit.api.Guessit.parse("[401] Fun Run.mkv");
+    assertThat(r.episode()).isEqualTo(1);
+    assertThat(r.season()).isEqualTo(4);
+  }
+
+  @Test
+  void e112263106_keepsEpisode6() {
+    var r = io.guessit.api.Guessit.parse("11.22.63.106.mkv");
+    assertThat(r.episode()).isEqualTo(6);
+  }
+
+  @Test
+  void foobar_213_keepsEpisode13() {
+    var r = io.guessit.api.Guessit.parse("foobar.213.mkv");
+    assertThat(r.episode()).isEqualTo(13);
+    assertThat(r.season()).isEqualTo(2);
+  }
 }
 ```
 
@@ -1941,23 +2155,25 @@ Failure cluster (8 cases tagged `[]` in memory file). Python's expected-title li
 - [ ] **Step 1: Failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
-import io.guessit.Options;
+import io.guessit.api.Guessit;
+import io.guessit.api.Options;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ExpectedTitleRegexTest {
-    @Test void reColonAcceptsAnyMatchingTitle() {
-        var opts = Options.builder()
+  @Test
+  void reColonAcceptsAnyMatchingTitle() {
+    var opts = Options.builder()
             .expectedTitle(List.of("re:my \\d+p show"))
             .build();
-        var r = Guessit.parse("my 720p show S01E02.mkv", opts);
-        assertThat(r.title()).isEqualTo("my 720p show");
-    }
+    var r = Guessit.parse("my 720p show S01E02.mkv", opts);
+    assertThat(r.title()).isEqualTo("my 720p show");
+  }
 }
 ```
 
@@ -1966,27 +2182,28 @@ class ExpectedTitleRegexTest {
 - [ ] **Step 3: Implement helper**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
 import java.util.*;
 import java.util.regex.Pattern;
 
 public final class ExpectedTitleRegex {
-    public record Entry(Pattern pattern, String literalReplacement) {}
+  public record Entry(Pattern pattern, String literalReplacement) {
+  }
 
-    public static List<Entry> parse(List<String> raw) {
-        if (raw == null) return List.of();
-        var out = new ArrayList<Entry>(raw.size());
-        for (var s : raw) {
-            if (s.startsWith("re:")) {
-                out.add(new Entry(Pattern.compile(s.substring(3), Pattern.CASE_INSENSITIVE), null));
-            } else {
-                // literal — escape and case-fold for Pattern.compile.
-                out.add(new Entry(Pattern.compile(Pattern.quote(s), Pattern.CASE_INSENSITIVE), s));
-            }
-        }
-        return out;
+  public static List<Entry> parse(List<String> raw) {
+    if (raw == null) return List.of();
+    var out = new ArrayList<Entry>(raw.size());
+    for (var s : raw) {
+      if (s.startsWith("re:")) {
+        out.add(new Entry(Pattern.compile(s.substring(3), Pattern.CASE_INSENSITIVE), null));
+      } else {
+        // literal — escape and case-fold for Pattern.compile.
+        out.add(new Entry(Pattern.compile(Pattern.quote(s), Pattern.CASE_INSENSITIVE), s));
+      }
     }
+    return out;
+  }
 }
 ```
 
@@ -2018,19 +2235,19 @@ Failure cluster (1 case): expected `release_group=Group` from upper folder name;
 - [ ] **Step 1: Failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ReleaseGroupOuterFolderTest {
-    @Test void prefersUpperFolderCasing() {
-        // Upper folder "Show.S01.Group", file "show.s01e06.group.mkv" → Group wins.
-        var r = Guessit.parse("Show.S01.Group/show.s01e06.group.mkv");
-        assertThat(r.releaseGroup()).isEqualTo("Group");
-    }
+  @Test
+  void prefersUpperFolderCasing() {
+    // Upper folder "Show.S01.Group", file "show.s01e06.group.mkv" → Group wins.
+    var r = io.guessit.api.Guessit.parse("Show.S01.Group/show.s01e06.group.mkv");
+    assertThat(r.releaseGroup()).isEqualTo("Group");
+  }
 }
 ```
 
@@ -2083,29 +2300,34 @@ Python algorithm:
 - [ ] **Step 1: Failing tests**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AbsoluteEpisodeRuleTest {
-    @Test void bleachTwoGroupsHigherBecomesAbsolute() {
-        var r = Guessit.parse("Bleach - s16e03-04 - 313-314");
-        assertThat(r.episodeList()).containsExactly(3, 4);
-        assertThat(r.field("absolute_episode")).isEqualTo(java.util.List.of(313, 314));
-    }
-    @Test void hatsuyukiAnimeRangeWithParensAbsolute() {
-        var r = Guessit.parse("[Hatsuyuki-Kaitou]_Fairy_Tail_2_-_16-20_(191-195)_[720p][10bit].torrent");
-        assertThat(r.episodeList()).containsExactly(16, 17, 18, 19, 20);
-        assertThat(r.field("absolute_episode")).isEqualTo(java.util.List.of(191, 192, 193, 194, 195));
-    }
-    @Test void absoluteEpisodeNotEmittedForShortMovieTitleNumber() {
-        // regression guard: 12.Monkeys / 24 / 4400 must NOT become absolute_episode
-        assertThat(Guessit.parse("12.Monkeys.1995.mkv").field("absolute_episode")).isNull();
-        assertThat(Guessit.parse("24.S01E01.mkv").field("absolute_episode")).isNull();
-    }
+  @Test
+  void bleachTwoGroupsHigherBecomesAbsolute() {
+    var r = io.guessit.api.Guessit.parse("Bleach - s16e03-04 - 313-314");
+    assertThat(r.episodeList()).containsExactly(3, 4);
+    assertThat(r.field("absolute_episode")).isEqualTo(java.util.List.of(313, 314));
+  }
+
+  @Test
+  void hatsuyukiAnimeRangeWithParensAbsolute() {
+    var r = io.guessit.api.Guessit.parse("[Hatsuyuki-Kaitou]_Fairy_Tail_2_-_16-20_(191-195)_[720p][10bit].torrent");
+    assertThat(r.episodeList()).containsExactly(16, 17, 18, 19, 20);
+    assertThat(r.field("absolute_episode")).isEqualTo(java.util.List.of(191, 192, 193, 194, 195));
+  }
+
+  @Test
+  void absoluteEpisodeNotEmittedForShortMovieTitleNumber() {
+    // regression guard: 12.Monkeys / 24 / 4400 must NOT become absolute_episode
+    assertThat(Guessit.parse("12.Monkeys.1995.mkv").field("absolute_episode")).isNull();
+    assertThat(io.guessit.api.Guessit.parse("24.S01E01.mkv").field("absolute_episode")).isNull();
+  }
 }
 ```
 
@@ -2122,69 +2344,71 @@ Expected: FAIL.
 - Origin span = `(start, end)` of the originating regex hit; group siblings sit within that span. For Java, treat **contiguous episode matches sharing the same outer parent marker (group)** as one group. Concretely: split episodes per filepart into groups by the **enclosing group marker**, falling back to "all consecutive episode matches separated only by `range-filled` ones" as one group.
 
 ```java
+import io.guessit.core.pipeline.state.Match;
+
 @Override
 public void postProcess(ParseContext ctx) {
-    var pathMarkers = ctx.markers.stream()
-        .filter(m -> m.name().equals("path"))
-        .toList();
-    for (var fp : pathMarkers) {
-        var eps = ctx.matches.snapshot().stream()
+  var pathMarkers = ctx.markers.stream()
+          .filter(m -> m.name().equals("path"))
+          .toList();
+  for (var fp : pathMarkers) {
+    var eps = ctx.matches.snapshot().stream()
             .filter(m -> m.name().equals("episode"))
             .filter(m -> m.start() >= fp.start() && m.end() <= fp.end())
-            .sorted(java.util.Comparator.comparingInt(io.guessit.engine.Match::start))
+            .sorted(java.util.Comparator.comparingInt(io.guessit.core.pipeline.state.Match::start))
             .toList();
-        if (eps.isEmpty()) continue;
+    if (eps.isEmpty()) continue;
 
-        // Group eps by enclosing group marker (or "no-group" bucket keyed by start position run).
-        var groups = new java.util.LinkedHashMap<Object, java.util.List<io.guessit.engine.Match>>();
-        for (var e : eps) {
-            var enc = ctx.markers.stream()
-                .filter(g -> g.name().equals("group")
-                          && g.start() <= e.start() && g.end() >= e.end())
-                .findFirst().orElse(null);
-            var key = enc != null ? enc : "noenc-" + e.start();
-            // Coalesce range-filled successors into the same key as the previous match.
-            if (e.tags().contains("range-filled")) {
-                var lastKey = groups.keySet().stream().reduce((a,b)->b).orElse(key);
-                key = lastKey;
-            }
-            groups.computeIfAbsent(key, k -> new java.util.ArrayList<>()).add(e);
+    // Group eps by enclosing group marker (or "no-group" bucket keyed by start position run).
+    var groups = new java.util.LinkedHashMap<Object, java.util.List<io.guessit.core.pipeline.state.Match>>();
+    for (var e : eps) {
+      var enc = ctx.markers.stream()
+              .filter(g -> g.name().equals("group")
+                      && g.start() <= e.start() && g.end() >= e.end())
+              .findFirst().orElse(null);
+      var key = enc != null ? enc : "noenc-" + e.start();
+      // Coalesce range-filled successors into the same key as the previous match.
+      if (e.tags().contains("range-filled")) {
+        var lastKey = groups.keySet().stream().reduce((a, b) -> b).orElse(key);
+        key = lastKey;
+      }
+      groups.computeIfAbsent(key, k -> new java.util.ArrayList<>()).add(e);
+    }
+    var multi = groups.values().stream().filter(g -> g.size() >= 2).toList();
+
+    if (multi.size() == 2) {
+      var sorted = multi.stream()
+              .sorted(java.util.Comparator.comparingInt(g -> g.getLast().end()))
+              .toList();
+      var lower = sorted.get(0);
+      var higher = sorted.get(1);
+      // Separator-only gap between the two groups.
+      int gapStart = lower.getLast().end();
+      int gapEnd = higher.getFirst().start();
+      boolean sepOnly = ctx.input.substring(gapStart, gapEnd).chars()
+              .allMatch(c -> io.guessit.core.text.Seps.isSep((char) c));
+      if (sepOnly && lower.size() == higher.size()) {
+        for (var m : higher) {
+          ctx.matches.replace(m, m.withName("absolute_episode"));
         }
-        var multi = groups.values().stream().filter(g -> g.size() >= 2).toList();
+        continue;
+      }
+    }
 
-        if (multi.size() == 2) {
-            var sorted = multi.stream()
-                .sorted(java.util.Comparator.comparingInt(g -> g.getLast().end()))
-                .toList();
-            var lower = sorted.get(0);
-            var higher = sorted.get(1);
-            // Separator-only gap between the two groups.
-            int gapStart = lower.getLast().end();
-            int gapEnd = higher.getFirst().start();
-            boolean sepOnly = ctx.input.substring(gapStart, gapEnd).chars()
-                .allMatch(c -> io.guessit.engine.Seps.isSep((char) c));
-            if (sepOnly && lower.size() == higher.size()) {
-                for (var m : higher) {
-                    ctx.matches.replace(m, m.withName("absolute_episode"));
-                }
-                continue;
-            }
-        }
-
-        // Single-or-zero-multi-group fallback.
-        boolean hasSxxExx = ctx.matches.snapshot().stream().anyMatch(m ->
+    // Single-or-zero-multi-group fallback.
+    boolean hasSxxExx = ctx.matches.snapshot().stream().anyMatch(m ->
             m.name().equals("episode") && m.tags().contains("SxxExx")
-            && m.start() >= fp.start() && m.end() <= fp.end());
-        var leadingWeak = eps.stream()
+                    && m.start() >= fp.start() && m.end() <= fp.end());
+    var leadingWeak = eps.stream()
             .filter(e -> e.tags().contains("weak-episode") && e.start() == fp.start())
             .toList();
-        if (leadingWeak.isEmpty()) continue;
-        if (hasSxxExx) {
-            for (var m : leadingWeak) ctx.matches.replace(m, m.withName("absolute_episode"));
-        } else {
-            for (var m : leadingWeak) ctx.matches.remove(m);
-        }
+    if (leadingWeak.isEmpty()) continue;
+    if (hasSxxExx) {
+      for (var m : leadingWeak) ctx.matches.replace(m, m.withName("absolute_episode"));
+    } else {
+      for (var m : leadingWeak) ctx.matches.remove(m);
     }
+  }
 }
 ```
 

@@ -2,7 +2,7 @@ package io.guessit.config;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.guessit.Options;
+import io.guessit.api.Options;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;

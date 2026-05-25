@@ -1,0 +1,30 @@
+package io.guessit.core.pipeline.phases;
+
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.trace.TraceDiff;
+
+import java.util.List;
+
+/**
+ * Phase 4 — call {@link Extractor#postProcess} on every extractor.
+ *
+ * <p>Runs after {@link ConflictPhase}, so extractors see only the survivors
+ * and can make decisions that depend on what stuck (e.g. renaming leading
+ * numerics to {@code absolute_episode} only when an {@code SxxExx} episode
+ * survived in the same filepart).
+ */
+public record ExtractorPostPhase(List<Extractor> extractors) implements Phase {
+    public ExtractorPostPhase { extractors = List.copyOf(extractors); }
+
+    @Override
+    public void apply(ParseContext ctx) {
+        ctx.trace.phase("extractor_post", "refining matches after conflict resolution");
+        for (var e : extractors) {
+            var before = ctx.matches.snapshot();
+            ctx.trace.step("post", e.name(), e.description());
+            e.postProcess(ctx);
+            TraceDiff.emit(before, ctx.matches.snapshot(), ctx);
+        }
+    }
+}

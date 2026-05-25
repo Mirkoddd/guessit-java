@@ -1,8 +1,8 @@
 package io.guessit.rules.markers;
 
-import io.guessit.engine.Marker;
-import io.guessit.engine.MarkerPhase.MarkerProducer;
-import io.guessit.engine.ParseContext;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.phases.MarkerPhase.MarkerProducer;
+import io.guessit.core.pipeline.state.ParseContext;
 
 /**
  * Emits one {@code whole} marker spanning the entire input plus one

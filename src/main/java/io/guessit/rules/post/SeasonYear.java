@@ -1,9 +1,9 @@
 package io.guessit.rules.post;
 
-import io.guessit.engine.Match;
-import io.guessit.engine.MatchName;
-import io.guessit.engine.ParseContext;
-import io.guessit.engine.PostPhase.PostProcessor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.contracts.PostProcessor;
 
 import java.util.Set;
 

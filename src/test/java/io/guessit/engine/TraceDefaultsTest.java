@@ -1,5 +1,6 @@
 package io.guessit.engine;
 
+import io.guessit.core.trace.Trace;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

@@ -33,7 +33,7 @@ input string
 ```
 
 The pipeline is wired in `io.guessit.rules.Rules.defaultPipeline()` and the
-phase types are a sealed interface at `io.guessit.engine.Phase`.
+phase types are a sealed interface at `io.guessit.core.pipeline.phases.Phase`.
 
 ## Why this shape
 
@@ -210,7 +210,7 @@ It exposes two factory methods:
 ## Extractors
 
 An extractor is the unit of property recognition. It implements
-`io.guessit.engine.Extractor`:
+`io.guessit.core.pipeline.contracts.Extractor`:
 
 ```java
 public interface Extractor {
@@ -311,7 +311,7 @@ hooks (phase 4) refine the survivors.
 
 ### Adding a new extractor
 
-1. Implement `Extractor` in `io.guessit.rules.property`. Use `PatternMatcher`
+1. Implement `Extractor` in `io.guessit.rules.extractors`. Use `PatternMatcher`
    helpers where possible. Pick a `name()` that matches the desired
    `GuessResult` field (or land in `extras` via the default `OutputBuilder`).
 2. Decide priority: leave at `1000` unless the matches are intentionally weak.

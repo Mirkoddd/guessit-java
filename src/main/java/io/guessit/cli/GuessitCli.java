@@ -1,13 +1,13 @@
 package io.guessit.cli;
 
-import io.guessit.GuessResult;
-import io.guessit.Guessit;
-import io.guessit.OptionsBuilder;
-import io.guessit.Options;
-import io.guessit.engine.CompositeTrace;
-import io.guessit.engine.DebugTrace;
-import io.guessit.engine.PrintTrace;
-import io.guessit.engine.Trace;
+import io.guessit.api.GuessResult;
+import io.guessit.api.Guessit;
+import io.guessit.api.Options;
+import io.guessit.api.OptionsBuilder;
+import io.guessit.core.trace.CompositeTrace;
+import io.guessit.core.trace.DebugTrace;
+import io.guessit.core.trace.PrintTrace;
+import io.guessit.core.trace.Trace;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;

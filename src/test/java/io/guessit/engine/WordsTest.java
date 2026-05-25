@@ -1,10 +1,11 @@
 package io.guessit.engine;
 
+import io.guessit.core.text.Words;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import static io.guessit.engine.Words.Word;
-import static io.guessit.engine.Words.iter;
+import static io.guessit.core.text.Words.Word;
+import static io.guessit.core.text.Words.iter;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class WordsTest {

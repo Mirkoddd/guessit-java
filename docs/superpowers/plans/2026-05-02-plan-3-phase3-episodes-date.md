@@ -4,7 +4,7 @@
 
 **Goal:** Ship Phase 3 extractors against the foundation laid in Plans 0–2. End state: `Rules.allInOrder()` registers `EpisodeDetailsExtractor`, `EpisodeFormatExtractor`, `VersionExtractor`, `SeasonEpisodeExtractor` (strong SxxExx family), `EpisodeWordExtractor`, `WeakEpisodeExtractor`, `WeakDuplicateExtractor`, `DiscRule`, `AbsoluteEpisodeRule`, `DateExtractor`, `WeekExtractor`; per-rule unit tests pass; `YearExtractor` learns the season/episode/week conflict-solver hooks; the YML parity gate widens to include `season`, `episode`, `episode_count`, `season_count`, `episode_details`, `episode_format`, `version`, `date`, `week`, `disc`, `absolute_episode` plus the Phase 1+2 props, and ≥80% of all YML cases pass.
 
-**Architecture:** New shared helpers under `io.guessit.engine`: `Numerals` (digital + roman + word numeral parser, Python `rules/common/numeral.py` equivalent), `Chain` (head + repeated-tail regex scanner so each strong episode/season chain runs as one head match plus an iterative tail loop, replicating rebulk's chain semantics), and `DatePatterns` (the seven date regexes from Python `rules/common/date.py`). Each extractor lives in `io.guessit.rules.property.<Name>Extractor` and implements `Extractor` from Plan 0. Per-rule post-processing (`EpisodeDetailValidator`, `VersionValidator`, `OrderingValidator`, `EpisodesSeasonChainBreaker`, `SeasonEpisodeConflictSolver`, `RemoveWeakIfSxxExx`, `RemoveWeakIfMovie`, `RemoveWeak`, `RemoveInvalidSeason`, `RemoveInvalidEpisode`, `RemoveWeakDuplicate`, `RemoveDetachedEpisodeNumber`, `EpisodeNumberSeparatorRange`, `SeasonSeparatorRange`, `SeePatternRange`, `EpisodeSingleDigitValidator`, `RenameToAbsoluteEpisode`, `RenameToDiscMatch`, `KeepMarkedYearInFilepart` season-aware extension) runs in `Extractor.postProcess(ctx)` after the central `ConflictSolver`, mirroring Python's rebulk pass order. Cross-extractor conflicts (year vs season/episode, episode vs date/audio_channels/screen_size) are resolved through a per-extractor `coexist`/length tweak inside `postProcess` rather than a new central solver, keeping the engine surface stable.
+**Architecture:** New shared helpers under `io.guessit.engine`: `Numerals` (digital + roman + word numeral parser, Python `rules/common/numeral.py` equivalent), `Chain` (head + repeated-tail regex scanner so each strong episode/season chain runs as one head match plus an iterative tail loop, replicating rebulk's chain semantics), and `DatePatterns` (the seven date regexes from Python `rules/common/date.py`). Each extractor lives in `io.guessit.rules.extractors.<Name>Extractor` and implements `Extractor` from Plan 0. Per-rule post-processing (`EpisodeDetailValidator`, `VersionValidator`, `OrderingValidator`, `EpisodesSeasonChainBreaker`, `SeasonEpisodeConflictSolver`, `RemoveWeakIfSxxExx`, `RemoveWeakIfMovie`, `RemoveWeak`, `RemoveInvalidSeason`, `RemoveInvalidEpisode`, `RemoveWeakDuplicate`, `RemoveDetachedEpisodeNumber`, `EpisodeNumberSeparatorRange`, `SeasonSeparatorRange`, `SeePatternRange`, `EpisodeSingleDigitValidator`, `RenameToAbsoluteEpisode`, `RenameToDiscMatch`, `KeepMarkedYearInFilepart` season-aware extension) runs in `Extractor.postProcess(ctx)` after the central `ConflictSolver`, mirroring Python's rebulk pass order. Cross-extractor conflicts (year vs season/episode, episode vs date/audio_channels/screen_size) are resolved through a per-extractor `coexist`/length tweak inside `postProcess` rather than a new central solver, keeping the engine surface stable.
 
 **Tech Stack:** Same as Plan 0/1/2 — Java 25, JUnit Jupiter 5.12.x, Apache Commons CSV (already on classpath), Jackson + SnakeYAML for config, no new dependencies.
 
@@ -116,7 +116,7 @@ ReleaseGroupExtractor
 ```java
 package io.guessit.engine;
 
-import io.guessit.engine.numerals.Numerals;
+import io.guessit.rules.numerals.Numerals;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -299,6 +299,7 @@ git commit -m "feat(engine): add Numerals (digital/roman/word numeral parser)"
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.phases.Chain;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -307,7 +308,8 @@ import java.util.regex.Pattern;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ChainTest {
-    @Test void singleHeadSingleTail() {
+    @Test
+    void singleHeadSingleTail() {
         // S01E02-E03
         var head = Pattern.compile("(?i)s(?<season>\\d+)e(?<episode>\\d+)");
         var tail = Pattern.compile("(?i)-?e(?<episode>\\d+)");
@@ -319,7 +321,9 @@ class ChainTest {
         assertEquals(List.of("01"), run.captures("season"));
         assertEquals(List.of("02", "03"), run.captures("episode"));
     }
-    @Test void plusRequiresAtLeastOneTail() {
+
+    @Test
+    void plusRequiresAtLeastOneTail() {
         var head = Pattern.compile("(?i)(?<season>\\d+)x(?<episode>\\d+)");
         var tail = Pattern.compile("(?i)\\s+(?<season>\\d+)x(?<episode>\\d+)");
         // No tail in input → PLUS yields no run.
@@ -327,7 +331,9 @@ class ChainTest {
         // With a tail → one run.
         assertEquals(1, new Chain(head).tail(tail, Chain.Repeater.PLUS).scan("01x02 03x04").size());
     }
-    @Test void noOverlap() {
+
+    @Test
+    void noOverlap() {
         var head = Pattern.compile("\\d");
         var runs = new Chain(head).scan("abc1def2ghi");
         assertEquals(2, runs.size());
@@ -475,7 +481,7 @@ git commit -m "feat(engine): add Chain head+tail regex scanner"
 ```java
 package io.guessit.engine;
 
-import io.guessit.engine.date.DatePatterns;
+import io.guessit.rules.date.DatePatterns;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -709,28 +715,35 @@ git commit -m "feat(engine): add DatePatterns search_date port"
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class EpisodeDetailsExtractorTest {
-    @Test void specialNextToEpisode() {
-        var r = Guessit.parse("Show.S01E02.Special.mkv").toMap();
+    @Test
+    void specialNextToEpisode() {
+        var r = io.guessit.api.Guessit.parse("Show.S01E02.Special.mkv").toMap();
         assertEquals("Special", r.get("episode_details"));
     }
-    @Test void pilotStandalone() {
-        var r = Guessit.parse("Show.S01E01.Pilot.mkv").toMap();
+
+    @Test
+    void pilotStandalone() {
+        var r = io.guessit.api.Guessit.parse("Show.S01E01.Pilot.mkv").toMap();
         assertEquals("Pilot", r.get("episode_details"));
     }
-    @Test void detachedPilotIsDropped() {
+
+    @Test
+    void detachedPilotIsDropped() {
         // No season/episode adjacency, embedded mid-token → drop.
-        var r = Guessit.parse("PilotXFilesShow.mkv").toMap();
+        var r = io.guessit.api.Guessit.parse("PilotXFilesShow.mkv").toMap();
         assertNull(r.get("episode_details"));
     }
-    @Test void multipleDetails() {
+
+    @Test
+    void multipleDetails() {
         var r = Guessit.parse("Show.S01E02.Special.Final.mkv").toMap();
         var v = r.get("episode_details");
         assertTrue(v instanceof java.util.List<?> l && l.size() == 2 && l.contains("Special") && l.contains("Final"));
@@ -746,9 +759,14 @@ Expected: 4 failures.
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.PatternMatcher;
+import io.guessit.core.text.StringOpts;
+import io.guessit.core.text.Validators;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -757,8 +775,15 @@ import java.util.Set;
 public final class EpisodeDetailsExtractor implements Extractor {
     private static final List<String> DETAILS = List.of("Special", "Pilot", "Unaired", "Final");
 
-    @Override public String name() { return "episode_details"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "episode_details";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     @Override
     public void extract(ParseContext ctx) {
@@ -777,8 +802,8 @@ public final class EpisodeDetailsExtractor implements Extractor {
         var toRemove = new ArrayList<Match>();
         for (var d : details) {
             boolean adjacentToEp = ctx.matches.all().anyMatch(m ->
-                ("season".equals(m.name()) || "episode".equals(m.name()))
-                    && (Math.abs(m.end() - d.start()) <= 1 || Math.abs(d.end() - m.start()) <= 1));
+                    ("season".equals(m.name()) || "episode".equals(m.name()))
+                            && (Math.abs(m.end() - d.start()) <= 1 || Math.abs(d.end() - m.start()) <= 1));
             if (!adjacentToEp && !Validators.sepsSurround(ctx.input).test(d)) {
                 toRemove.add(d);
             }
@@ -817,23 +842,28 @@ git commit -m "feat(rules): add EpisodeDetailsExtractor (Special, Pilot, Unaired
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class EpisodeFormatExtractorTest {
-    @Test void minisode() {
+    @Test
+    void minisode() {
         var r = Guessit.parse("Show.S01E02.Minisode.mkv").toMap();
         assertEquals("Minisode", r.get("episode_format"));
     }
-    @Test void minisodesPlural() {
+
+    @Test
+    void minisodesPlural() {
         var r = Guessit.parse("Show.S01.Minisodes.Pack.mkv").toMap();
         assertEquals("Minisode", r.get("episode_format"));
     }
-    @Test void noFormat() {
+
+    @Test
+    void noFormat() {
         var r = Guessit.parse("Show.S01E02.mkv").toMap();
         assertNull(r.get("episode_format"));
     }
@@ -848,24 +878,35 @@ Expected: 2 failures.
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.PatternMatcher;
+import io.guessit.core.text.RegexOpts;
+import io.guessit.core.text.Validators;
 
 import java.util.regex.Pattern;
 
 public final class EpisodeFormatExtractor implements Extractor {
     private static final Pattern PATTERN = Pattern.compile("(?i)Minisodes?");
 
-    @Override public String name() { return "episode_format"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "episode_format";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     @Override
     public void extract(ParseContext ctx) {
         var input = ctx.input;
         var opts = RegexOpts.defaults()
-            .withValue(s -> "Minisode")
-            .withValidator(m -> Validators.sepsSurround(input).test(m));
+                .withValue(s -> "Minisode")
+                .withValidator(m -> Validators.sepsSurround(input).test(m));
         for (var m : PatternMatcher.regex(input, PATTERN, "episode_format", opts)) {
             ctx.matches.add(m);
         }
@@ -900,24 +941,29 @@ git commit -m "feat(rules): add EpisodeFormatExtractor (Minisode)"
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class VersionExtractorTest {
-    @Test void versionAfterEpisode() {
+    @Test
+    void versionAfterEpisode() {
         var r = Guessit.parse("Show.E02v2.mkv").toMap();
         assertEquals(2, r.get("version"));
     }
-    @Test void detachedVersionNoEpisodeIsDropped() {
+
+    @Test
+    void detachedVersionNoEpisodeIsDropped() {
         // VersionValidator drops versions not preceded by an episode, unless seps-surrounded.
         var r = Guessit.parse("v3 randomshow.mkv").toMap();
         assertNull(r.get("version"));
     }
-    @Test void noVersion() {
+
+    @Test
+    void noVersion() {
         var r = Guessit.parse("Show.S01E02.mkv").toMap();
         assertNull(r.get("version"));
     }
@@ -932,9 +978,14 @@ Expected: 1 failure (`versionAfterEpisode`).
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.PatternMatcher;
+import io.guessit.core.text.RegexOpts;
+import io.guessit.core.text.Validators;
 
 import java.util.ArrayList;
 import java.util.regex.Pattern;
@@ -942,15 +993,22 @@ import java.util.regex.Pattern;
 public final class VersionExtractor implements Extractor {
     private static final Pattern PATTERN = Pattern.compile("(?i)v(\\d+)");
 
-    @Override public String name() { return "version"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "version";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     @Override
     public void extract(ParseContext ctx) {
         var input = ctx.input;
         var opts = RegexOpts.defaults()
-            .withValue(s -> Integer.valueOf(s.substring(1)))
-            .withValidator(m -> Validators.sepsBefore(input).test(m));
+                .withValue(s -> Integer.valueOf(s.substring(1)))
+                .withValidator(m -> Validators.sepsBefore(input).test(m));
         for (var m : PatternMatcher.regex(input, PATTERN, "version", opts)) {
             ctx.matches.add(m);
         }
@@ -1009,9 +1067,8 @@ We do not implement Python's full `WeakConflictSolver` here (depends on anime de
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -1019,38 +1076,51 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SeasonEpisodeExtractorTest {
-    @Test void s01e02() {
-        var r = Guessit.parse("Show.S01E02.mkv").toMap();
+    @Test
+    void s01e02() {
+        var r = io.guessit.api.Guessit.parse("Show.S01E02.mkv").toMap();
         assertEquals(1, r.get("season"));
         assertEquals(2, r.get("episode"));
     }
-    @Test void multiEpisode_S01E02E03() {
-        var r = Guessit.parse("Show.S01E02E03.mkv").toMap();
+
+    @Test
+    void multiEpisode_S01E02E03() {
+        var r = io.guessit.api.Guessit.parse("Show.S01E02E03.mkv").toMap();
         assertEquals(1, r.get("season"));
         assertEquals(List.of(2, 3), r.get("episode"));
     }
-    @Test void shortForm_01x02() {
-        var r = Guessit.parse("Show.01x02.HDTV.mkv").toMap();
+
+    @Test
+    void shortForm_01x02() {
+        var r = io.guessit.api.Guessit.parse("Show.01x02.HDTV.mkv").toMap();
         assertEquals(1, r.get("season"));
         assertEquals(2, r.get("episode"));
     }
-    @Test void multiSeason_S01S02S03() {
-        var r = Guessit.parse("Show.S01S02S03.Pack.mkv").toMap();
+
+    @Test
+    void multiSeason_S01S02S03() {
+        var r = io.guessit.api.Guessit.parse("Show.S01S02S03.Pack.mkv").toMap();
         assertEquals(List.of(1, 2, 3), r.get("season"));
     }
-    @Test void rangeDash_S01E02_E04() {
-        var r = Guessit.parse("Show.S01E02-E04.mkv").toMap();
+
+    @Test
+    void rangeDash_S01E02_E04() {
+        var r = io.guessit.api.Guessit.parse("Show.S01E02-E04.mkv").toMap();
         assertEquals(1, r.get("season"));
         assertEquals(List.of(2, 3, 4), r.get("episode"));
     }
-    @Test void capPattern_Cap_102() {
+
+    @Test
+    void capPattern_Cap_102() {
         // Python see-pattern: cap.102 → season 1, episode 2.
-        var r = Guessit.parse("Show.Cap.102.HDTV.mkv").toMap();
+        var r = io.guessit.api.Guessit.parse("Show.Cap.102.HDTV.mkv").toMap();
         assertEquals(1, r.get("season"));
         assertEquals(2, r.get("episode"));
     }
-    @Test void seasonOnly_S01() {
-        var r = Guessit.parse("Show.S01.HDTV.mkv").toMap();
+
+    @Test
+    void seasonOnly_S01() {
+        var r = io.guessit.api.Guessit.parse("Show.S01.HDTV.mkv").toMap();
         assertEquals(1, r.get("season"));
         assertNull(r.get("episode"));
     }
@@ -1065,35 +1135,44 @@ Expected: 7 failures (no extractor yet).
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.phases.Chain;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Validators;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class SeasonEpisodeExtractor implements Extractor {
     private static final Pattern HEAD_S_E = Pattern.compile(
-        "(?i)s(?<season>\\d+)@?(?<episodeMarker>e|ex|xe|ep|x|d)@?(?<episode>\\d+)");
+            "(?i)s(?<season>\\d+)@?(?<episodeMarker>e|ex|xe|ep|x|d)@?(?<episode>\\d+)");
     private static final Pattern TAIL_E = Pattern.compile(
-        "(?i)(?<episodeSeparator>e|ex|xe|ep|x|d|-|\\+|&|to|a|and|et|~)@?(?<episode>\\d+)");
+            "(?i)(?<episodeSeparator>e|ex|xe|ep|x|d|-|\\+|&|to|a|and|et|~)@?(?<episode>\\d+)");
     private static final Pattern HEAD_NUM_X = Pattern.compile(
-        "(?i)(?<season>\\d+)@?(?<episodeMarker>x)@?(?<episode>\\d+)");
+            "(?i)(?<season>\\d+)@?(?<episodeMarker>x)@?(?<episode>\\d+)");
     private static final Pattern TAIL_NUM_X = Pattern.compile(
-        "(?i)[ ._\\-]+(?<season>\\d+)@?(?<episodeMarker>x)@?(?<episode>\\d+)");
+            "(?i)[ ._\\-]+(?<season>\\d+)@?(?<episodeMarker>x)@?(?<episode>\\d+)");
     private static final Pattern HEAD_S = Pattern.compile(
-        "(?i)s(?<season>\\d+)");
+            "(?i)s(?<season>\\d+)");
     private static final Pattern TAIL_S = Pattern.compile(
-        "(?i)(?<seasonSeparator>s|-|\\+|&|to|a|and|et|~)(?<season>\\d+)");
+            "(?i)(?<seasonSeparator>s|-|\\+|&|to|a|and|et|~)(?<season>\\d+)");
     private static final Pattern HEAD_CAP = Pattern.compile(
-        "(?i)(?<seasonMarker>cap)-?(?<season>\\d{1,2})(?<episode>\\d{2})");
+            "(?i)(?<seasonMarker>cap)-?(?<season>\\d{1,2})(?<episode>\\d{2})");
 
-    @Override public String name() { return "season"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "season";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     @Override
     public void extract(ParseContext ctx) {
@@ -1108,7 +1187,7 @@ public final class SeasonEpisodeExtractor implements Extractor {
         var seps = Validators.sepsSurround(input);
         for (var run : chain.scan(input)) {
             var headMatch = new Match("seasonHead", null, run.start(), run.end(),
-                input.substring(run.start(), run.end()), 1000, Set.of("SxxExx"), false);
+                    input.substring(run.start(), run.end()), 1000, Set.of("SxxExx"), false);
             if (!seps.test(headMatch)) continue;
             var seasonValues = run.captures("season");
             var episodeValues = run.captures("episode");
@@ -1118,13 +1197,13 @@ public final class SeasonEpisodeExtractor implements Extractor {
             for (int i = 0; i < seasonValues.size(); i++) {
                 int[] sp = seasonSpans.get(i);
                 ctx.matches.add(new Match("season", Integer.valueOf(seasonValues.get(i)),
-                    sp[0], sp[1], input.substring(sp[0], sp[1]), 1000, Set.of("SxxExx", "coexist"), false));
+                        sp[0], sp[1], input.substring(sp[0], sp[1]), 1000, Set.of("SxxExx", "coexist"), false));
             }
             if (withEpisode) {
                 for (int i = 0; i < episodeValues.size(); i++) {
                     int[] ep = episodeSpans.get(i);
                     ctx.matches.add(new Match("episode", Integer.valueOf(episodeValues.get(i)),
-                        ep[0], ep[1], input.substring(ep[0], ep[1]), 1000, Set.of("SxxExx", "coexist"), false));
+                            ep[0], ep[1], input.substring(ep[0], ep[1]), 1000, Set.of("SxxExx", "coexist"), false));
                 }
             }
         }
@@ -1135,16 +1214,16 @@ public final class SeasonEpisodeExtractor implements Extractor {
         var matcher = HEAD_CAP.matcher(input);
         while (matcher.find()) {
             var head = new Match("season", null, matcher.start(), matcher.end(),
-                matcher.group(), 1000, Set.of("SxxExx", "see-pattern"), false);
+                    matcher.group(), 1000, Set.of("SxxExx", "see-pattern"), false);
             if (!seps.test(head)) continue;
             int sStart = matcher.start("season");
             int sEnd = matcher.end("season");
             int eStart = matcher.start("episode");
             int eEnd = matcher.end("episode");
             ctx.matches.add(new Match("season", Integer.parseInt(matcher.group("season")),
-                sStart, sEnd, matcher.group("season"), 1000, Set.of("SxxExx", "coexist", "see-pattern"), false));
+                    sStart, sEnd, matcher.group("season"), 1000, Set.of("SxxExx", "coexist", "see-pattern"), false));
             ctx.matches.add(new Match("episode", Integer.parseInt(matcher.group("episode")),
-                eStart, eEnd, matcher.group("episode"), 1000, Set.of("SxxExx", "coexist", "see-pattern"), false));
+                    eStart, eEnd, matcher.group("episode"), 1000, Set.of("SxxExx", "coexist", "see-pattern"), false));
         }
     }
 
@@ -1171,9 +1250,9 @@ public final class SeasonEpisodeExtractor implements Extractor {
         // emit the integers in between.
         var input = ctx.input;
         var episodes = ctx.matches.named("episode")
-            .filter(m -> m.tags().contains("SxxExx"))
-            .sorted(java.util.Comparator.comparingInt(Match::start))
-            .toList();
+                .filter(m -> m.tags().contains("SxxExx"))
+                .sorted(java.util.Comparator.comparingInt(Match::start))
+                .toList();
         for (int i = 0; i + 1 < episodes.size(); i++) {
             var prev = episodes.get(i);
             var next = episodes.get(i + 1);
@@ -1184,7 +1263,7 @@ public final class SeasonEpisodeExtractor implements Extractor {
                     int b = ((Integer) next.value()) - 1;
                     for (int v = a; v <= b; v++) {
                         ctx.matches.add(new Match("episode", v, prev.end(), next.start(),
-                            String.valueOf(v), 1000, Set.of("SxxExx", "coexist", "range-fill"), false));
+                                String.valueOf(v), 1000, Set.of("SxxExx", "coexist", "range-fill"), false));
                     }
                 }
             }
@@ -1239,32 +1318,41 @@ git commit -m "feat(rules): add SeasonEpisodeExtractor (strong SxxExx + cap + ra
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
-import io.guessit.Options;
+import io.guessit.api.Guessit;
+import io.guessit.api.Options;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class EpisodeWordExtractorTest {
-    @Test void episodeWord() {
-        var r = Guessit.parse("Show Episode 4.mkv").toMap();
+    @Test
+    void episodeWord() {
+        var r = io.guessit.api.Guessit.parse("Show Episode 4.mkv").toMap();
         assertEquals(4, r.get("episode"));
     }
-    @Test void episodeAbbreviation() {
-        var r = Guessit.parse("Show ep 112.mkv").toMap();
+
+    @Test
+    void episodeAbbreviation() {
+        var r = io.guessit.api.Guessit.parse("Show ep 112.mkv").toMap();
         assertEquals(112, r.get("episode"));
     }
-    @Test void seasonWord() {
-        var r = Guessit.parse("Show Season 2.mkv").toMap();
+
+    @Test
+    void seasonWord() {
+        var r = io.guessit.api.Guessit.parse("Show Season 2.mkv").toMap();
         assertEquals(2, r.get("season"));
     }
-    @Test void seasonRomanNumeralEpisodeType() {
-        var r = Guessit.parse("Show Season III.mkv", Options.builder().type("episode").build()).toMap();
+
+    @Test
+    void seasonRomanNumeralEpisodeType() {
+        var r = io.guessit.api.Guessit.parse("Show Season III.mkv", Options.builder().type("episode").build()).toMap();
         assertEquals(3, r.get("season"));
     }
-    @Test void countDetached() {
+
+    @Test
+    void countDetached() {
         // "Show 4 of 12 mkv" → episode=4, episode_count=12.
         var r = Guessit.parse("Show 4 of 12.mkv").toMap();
         assertEquals(4, r.get("episode"));
@@ -1281,10 +1369,13 @@ Expected: 5 failures.
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
-import io.guessit.engine.numerals.Numerals;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Validators;
+import io.guessit.rules.numerals.Numerals;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -1409,34 +1500,43 @@ git commit -m "feat(rules): add EpisodeWordExtractor (Episode N, Season N, of N)
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
-import io.guessit.Options;
+import io.guessit.api.Guessit;
+import io.guessit.api.Options;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class WeakEpisodeExtractorTest {
-    @Test void twoDigitWeakWhenNotMovie() {
+    @Test
+    void twoDigitWeakWhenNotMovie() {
         var r = Guessit.parse("Show 12 720p HDTV.mkv").toMap();
         assertEquals(12, r.get("episode"));
     }
-    @Test void weakDroppedWhenMovie() {
+
+    @Test
+    void weakDroppedWhenMovie() {
         var r = Guessit.parse("Movie.2010.12 Years.1080p.mkv",
-            Options.builder().type("movie").build()).toMap();
+                Options.builder().type("movie").build()).toMap();
         // year=2010 wins; "12" is weak and discarded under movie context.
         assertNull(r.get("episode"));
     }
-    @Test void threeDigitWeak() {
+
+    @Test
+    void threeDigitWeak() {
         var r = Guessit.parse("Show.112.HDTV.mkv").toMap();
         assertEquals(112, r.get("episode"));
     }
-    @Test void singleDigitOnlyForEpisodeType() {
+
+    @Test
+    void singleDigitOnlyForEpisodeType() {
         var r = Guessit.parse("Show.5.HDTV.mkv", Options.builder().type("episode").build()).toMap();
         assertEquals(5, r.get("episode"));
     }
-    @Test void droppedAfterAudioCodec() {
+
+    @Test
+    void droppedAfterAudioCodec() {
         // Python RemoveWeak: a weak number directly after audio_codec/source/etc. is dropped.
         var r = Guessit.parse("Show AC3 12 .mkv").toMap();
         assertNull(r.get("episode"));
@@ -1452,12 +1552,15 @@ Expected: 5 failures.
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Seps;
+import io.guessit.core.text.Validators;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -1466,8 +1569,15 @@ public final class WeakEpisodeExtractor implements Extractor {
     private static final Pattern THREE_OR_FOUR = Pattern.compile("(?<!\\d)(\\d{3,4})(?!\\d)");
     private static final Pattern SINGLE = Pattern.compile("(?<!\\d)(\\d)(?!\\d)");
 
-    @Override public String name() { return "weak_episode"; }
-    @Override public int priority() { return 800; }
+    @Override
+    public String name() {
+        return "weak_episode";
+    }
+
+    @Override
+    public int priority() {
+        return 800;
+    }
 
     @Override
     public void extract(ParseContext ctx) {
@@ -1489,7 +1599,7 @@ public final class WeakEpisodeExtractor implements Extractor {
             if (!seps.test(head)) continue;
             int v = Integer.parseInt(m.group(1));
             ctx.matches.add(new Match("episode", v, m.start(1), m.end(1),
-                m.group(1), 800, Set.of("weak-episode"), false));
+                    m.group(1), 800, Set.of("weak-episode"), false));
         }
     }
 
@@ -1507,7 +1617,7 @@ public final class WeakEpisodeExtractor implements Extractor {
 
         // Drop weak episodes that directly follow an audio_codec/source/screen_size/streaming_service match.
         var blockingNames = Set.of("audio_codec", "screen_size", "streaming_service",
-            "source", "video_profile", "audio_channels", "audio_profile");
+                "source", "video_profile", "audio_channels", "audio_profile");
         var blocking = ctx.matches.all().filter(m -> blockingNames.contains(m.name())).toList();
         var weaks = ctx.matches.named("episode").filter(m -> m.tags().contains("weak-episode")).toList();
         var toRemove = new ArrayList<Match>();
@@ -1566,36 +1676,43 @@ git commit -m "feat(rules): add WeakEpisodeExtractor with movie/SxxExx-aware sup
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
-import io.guessit.Options;
+import io.guessit.api.Guessit;
+import io.guessit.api.Options;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class WeakDuplicateExtractorTest {
-    @Test void weakSeasonEpisodeFromFourDigits() {
+    @Test
+    void weakSeasonEpisodeFromFourDigits() {
         // Show.0102.mkv → season=1, episode=2 (weak-duplicate fallback).
         var r = Guessit.parse("Show.0102.HDTV.mkv").toMap();
         assertEquals(1, r.get("season"));
         assertEquals(2, r.get("episode"));
     }
-    @Test void preferNumberOverridesWeakDuplicate() {
-        var r = Guessit.parse("Show.0102.HDTV.mkv",
-            Options.builder().episodePreferNumber(true).build()).toMap();
+
+    @Test
+    void preferNumberOverridesWeakDuplicate() {
+        var r = io.guessit.api.Guessit.parse("Show.0102.HDTV.mkv",
+                Options.builder().episodePreferNumber(true).build()).toMap();
         assertEquals(102, r.get("episode"));
         assertNull(r.get("season"));
     }
-    @Test void droppedWhenMovie() {
+
+    @Test
+    void droppedWhenMovie() {
         var r = Guessit.parse("Movie.0102.HDTV.mkv",
-            Options.builder().type("movie").build()).toMap();
+                Options.builder().type("movie").build()).toMap();
         assertNull(r.get("season"));
         assertNull(r.get("episode"));
     }
-    @Test void droppedWhenStrongSxxExxPresent() {
+
+    @Test
+    void droppedWhenStrongSxxExxPresent() {
         // S01E02 is strong → 0304 weak-duplicate is dropped.
-        var r = Guessit.parse("Show.S01E02.0304.mkv").toMap();
+        var r = io.guessit.api.Guessit.parse("Show.S01E02.0304.mkv").toMap();
         assertEquals(1, r.get("season"));
         assertEquals(2, r.get("episode"));
     }
@@ -1610,9 +1727,12 @@ Expected: 4 failures.
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Validators;
 
 import java.util.ArrayList;
 import java.util.Set;
@@ -1621,8 +1741,15 @@ import java.util.regex.Pattern;
 public final class WeakDuplicateExtractor implements Extractor {
     private static final Pattern PATTERN = Pattern.compile("(?<!\\d)(\\d{1,2})(\\d{2})(?!\\d)");
 
-    @Override public String name() { return "weak_duplicate"; }
-    @Override public int priority() { return 700; }
+    @Override
+    public String name() {
+        return "weak_duplicate";
+    }
+
+    @Override
+    public int priority() {
+        return 700;
+    }
 
     @Override
     public void extract(ParseContext ctx) {
@@ -1637,9 +1764,9 @@ public final class WeakDuplicateExtractor implements Extractor {
             int s = Integer.parseInt(m.group(1));
             int e = Integer.parseInt(m.group(2));
             ctx.matches.add(new Match("season", s, m.start(1), m.end(1),
-                m.group(1), 700, Set.of("weak-episode", "weak-duplicate", "coexist"), false));
+                    m.group(1), 700, Set.of("weak-episode", "weak-duplicate", "coexist"), false));
             ctx.matches.add(new Match("episode", e, m.start(2), m.end(2),
-                m.group(2), 700, Set.of("weak-episode", "weak-duplicate", "coexist"), false));
+                    m.group(2), 700, Set.of("weak-episode", "weak-duplicate", "coexist"), false));
         }
     }
 
@@ -1647,7 +1774,7 @@ public final class WeakDuplicateExtractor implements Extractor {
     @Override
     public void postProcess(ParseContext ctx) {
         boolean strongPresent = ctx.matches.named("episode").anyMatch(m -> m.tags().contains("SxxExx"))
-            || ctx.matches.named("season").anyMatch(m -> m.tags().contains("SxxExx"));
+                || ctx.matches.named("season").anyMatch(m -> m.tags().contains("SxxExx"));
         if (!strongPresent) return;
         var toRemove = new ArrayList<Match>();
         for (var name : new String[]{"season", "episode"}) {
@@ -1689,21 +1816,24 @@ The Python `RenameToDiscMatch` rule looks at episodeMarker matches whose value i
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class DiscRuleTest {
-    @Test void s01d02RenamesToDisc() {
+    @Test
+    void s01d02RenamesToDisc() {
         var r = Guessit.parse("Show.S01D02.mkv").toMap();
         assertEquals(2, r.get("disc"));
         assertNull(r.get("episode"));
     }
-    @Test void s01e02IsUnchanged() {
-        var r = Guessit.parse("Show.S01E02.mkv").toMap();
+
+    @Test
+    void s01e02IsUnchanged() {
+        var r = io.guessit.api.Guessit.parse("Show.S01E02.mkv").toMap();
         assertEquals(2, r.get("episode"));
         assertNull(r.get("disc"));
     }
@@ -1718,18 +1848,28 @@ Expected: `s01d02RenamesToDisc` failure.
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
 
 import java.util.ArrayList;
 import java.util.Set;
 
 public final class DiscRule implements Extractor {
-    @Override public String name() { return "disc"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "disc";
+    }
 
-    @Override public void extract(ParseContext ctx) { /* renaming-only rule */ }
+    @Override
+    public int priority() {
+        return 1000;
+    }
+
+    @Override
+    public void extract(ParseContext ctx) { /* renaming-only rule */ }
 
     @Override
     public void postProcess(ParseContext ctx) {
@@ -1748,7 +1888,7 @@ public final class DiscRule implements Extractor {
             if (!leftBoundary && !Character.isDigit(input.charAt(p - 1))) continue;
             toRemove.add(ep);
             toAdd.add(new Match("disc", ep.value(), ep.start(), ep.end(), ep.raw(),
-                ep.priority(), Set.of(), false));
+                    ep.priority(), Set.of(), false));
         }
         for (var m : toRemove) ctx.matches.remove(m);
         for (var m : toAdd) ctx.matches.add(m);
@@ -1787,21 +1927,24 @@ git commit -m "feat(rules): add DiscRule (rename d-marker episodes to disc)"
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class AbsoluteEpisodeRuleTest {
-    @Test void leadingWeakBeforeSxxExx() {
+    @Test
+    void leadingWeakBeforeSxxExx() {
         // 28. Anime.Name.S02E05 → episode=5, absolute_episode=28.
-        var r = Guessit.parse("28. Anime.Name.S02E05.mkv").toMap();
+        var r = io.guessit.api.Guessit.parse("28. Anime.Name.S02E05.mkv").toMap();
         assertEquals(5, r.get("episode"));
         assertEquals(28, r.get("absolute_episode"));
     }
-    @Test void noOpWhenSingleBlock() {
+
+    @Test
+    void noOpWhenSingleBlock() {
         var r = Guessit.parse("Show.S01E02.mkv").toMap();
         assertEquals(2, r.get("episode"));
         assertNull(r.get("absolute_episode"));
@@ -1817,29 +1960,39 @@ Expected: 1 failure (`leadingWeakBeforeSxxExx`).
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
 
 import java.util.ArrayList;
 import java.util.Set;
 
 public final class AbsoluteEpisodeRule implements Extractor {
-    @Override public String name() { return "absolute_episode"; }
-    @Override public int priority() { return 900; }
+    @Override
+    public String name() {
+        return "absolute_episode";
+    }
 
-    @Override public void extract(ParseContext ctx) { /* renaming-only rule */ }
+    @Override
+    public int priority() {
+        return 900;
+    }
+
+    @Override
+    public void extract(ParseContext ctx) { /* renaming-only rule */ }
 
     @Override
     public void postProcess(ParseContext ctx) {
         var sxx = ctx.matches.named("episode")
-            .filter(m -> m.tags().contains("SxxExx"))
-            .findFirst().orElse(null);
+                .filter(m -> m.tags().contains("SxxExx"))
+                .findFirst().orElse(null);
         if (sxx == null) return;
         var leading = ctx.matches.named("episode")
-            .filter(m -> m.tags().contains("weak-episode"))
-            .filter(m -> m.end() <= sxx.start())
-            .toList();
+                .filter(m -> m.tags().contains("weak-episode"))
+                .filter(m -> m.end() <= sxx.start())
+                .toList();
         if (leading.isEmpty()) return;
 
         var toRemove = new ArrayList<Match>();
@@ -1847,7 +2000,7 @@ public final class AbsoluteEpisodeRule implements Extractor {
         for (var w : leading) {
             toRemove.add(w);
             toAdd.add(new Match("absolute_episode", w.value(), w.start(), w.end(), w.raw(),
-                w.priority(), Set.of(), false));
+                    w.priority(), Set.of(), false));
         }
         for (var m : toRemove) ctx.matches.remove(m);
         for (var m : toAdd) ctx.matches.add(m);
@@ -1882,9 +2035,9 @@ git commit -m "feat(rules): add AbsoluteEpisodeRule (rename leading weak episode
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -1892,21 +2045,28 @@ import java.time.LocalDate;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DateExtractorTest {
-    @Test void ymdDate() {
-        var r = Guessit.parse("Show.2002-04-22.HDTV.mkv").toMap();
+    @Test
+    void ymdDate() {
+        var r = io.guessit.api.Guessit.parse("Show.2002-04-22.HDTV.mkv").toMap();
         assertEquals(LocalDate.of(2002, 4, 22), r.get("date"));
     }
-    @Test void dmyDate() {
-        var r = Guessit.parse("Show 17-06-1998 HDTV.mkv").toMap();
+
+    @Test
+    void dmyDate() {
+        var r = io.guessit.api.Guessit.parse("Show 17-06-1998 HDTV.mkv").toMap();
         assertEquals(LocalDate.of(1998, 6, 17), r.get("date"));
     }
-    @Test void noDate() {
+
+    @Test
+    void noDate() {
         var r = Guessit.parse("Show.S01E02.mkv").toMap();
         assertNull(r.get("date"));
     }
-    @Test void dateSuppressesEpisode() {
+
+    @Test
+    void dateSuppressesEpisode() {
         // Date span overlaps would-be episode digits; date wins.
-        var r = Guessit.parse("Show.2002-04-22.mkv").toMap();
+        var r = io.guessit.api.Guessit.parse("Show.2002-04-22.mkv").toMap();
         assertNotNull(r.get("date"));
         assertNull(r.get("episode"));
         assertNull(r.get("season"));
@@ -1922,10 +2082,12 @@ Expected: 3 failures.
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
-import io.guessit.engine.date.DatePatterns;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.rules.date.DatePatterns;
 
 import java.util.ArrayList;
 import java.util.Set;
@@ -1998,23 +2160,28 @@ git commit -m "feat(rules): add DateExtractor with date-vs-year/episode/season c
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class WeekExtractorTest {
-    @Test void weekWordWithNumber() {
+    @Test
+    void weekWordWithNumber() {
         var r = Guessit.parse("Show Week 12 HDTV.mkv").toMap();
         assertEquals(12, r.get("week"));
     }
-    @Test void invalidWeekRangeDropped() {
+
+    @Test
+    void invalidWeekRangeDropped() {
         var r = Guessit.parse("Show Week 99 HDTV.mkv").toMap();
         assertNull(r.get("week"));
     }
-    @Test void noWeek() {
+
+    @Test
+    void noWeek() {
         var r = Guessit.parse("Show.S01E02.mkv").toMap();
         assertNull(r.get("week"));
     }
@@ -2029,10 +2196,13 @@ Expected: 1 failure (`weekWordWithNumber`).
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
-import io.guessit.engine.date.DatePatterns;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Validators;
+import io.guessit.rules.date.DatePatterns;
 
 import java.util.List;
 import java.util.Set;
@@ -2107,21 +2277,23 @@ Python `date.py` declares the year regex with a conflict_solver that yields to a
 Append to `src/test/java/io/guessit/rules/property/YearExtractorTest.java`:
 
 ```java
-    @org.junit.jupiter.api.Test
-    void yearLosesToShorterStrongSeason() {
-        // S2002 strong season would beat year=2002 since "2002" inside "S2002" is shorter than the season span.
-        var r = io.guessit.Guessit.parse("Show.S2002.HDTV.mkv").toMap();
-        assertEquals(2002, r.get("season"));
-        assertNull(r.get("year"));
-    }
+    import io.guessit.api.Guessit;
 
-    @org.junit.jupiter.api.Test
-    void yearLosesToWeek() {
-        // Week 2025: "2025" alone could be year, but with "Week" prefix the week match wins.
-        var r = io.guessit.Guessit.parse("Show Week-2025 HDTV.mkv").toMap();
-        assertEquals(25, r.get("week"));
-        assertNull(r.get("year"));
-    }
+@org.junit.jupiter.api.Test
+void yearLosesToShorterStrongSeason() {
+    // S2002 strong season would beat year=2002 since "2002" inside "S2002" is shorter than the season span.
+    var r = io.guessit.api.Guessit.parse("Show.S2002.HDTV.mkv").toMap();
+    assertEquals(2002, r.get("season"));
+    assertNull(r.get("year"));
+}
+
+@org.junit.jupiter.api.Test
+void yearLosesToWeek() {
+    // Week 2025: "2025" alone could be year, but with "Week" prefix the week match wins.
+    var r = io.guessit.api.Guessit.parse("Show Week-2025 HDTV.mkv").toMap();
+    assertEquals(25, r.get("week"));
+    assertNull(r.get("year"));
+}
 ```
 
 (Hint: the second test relies on `WeekExtractor`'s 1-2 digit limit dropping `2025` and matching only `25`. Adjust the test if WeekExtractor's pattern caps at 2 digits — in that case both `year=null` and `week=null` will assert null. Keep only the first sub-assert in that case.)

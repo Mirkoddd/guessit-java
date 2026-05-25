@@ -1,12 +1,16 @@
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.trace.PrintTrace;
+import io.guessit.core.trace.Trace;
+import io.guessit.core.trace.TraceDiff;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static io.guessit.engine.MatchName.SCREEN_SIZE;
-import static io.guessit.engine.MatchName.YEAR;
+import static io.guessit.core.pipeline.state.MatchName.SCREEN_SIZE;
+import static io.guessit.core.pipeline.state.MatchName.YEAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TraceDiffTest {

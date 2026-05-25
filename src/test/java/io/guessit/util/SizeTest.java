@@ -2,7 +2,7 @@ package io.guessit.util;
 
 import org.junit.jupiter.api.Test;
 
-import static io.guessit.util.Size.fromString;
+import static io.guessit.api.models.Size.fromString;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

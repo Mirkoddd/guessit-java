@@ -4,7 +4,7 @@
 
 **Goal:** Ship Phase 2 extractors against the foundation laid in Plan 0 and the Phase 1 properties shipped in Plan 1. End state: `Rules.allInOrder()` registers `OtherExtractor`, `SourceExtractor`, `WebsiteExtractor`, `StreamingServiceExtractor`, `LanguageExtractor`, `CountryExtractor`, `ReleaseGroupExtractor`; their per-rule unit tests pass; the YML parity suite gate widens to include `source`, `other`, `language`, `subtitle_language`, `country`, `release_group`, `website`, `streaming_service` plus the Phase 1 props, and ≥50% of all YML cases pass.
 
-**Architecture:** Each extractor lives in `io.guessit.rules.property.<Name>Extractor` and implements `Extractor` from Plan 0. New shared helpers go in `io.guessit.engine`: `Words` (token iterator equivalent to Python `iter_words`) and an additional `OptionsConfig.topLevel(key)` accessor for top-level lists like `allowed_languages`. Per-rule post-processing (e.g. `ValidateSourcePrefixSuffix`, `ValidateWeakSource`, `UltraHdBlurayRule`, `SubtitlePrefixLanguageRule`, `SubtitleSuffixLanguageRule`, `SubtitleExtensionRule`, `RemoveInvalidLanguages`, `RemoveUndeterminedLanguages`, `PreferTitleOverWebsite`, `ValidateStreamingService`, `DashSeparatedReleaseGroup`, `SceneReleaseGroup`, `AnimeReleaseGroup`) runs in `Extractor.postProcess(ctx)` after the central `ConflictSolver`, mirroring Python's rebulk pass order.
+**Architecture:** Each extractor lives in `io.guessit.rules.extractors.<Name>Extractor` and implements `Extractor` from Plan 0. New shared helpers go in `io.guessit.engine`: `Words` (token iterator equivalent to Python `iter_words`) and an additional `OptionsConfig.topLevel(key)` accessor for top-level lists like `allowed_languages`. Per-rule post-processing (e.g. `ValidateSourcePrefixSuffix`, `ValidateWeakSource`, `UltraHdBlurayRule`, `SubtitlePrefixLanguageRule`, `SubtitleSuffixLanguageRule`, `SubtitleExtensionRule`, `RemoveInvalidLanguages`, `RemoveUndeterminedLanguages`, `PreferTitleOverWebsite`, `ValidateStreamingService`, `DashSeparatedReleaseGroup`, `SceneReleaseGroup`, `AnimeReleaseGroup`) runs in `Extractor.postProcess(ctx)` after the central `ConflictSolver`, mirroring Python's rebulk pass order.
 
 **Tech Stack:** Same as Plan 0/1 — Java 25, JUnit Jupiter 5.12.x, Apache Commons CSV (already on classpath), Jackson + SnakeYAML for config, no new dependencies.
 
@@ -81,6 +81,7 @@ Responsibilities (one per file):
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.text.Words;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -88,13 +89,16 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class WordsTest {
-    @Test void splitsAlphanumericRuns() {
+    @Test
+    void splitsAlphanumericRuns() {
         var words = Words.iter("Movie.Name.2015.1080p.BluRay-RG");
         assertEquals(
-            List.of("Movie", "Name", "2015", "1080p", "BluRay", "RG"),
-            words.stream().map(Words.Word::value).toList());
+                List.of("Movie", "Name", "2015", "1080p", "BluRay", "RG"),
+                words.stream().map(Words.Word::value).toList());
     }
-    @Test void offsetsAreCharSpansInOriginalInput() {
+
+    @Test
+    void offsetsAreCharSpansInOriginalInput() {
         var input = "Foo Bar";
         var words = Words.iter(input);
         assertEquals("Foo", words.get(0).value());
@@ -104,15 +108,21 @@ class WordsTest {
         assertEquals(4, words.get(1).start());
         assertEquals(7, words.get(1).end());
     }
-    @Test void emptyAndAllSepsReturnEmpty() {
+
+    @Test
+    void emptyAndAllSepsReturnEmpty() {
         assertTrue(Words.iter("").isEmpty());
         assertTrue(Words.iter(" . - _ ").isEmpty());
     }
-    @Test void underscoresAreSeparators() {
+
+    @Test
+    void underscoresAreSeparators() {
         var values = Words.iter("a_b_c").stream().map(Words.Word::value).toList();
         assertEquals(List.of("a", "b", "c"), values);
     }
-    @Test void highCharsCountAsLetters() {
+
+    @Test
+    void highCharsCountAsLetters() {
         // Non-ASCII letters must still be treated as letters, matching Python str.isalpha.
         var v = Words.iter("Pelícano").stream().map(Words.Word::value).toList();
         assertEquals(List.of("Pelícano"), v);
@@ -274,12 +284,12 @@ The Python `other` rule has two flavors of entries in `advanced_config.other.oth
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Options;
+import io.guessit.api.Options;
 import io.guessit.config.OptionsConfig;
-import io.guessit.engine.ConflictSolver;
-import io.guessit.engine.ParseContext;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.phases.ConflictSolver;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -290,31 +300,34 @@ import static org.junit.jupiter.api.Assertions.*;
 class OtherExtractorTest {
     private static OptionsConfig cfg(Map<String, Object> entries) {
         return new OptionsConfig(Map.of("advanced_config",
-            Map.of("other", Map.of("other", entries))));
+                Map.of("other", Map.of("other", entries))));
     }
 
-    @Test void extractsString3dPattern() {
+    @Test
+    void extractsString3dPattern() {
         var ctx = new ParseContext("Movie.3D.2015",
-            Options.defaults(),
-            cfg(Map.of("3D", "3D")));
+                Options.defaults(),
+                cfg(Map.of("3D", "3D")));
         new OtherExtractor().extract(ctx);
         var values = ctx.matches.named("other").map(m -> m.value().toString()).toList();
         assertEquals(List.of("3D"), values);
     }
 
-    @Test void extractsRegexEntryWithRegexKey() {
+    @Test
+    void extractsRegexEntryWithRegexKey() {
         var ctx = new ParseContext("Movie.HDRip.2015",
-            Options.defaults(),
-            cfg(Map.of("Rip", Map.of("regex", List.of("(?:HD)Rip")))));
+                Options.defaults(),
+                cfg(Map.of("Rip", Map.of("regex", List.of("(?:HD)Rip")))));
         new OtherExtractor().extract(ctx);
         var values = ctx.matches.named("other").map(m -> m.value().toString()).toList();
         assertEquals(List.of("Rip"), values);
     }
 
-    @Test void multipleStringSynonymsAllMatch() {
+    @Test
+    void multipleStringSynonymsAllMatch() {
         var ctx = new ParseContext("Movie.Proper.2015 Repack",
-            Options.defaults(),
-            cfg(Map.of("Proper", List.of("Proper", "Repack"))));
+                Options.defaults(),
+                cfg(Map.of("Proper", List.of("Proper", "Repack"))));
         new OtherExtractor().extract(ctx);
         ConflictSolver.solve(ctx.matches);
         var values = ctx.matches.named("other").map(m -> m.value().toString()).sorted().toList();
@@ -331,20 +344,27 @@ Expected: FAIL — class missing.
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.*;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class OtherExtractor implements Extractor {
-    @Override public String name() { return "other"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "other";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     @Override
     @SuppressWarnings("unchecked")
@@ -386,20 +406,23 @@ public final class OtherExtractor implements Extractor {
 
     private static void emitString(ParseContext ctx, String input, String value, String needle) {
         var opts = StringOpts.defaults()
-            .withValidator(Validators.sepsSurround(input));
+                .withValidator(Validators.sepsSurround(input));
         for (var match : PatternMatcher.string(input, Set.of(needle), "other", opts)) {
             ctx.matches.add(match.withTags(Set.of()).withPriority(opts.priority())
-                .withValue(value));
+                    .withValue(value));
         }
     }
 
     private static void emitRegex(ParseContext ctx, String input, String value, String src) {
         Pattern p;
-        try { p = Pattern.compile(Abbreviations.dash(src), Pattern.CASE_INSENSITIVE); }
-        catch (Exception ignore) { return; }
+        try {
+            p = Pattern.compile(Abbreviations.dash(src), Pattern.CASE_INSENSITIVE);
+        } catch (Exception ignore) {
+            return;
+        }
         var opts = RegexOpts.defaults()
-            .withValue(s -> value)
-            .withValidator(Validators.sepsSurround(input));
+                .withValue(s -> value)
+                .withValidator(Validators.sepsSurround(input));
         for (var match : PatternMatcher.regex(input, p, "other", opts)) {
             ctx.matches.add(match);
         }
@@ -478,52 +501,69 @@ For Phase 2 we ship the canonical entries and run `ValidateSourcePrefixSuffix` i
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class SourceExtractorTest {
-    @Test void bluRayRip() {
+    @Test
+    void bluRayRip() {
         var r = Guessit.parse("Movie.2015.BDRip.mkv").toMap();
         assertEquals("Blu-ray", r.get("source"));
         assertEquals("Rip", r.get("other"));
     }
-    @Test void webDl() {
+
+    @Test
+    void webDl() {
         var r = Guessit.parse("Movie.2015.WEB-DL.mkv").toMap();
         assertEquals("Web", r.get("source"));
         assertNull(r.get("other"));
     }
-    @Test void webRip() {
+
+    @Test
+    void webRip() {
         var r = Guessit.parse("Movie.2015.WEBRip.mkv").toMap();
         assertEquals("Web", r.get("source"));
         assertEquals("Rip", r.get("other"));
     }
-    @Test void hdtv() {
+
+    @Test
+    void hdtv() {
         var r = Guessit.parse("Show.S01E02.HDTV.mkv").toMap();
         assertEquals("HDTV", r.get("source"));
     }
-    @Test void dvdRip() {
+
+    @Test
+    void dvdRip() {
         var r = Guessit.parse("Movie.2015.DVDRip.mkv").toMap();
         assertEquals("DVD", r.get("source"));
         assertEquals("Rip", r.get("other"));
     }
-    @Test void blurayWordSpelling() {
+
+    @Test
+    void blurayWordSpelling() {
         var r = Guessit.parse("Movie.2015.BluRay.mkv").toMap();
         assertEquals("Blu-ray", r.get("source"));
     }
-    @Test void plainTvIsNotMatched() {
+
+    @Test
+    void plainTvIsNotMatched() {
         // 'TV' alone with no rip_prefix or rip_suffix must not produce a source.
         var r = Guessit.parse("Some.Title.TV.mkv").toMap();
         assertNull(r.get("source"), "raw TV without rip context must not match");
     }
-    @Test void brripBecomesBluray() {
+
+    @Test
+    void brripBecomesBluray() {
         var r = Guessit.parse("Movie.2015.BRRip.mkv").toMap();
         assertEquals("Blu-ray", r.get("source"));
     }
-    @Test void hdcam() {
+
+    @Test
+    void hdcam() {
         var r = Guessit.parse("Movie.2015.HDCAM.mkv").toMap();
         assertEquals("HD Camera", r.get("source"));
     }
@@ -538,23 +578,34 @@ Expected: 9 failures (extractor not registered yet).
 - [ ] **Step 3: Implement `SourceExtractor`**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Abbreviations;
+import io.guessit.core.text.Validators;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class SourceExtractor implements Extractor {
-    @Override public String name() { return "source"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "source";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     private record Rule(List<String> patterns, String prefix, String suffix, String source,
-                        String otherValue, Set<String> tags, boolean weak) {}
+                        String otherValue, Set<String> tags, boolean weak) {
+    }
 
     @Override
     public void extract(ParseContext ctx) {
@@ -595,7 +646,7 @@ public final class SourceExtractor implements Extractor {
         rules.add(new Rule(List.of("DVD"), "", optRipSuffix, "DVD", "Rip", common, false));
         rules.add(new Rule(List.of("DM"), "", optRipSuffix, "Digital Master", "Rip", common, false));
         rules.add(new Rule(List.of("VIDEO-?TS", "DVD-?R(?:$|(?!E))", "DVD-?9", "DVD-?5"),
-            "", "", "DVD", null, common, false));
+                "", "", "DVD", null, common, false));
         rules.add(new Rule(List.of("HD-?TV"), "", optRipSuffix, "HDTV", "Rip", common, false));
         rules.add(new Rule(List.of("TV-?HD"), "", ripSuffix, "HDTV", "Rip", common, false));
         rules.add(new Rule(List.of("TV"), "", "-?(?P<other>Rip-?HD)", "HDTV", "Rip", common, false));
@@ -603,13 +654,13 @@ public final class SourceExtractor implements Extractor {
         rules.add(new Rule(List.of("WEB", "WEB-?DL"), "", ripSuffix, "Web", "Rip", common, false));
         rules.add(new Rule(List.of("WEB-?(?P<another>Cap)"), "", optRipSuffix, "Web", "Rip", common, false));
         rules.add(new Rule(List.of("WEB-?DL", "WEB-?U?HD", "DL-?WEB", "DL(?=-?Mux)"),
-            "", "", "Web", null, common, false));
+                "", "", "Web", null, common, false));
         rules.add(new Rule(List.of("WEB"), "", "", "Web", null, Set.of("weak.source"), true));
         rules.add(new Rule(List.of("HD-?DVD"), "", optRipSuffix, "HD-DVD", "Rip", common, false));
         rules.add(new Rule(List.of("Blu-?ray", "BD", "BD[59]", "BD25", "BD50"),
-            "", optRipSuffix, "Blu-ray", "Rip", common, false));
+                "", optRipSuffix, "Blu-ray", "Rip", common, false));
         rules.add(new Rule(List.of("(?P<another>BR)-?(?=Scr(?:eener)?)", "(?P<another>BR)-?(?=Mux)"),
-            "", "", "Blu-ray", null, common, false));
+                "", "", "Blu-ray", null, common, false));
         rules.add(new Rule(List.of("(?P<another>BR)"), "", ripSuffix, "Blu-ray", "Rip", common, false));
         rules.add(new Rule(List.of("Ultra-?Blu-?ray", "Blu-?ray-?Ultra"), "", "", "Ultra HD Blu-ray", null, common, false));
         rules.add(new Rule(List.of("AHDTV"), "", "", "Analog HDTV", null, common, false));
@@ -638,7 +689,7 @@ public final class SourceExtractor implements Extractor {
             int s = matcher.start();
             int e = matcher.end();
             var sourceMatch = new Match("source", rule.source(), s, e,
-                input.substring(s, e), 1000, rule.tags(), false);
+                    input.substring(s, e), 1000, rule.tags(), false);
             if (!validator.test(sourceMatch)) continue;
             ctx.matches.add(sourceMatch);
             // If "other" group matched, emit a paired other match.
@@ -647,17 +698,26 @@ public final class SourceExtractor implements Extractor {
                 int oe = groupEnd(matcher, "other");
                 if (os >= 0 && oe > os) {
                     ctx.matches.add(new Match("other", rule.otherValue(), os, oe,
-                        input.substring(os, oe), 1000, Set.of("coexist"), false));
+                            input.substring(os, oe), 1000, Set.of("coexist"), false));
                 }
             }
         }
     }
 
     private static int groupStart(Matcher m, String name) {
-        try { return m.start(name); } catch (IllegalArgumentException | IllegalStateException e) { return -1; }
+        try {
+            return m.start(name);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return -1;
+        }
     }
+
     private static int groupEnd(Matcher m, String name) {
-        try { return m.end(name); } catch (IllegalArgumentException | IllegalStateException e) { return -1; }
+        try {
+            return m.end(name);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return -1;
+        }
     }
 
     /** Replicates Python ValidateSourcePrefixSuffix. */
@@ -857,19 +917,22 @@ Python builds two regex patterns per `safe_subdomains` / `safe_tlds` config: one
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class WebsiteExtractorTest {
-    @Test void detectsSafeTld() {
-        var r = Guessit.parse("Show.S01.example.com.WEB.mkv").toMap();
+    @Test
+    void detectsSafeTld() {
+        var r = io.guessit.api.Guessit.parse("Show.S01.example.com.WEB.mkv").toMap();
         assertEquals("example.com", r.get("website"));
     }
-    @Test void detectsTld() {
+
+    @Test
+    void detectsTld() {
         var r = Guessit.parse("Show.S01 [www.tracker.io].mkv").toMap();
         assertNotNull(r.get("website"));
         assertTrue(r.get("website").toString().toLowerCase().endsWith("tracker.io"));
@@ -885,9 +948,11 @@ Expected: 2 failures.
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -899,8 +964,15 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class WebsiteExtractor implements Extractor {
-    @Override public String name() { return "website"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "website";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     private static final List<String> TLDS = loadTlds();
 
@@ -925,7 +997,7 @@ public final class WebsiteExtractor implements Extractor {
                 int s = matcher.start(1);
                 int e = matcher.end(1);
                 ctx.matches.add(new Match("website", input.substring(s, e), s, e,
-                    input.substring(s, e), 1000, Set.of(), false));
+                        input.substring(s, e), 1000, Set.of(), false));
             }
         }
     }
@@ -951,10 +1023,14 @@ public final class WebsiteExtractor implements Extractor {
         var out = new ArrayList<String>();
         try (var in = WebsiteExtractor.class.getResourceAsStream("/io/guessit/data/tlds-alpha-by-domain.txt");
              var r = new BufferedReader(new InputStreamReader(java.util.Objects.requireNonNull(in), StandardCharsets.UTF_8))) {
-            String line; boolean first = true;
+            String line;
+            boolean first = true;
             while ((line = r.readLine()) != null) {
                 if (line.contains("--")) continue;
-                if (first) { first = false; continue; }
+                if (first) {
+                    first = false;
+                    continue;
+                }
                 var trim = line.trim();
                 if (!trim.isEmpty()) out.add(trim.toLowerCase(Locale.ROOT));
             }
@@ -1010,27 +1086,34 @@ Python's `streaming_service` config (`advanced_config.streaming_service`) is a f
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class StreamingServiceExtractorTest {
-    @Test void amzn() {
+    @Test
+    void amzn() {
         var r = Guessit.parse("Show.S01.AMZN.WEB-DL.mkv").toMap();
         assertEquals("Amazon Prime", r.get("streaming_service"));
     }
-    @Test void atvp() {
+
+    @Test
+    void atvp() {
         var r = Guessit.parse("Show.S01.ATVP.WEB-DL.mkv").toMap();
         assertEquals("AppleTV", r.get("streaming_service"));
     }
-    @Test void disneyPlus() {
+
+    @Test
+    void disneyPlus() {
         var r = Guessit.parse("Show.S01.DSNP.WEB-DL.mkv").toMap();
         assertEquals("Disney+", r.get("streaming_service"));
     }
-    @Test void notMatchedWithoutSourceContext() {
+
+    @Test
+    void notMatchedWithoutSourceContext() {
         // CC alone with no source nearby should be filtered by ValidateStreamingService
         var r = Guessit.parse("File.CC.foo").toMap();
         assertNotEquals("Comedy Central", r.get("streaming_service"));
@@ -1046,9 +1129,13 @@ Expected: 4 failures.
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Abbreviations;
+import io.guessit.core.text.Validators;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -1058,8 +1145,15 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class StreamingServiceExtractor implements Extractor {
-    @Override public String name() { return "streaming_service"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "streaming_service";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     @Override
     @SuppressWarnings("unchecked")
@@ -1104,7 +1198,7 @@ public final class StreamingServiceExtractor implements Extractor {
             if (i < 0) break;
             int e = i + n.length();
             var m = new Match("streaming_service", value, i, e, input.substring(i, e),
-                1000, Set.of("source-prefix"), false);
+                    1000, Set.of("source-prefix"), false);
             if (validator.test(m)) ctx.matches.add(m);
             from = i + 1;
         }
@@ -1112,15 +1206,18 @@ public final class StreamingServiceExtractor implements Extractor {
 
     private static void emitRegex(ParseContext ctx, String input, String value, String src) {
         Pattern p;
-        try { p = Pattern.compile(Abbreviations.dash(src), Pattern.CASE_INSENSITIVE); }
-        catch (Exception ex) { return; }
+        try {
+            p = Pattern.compile(Abbreviations.dash(src), Pattern.CASE_INSENSITIVE);
+        } catch (Exception ex) {
+            return;
+        }
         var validator = Validators.sepsSurround(input);
         var matcher = p.matcher(input);
         while (matcher.find()) {
             int s = matcher.start();
             int e = matcher.end();
             var m = new Match("streaming_service", value, s, e, input.substring(s, e),
-                1000, Set.of("source-prefix"), false);
+                    1000, Set.of("source-prefix"), false);
             if (validator.test(m)) ctx.matches.add(m);
         }
     }
@@ -1133,9 +1230,9 @@ public final class StreamingServiceExtractor implements Extractor {
         var toRemove = new ArrayList<Match>();
         for (var s : services) {
             boolean hasNext = adjacent(ctx, s.end(), "streaming_service.suffix")
-                || hasSourceNear(ctx, s.end(), 0, ctx.input.length());
+                    || hasSourceNear(ctx, s.end(), 0, ctx.input.length());
             boolean hasPrev = adjacent(ctx, s.start(), "streaming_service.prefix")
-                || hasSourceNear(ctx, 0, s.start(), s.start());
+                    || hasSourceNear(ctx, 0, s.start(), s.start());
             if (!hasNext && !hasPrev) toRemove.add(s);
         }
         for (var m : toRemove) ctx.matches.remove(m);
@@ -1147,7 +1244,7 @@ public final class StreamingServiceExtractor implements Extractor {
 
     private static boolean hasSourceNear(ParseContext ctx, int from, int to, int anchor) {
         return ctx.matches.named("source").anyMatch(m -> m.start() >= from && m.end() <= to
-            && Math.abs(m.start() - anchor) < 20);
+                && Math.abs(m.start() - anchor) < 20);
     }
 }
 ```
@@ -1188,38 +1285,46 @@ For Phase 2 we ship the canonical Python flow without extended-word merging (`pt
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
-import io.guessit.lang.Language;
+import io.guessit.api.Guessit;
+import io.guessit.api.models.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class LanguageExtractorTest {
-    @Test void englishAlpha2() {
+    @Test
+    void englishAlpha2() {
         var r = Guessit.parse("Show.S01.ENG.HDTV.mkv").toMap();
         assertEquals(new Language("en", "eng", "English"), r.get("language"));
     }
-    @Test void frenchAliasVf() {
+
+    @Test
+    void frenchAliasVf() {
         var r = Guessit.parse("Movie.2015.VF.BluRay.mkv").toMap();
         assertEquals(new Language("fr", "fra", "French"), r.get("language"));
     }
-    @Test void multipleLanguagesCollapseToList() {
-        var r = Guessit.parse("Movie.2015.ENG.FRE.BluRay.mkv").toMap();
+
+    @Test
+    void multipleLanguagesCollapseToList() {
+        var r = io.guessit.api.Guessit.parse("Movie.2015.ENG.FRE.BluRay.mkv").toMap();
         var languages = (List<?>) r.get("language");
         assertNotNull(languages);
         assertEquals(2, languages.size());
     }
-    @Test void undeterminedDroppedWhenRealLangPresent() {
+
+    @Test
+    void undeterminedDroppedWhenRealLangPresent() {
         // "und" should be dropped if a regular language match exists.
-        var r = Guessit.parse("Show.UND.ENG.HDTV.mkv").toMap();
+        var r = io.guessit.api.Guessit.parse("Show.UND.ENG.HDTV.mkv").toMap();
         assertEquals(new Language("en", "eng", "English"), r.get("language"));
     }
-    @Test void languageNotInAllowedListIgnored() {
+
+    @Test
+    void languageNotInAllowedListIgnored() {
         // "kor" is not in default allowed_languages → dropped.
         var r = Guessit.parse("Show.KOR.HDTV.mkv").toMap();
         assertNull(r.get("language"));
@@ -1235,22 +1340,32 @@ Expected: 5 failures.
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
-import io.guessit.lang.Language;
-import io.guessit.lang.LanguageRegistry;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Validators;
+import io.guessit.core.text.Words;
+import io.guessit.api.models.Language;
+import io.guessit.rules.lang.LanguageRegistry;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Set;
 
 public final class LanguageExtractor implements Extractor {
-    @Override public String name() { return "language"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "language";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     private static final String UND_NAME = "Undetermined";
     private static final String MUL_NAME = "Multiple languages";
@@ -1275,7 +1390,7 @@ public final class LanguageExtractor implements Extractor {
             if (lang == null) continue;
             if (!isAllowed(lang, allowed)) continue;
             ctx.matches.add(new Match("language", lang, word.start(), word.end(),
-                input.substring(word.start(), word.end()), 1000, Set.of(), false));
+                    input.substring(word.start(), word.end()), 1000, Set.of(), false));
         }
     }
 
@@ -1304,8 +1419,8 @@ public final class LanguageExtractor implements Extractor {
 
         emitAffixGroup(ctx, subtitlePrefixes, "subtitle_language.prefix", Set.of("release-group-prefix"));
         emitAffixGroup(ctx, subtitleSuffixes, "subtitle_language.suffix", Set.of());
-        emitAffixGroup(ctx, languagePrefixes, "language.prefix",          Set.of());
-        emitAffixGroup(ctx, languageSuffixes, "language.suffix",          Set.of("source-suffix"));
+        emitAffixGroup(ctx, languagePrefixes, "language.prefix", Set.of());
+        emitAffixGroup(ctx, languageSuffixes, "language.suffix", Set.of("source-suffix"));
     }
 
     private static void emitAffixGroup(ParseContext ctx, List<String> affixes, String name, Set<String> tags) {
@@ -1337,9 +1452,11 @@ public final class LanguageExtractor implements Extractor {
     }
 
     private static List<String> combine(List<String> a, List<String> b) {
-        if (a.isEmpty()) return b; if (b.isEmpty()) return a;
+        if (a.isEmpty()) return b;
+        if (b.isEmpty()) return a;
         var out = new ArrayList<String>(a.size() + b.size());
-        out.addAll(a); out.addAll(b);
+        out.addAll(a);
+        out.addAll(b);
         return out;
     }
 
@@ -1348,7 +1465,7 @@ public final class LanguageExtractor implements Extractor {
     public void postProcess(ParseContext ctx) {
         var langs = ctx.matches.named("language").toList();
         boolean hasReal = langs.stream().anyMatch(m -> m.value() instanceof Language l
-            && !UND_NAME.equals(l.name()) && !MUL_NAME.equals(l.name()));
+                && !UND_NAME.equals(l.name()) && !MUL_NAME.equals(l.name()));
         if (hasReal) {
             for (var m : langs) {
                 if (m.value() instanceof Language l && UND_NAME.equals(l.name())) {
@@ -1397,23 +1514,28 @@ Add three Python-equivalent conversions in `LanguageExtractor.postProcess`, afte
 Append to `LanguageExtractorTest.java`:
 
 ```java
-    @Test void subtitlePrefixConvertsLanguageToSubtitle() {
-        var r = Guessit.parse("Show.S01.VOST.ENG.HDTV.mkv").toMap();
-        assertNull(r.get("language"));
-        assertEquals(new io.guessit.lang.Language("en", "eng", "English"), r.get("subtitle_language"));
-    }
+    import io.guessit.api.models.Language;
 
-    @Test void subtitleSuffixConvertsLanguageToSubtitle() {
-        var r = Guessit.parse("Show.S01.ENG.SUB.HDTV.mkv").toMap();
-        assertNull(r.get("language"));
-        assertEquals(new io.guessit.lang.Language("en", "eng", "English"), r.get("subtitle_language"));
-    }
+@Test
+void subtitlePrefixConvertsLanguageToSubtitle() {
+    var r = Guessit.parse("Show.S01.VOST.ENG.HDTV.mkv").toMap();
+    assertNull(r.get("language"));
+    assertEquals(new io.guessit.api.models.Language("en", "eng", "English"), r.get("subtitle_language"));
+}
 
-    @Test void subtitleExtensionPromotesPreviousLanguage() {
-        var r = Guessit.parse("Show.S01.ENG.srt").toMap();
-        assertNull(r.get("language"));
-        assertEquals(new io.guessit.lang.Language("en", "eng", "English"), r.get("subtitle_language"));
-    }
+@Test
+void subtitleSuffixConvertsLanguageToSubtitle() {
+    var r = Guessit.parse("Show.S01.ENG.SUB.HDTV.mkv").toMap();
+    assertNull(r.get("language"));
+    assertEquals(new io.guessit.api.models.Language("en", "eng", "English"), r.get("subtitle_language"));
+}
+
+@Test
+void subtitleExtensionPromotesPreviousLanguage() {
+    var r = Guessit.parse("Show.S01.ENG.srt").toMap();
+    assertNull(r.get("language"));
+    assertEquals(new io.guessit.api.models.Language("en", "eng", "English"), r.get("subtitle_language"));
+}
 ```
 
 - [ ] **Step 2: Run tests**
@@ -1513,7 +1635,7 @@ Replace the `postProcess` method body in `LanguageExtractor.java` with:
     }
 ```
 
-You may need an `import io.guessit.engine.Seps;`. Drop the unused `HashSet`/`Objects` imports if your IDE flags them.
+You may need an `import io.guessit.core.text.Seps;`. Drop the unused `HashSet`/`Objects` imports if your IDE flags them.
 
 - [ ] **Step 4: Run tests**
 
@@ -1539,29 +1661,36 @@ git commit -m "feat(rules): LanguageExtractor handles subtitle prefix/suffix/ext
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
-import io.guessit.lang.Country;
+import io.guessit.api.Guessit;
+import io.guessit.api.models.Country;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class CountryExtractorTest {
-    @Test void usCountry() {
+    @Test
+    void usCountry() {
         var r = Guessit.parse("Show.S01.US.WEB-DL.mkv").toMap();
         assertEquals(new Country("US", "United States"), r.get("country"));
     }
-    @Test void ukCountry() {
+
+    @Test
+    void ukCountry() {
         var r = Guessit.parse("Show.S01.UK.HDTV.mkv").toMap();
         assertNotNull(r.get("country"));
     }
-    @Test void disallowedCountryIgnored() {
+
+    @Test
+    void disallowedCountryIgnored() {
         var r = Guessit.parse("Show.S01.JP.HDTV.mkv").toMap();
         // JP not in default allowed_countries → not picked up.
         assertNull(r.get("country"));
     }
-    @Test void englishLanguageNotMisreadAsCountry() {
+
+    @Test
+    void englishLanguageNotMisreadAsCountry() {
         // "EN" is a language code, must not become country.
         var r = Guessit.parse("Show.S01.EN.HDTV.mkv").toMap();
         assertNull(r.get("country"));
@@ -1577,11 +1706,14 @@ Expected: 4 failures.
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
-import io.guessit.lang.Country;
-import io.guessit.lang.LanguageRegistry;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Words;
+import io.guessit.api.models.Country;
+import io.guessit.rules.lang.LanguageRegistry;
 
 import java.util.HashSet;
 import java.util.List;
@@ -1589,8 +1721,15 @@ import java.util.Locale;
 import java.util.Set;
 
 public final class CountryExtractor implements Extractor {
-    @Override public String name() { return "country"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "country";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     @Override
     public void extract(ParseContext ctx) {
@@ -1611,7 +1750,7 @@ public final class CountryExtractor implements Extractor {
             if (!allowedLc.contains(country.alpha2().toLowerCase(Locale.ROOT))
                     && !allowedLc.contains(country.name().toLowerCase(Locale.ROOT))) continue;
             ctx.matches.add(new Match("country", country, word.start(), word.end(),
-                input.substring(word.start(), word.end()), 1000, Set.of(), false));
+                    input.substring(word.start(), word.end()), 1000, Set.of(), false));
         }
     }
 
@@ -1679,10 +1818,9 @@ This is the trickiest rule because Python's `SceneReleaseGroup` depends on title
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
-import io.guessit.Options;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -1690,25 +1828,34 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ReleaseGroupExtractorTest {
-    @Test void dashSeparatedAtEnd() {
-        var r = Guessit.parse("Series.S01E02.Pilot.DVDRip.x264-CS.mkv").toMap();
+    @Test
+    void dashSeparatedAtEnd() {
+        var r = io.guessit.api.Guessit.parse("Series.S01E02.Pilot.DVDRip.x264-CS.mkv").toMap();
         assertEquals("CS", r.get("release_group"));
     }
-    @Test void dashSeparatedAtBeginning() {
-        var r = Guessit.parse("abc-the.title.name.1983.1080p.bluray.x264.mkv").toMap();
+
+    @Test
+    void dashSeparatedAtBeginning() {
+        var r = io.guessit.api.Guessit.parse("abc-the.title.name.1983.1080p.bluray.x264.mkv").toMap();
         assertEquals("abc", r.get("release_group"));
     }
-    @Test void scene() {
+
+    @Test
+    void scene() {
         var r = Guessit.parse("Something.XViD-ReleaseGroup.mkv").toMap();
         assertEquals("ReleaseGroup", r.get("release_group"));
     }
-    @Test void animeBracketedAtStart() {
-        var r = Guessit.parse("[ReleaseGroup] Something.S01E01.mkv").toMap();
+
+    @Test
+    void animeBracketedAtStart() {
+        var r = io.guessit.api.Guessit.parse("[ReleaseGroup] Something.S01E01.mkv").toMap();
         assertEquals("ReleaseGroup", r.get("release_group"));
     }
-    @Test void expectedGroupWins() {
-        var opts = Options.builder().expectedGroup(List.of("MyGroup")).build();
-        var r = Guessit.parse("Movie.MyGroup.x264.mkv", opts).toMap();
+
+    @Test
+    void expectedGroupWins() {
+        var opts = io.guessit.api.Options.builder().expectedGroup(List.of("MyGroup")).build();
+        var r = io.guessit.api.Guessit.parse("Movie.MyGroup.x264.mkv", opts).toMap();
         assertEquals("MyGroup", r.get("release_group"));
     }
 }
@@ -1722,22 +1869,30 @@ Expected: 5 failures.
 - [ ] **Step 3: Implement extractor**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Validators;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 
 public final class ReleaseGroupExtractor implements Extractor {
     private static final Set<String> SCENE_PREV = Set.of(
-        "video_codec", "source", "video_api", "audio_codec", "audio_profile", "video_profile",
-        "audio_channels", "screen_size", "other", "container",
-        "language", "subtitle_language");
+            "video_codec", "source", "video_api", "audio_codec", "audio_profile", "video_profile",
+            "audio_channels", "screen_size", "other", "container",
+            "language", "subtitle_language");
 
-    @Override public String name() { return "release_group"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "release_group";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     /** Phase 2: extractor only emits expected_group; the dash/scene/anime variants live in postProcess. */
     @Override
@@ -1753,7 +1908,7 @@ public final class ReleaseGroupExtractor implements Extractor {
                 if (idx < 0) break;
                 int end = idx + name.length();
                 var m = new Match("release_group", name, idx, end, input.substring(idx, end),
-                    2000, Set.of("expected"), false);
+                        2000, Set.of("expected"), false);
                 if (validator.test(m)) ctx.matches.add(m);
                 from = idx + 1;
             }
@@ -1776,15 +1931,15 @@ public final class ReleaseGroupExtractor implements Extractor {
             var part = input.substring(filepart.start(), filepart.end());
             // Trailing dash group: ".x264-Group.ext" or "...-Group.ext"
             var ext = ctx.matches.named("container")
-                .filter(m -> filepart.covers(m.start(), m.end()) && m.tags().contains("extension"))
-                .findFirst().orElse(null);
+                    .filter(m -> filepart.covers(m.start(), m.end()) && m.tags().contains("extension"))
+                    .findFirst().orElse(null);
             int end = ext != null ? ext.start() : filepart.end();
             int dash = input.lastIndexOf('-', end - 1);
             if (dash > filepart.start() && dash < end - 1) {
                 var candidate = input.substring(dash + 1, end);
                 if (validGroupName(candidate)) {
                     var m = new Match("release_group", candidate.trim(), dash + 1, end,
-                        candidate, 1500, Set.of("scene"), false);
+                            candidate, 1500, Set.of("scene"), false);
                     ctx.matches.add(m);
                     return true;
                 }
@@ -1798,7 +1953,7 @@ public final class ReleaseGroupExtractor implements Extractor {
                     int absStart = filepart.start();
                     int absEnd = filepart.start() + firstDash;
                     var m = new Match("release_group", candidate, absStart, absEnd,
-                        candidate, 1500, Set.of("scene"), false);
+                            candidate, 1500, Set.of("scene"), false);
                     ctx.matches.add(m);
                     return true;
                 }
@@ -1812,22 +1967,22 @@ public final class ReleaseGroupExtractor implements Extractor {
         for (var filepart : ctx.markers) {
             if (!"path".equals(filepart.name())) continue;
             var ext = ctx.matches.named("container")
-                .filter(m -> filepart.covers(m.start(), m.end()) && m.tags().contains("extension"))
-                .findFirst().orElse(null);
+                    .filter(m -> filepart.covers(m.start(), m.end()) && m.tags().contains("extension"))
+                    .findFirst().orElse(null);
             int rangeEnd = ext != null ? ext.start() : filepart.end();
 
             // Find last "scene-prev" match within filepart and rangeEnd.
             var prev = ctx.matches.all()
-                .filter(m -> SCENE_PREV.contains(m.name()))
-                .filter(m -> m.start() >= filepart.start() && m.end() <= rangeEnd)
-                .reduce((a, b) -> a.end() >= b.end() ? a : b)
-                .orElse(null);
+                    .filter(m -> SCENE_PREV.contains(m.name()))
+                    .filter(m -> m.start() >= filepart.start() && m.end() <= rangeEnd)
+                    .reduce((a, b) -> a.end() >= b.end() ? a : b)
+                    .orElse(null);
             if (prev == null) continue;
 
             // Is the gap [prev.end, rangeEnd) a single non-trivial token?
             var gap = input.substring(prev.end(), rangeEnd);
-            var trimmed = gap.replaceAll("^[" + io.guessit.engine.Seps.regexCharClass() + "]+", "")
-                              .replaceAll("[" + io.guessit.engine.Seps.regexCharClass() + "]+$", "");
+            var trimmed = gap.replaceAll("^[" + io.guessit.core.text.Seps.regexCharClass() + "]+", "")
+                    .replaceAll("[" + io.guessit.core.text.Seps.regexCharClass() + "]+$", "");
             if (trimmed.isEmpty()) continue;
             if (!validGroupName(trimmed)) continue;
             int s = input.indexOf(trimmed, prev.end());
@@ -1846,12 +2001,12 @@ public final class ReleaseGroupExtractor implements Extractor {
             if (raw.isBlank()) continue;
             // No non-language matches inside the bracket; raw should not be just digits.
             boolean hasOtherInside = ctx.matches.all()
-                .anyMatch(m -> !m.name().equals("language") && !m.name().equals("subtitle_language")
+                    .anyMatch(m -> !m.name().equals("language") && !m.name().equals("subtitle_language")
                             && marker.covers(m.start(), m.end()));
             if (hasOtherInside) continue;
             if (raw.chars().allMatch(Character::isDigit)) continue;
             ctx.matches.add(new Match("release_group", raw.trim(), marker.start(), marker.end(),
-                raw, 1500, Set.of("anime"), false));
+                    raw, 1500, Set.of("anime"), false));
             return true;
         }
         return false;

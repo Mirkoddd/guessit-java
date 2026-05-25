@@ -4,7 +4,7 @@
 
 **Goal:** Ship the first five property extractors against the foundation laid in Plan 0. End state: `Rules.allInOrder()` registers `YearExtractor`, `ContainerExtractor`, `ScreenSizeExtractor`, `VideoCodecExtractor`, `AudioCodecExtractor`; their per-rule unit tests pass; the YML parity suite is enabled for the cases these properties cover and ≥20% of all YML cases pass.
 
-**Architecture:** Each extractor lives in `io.guessit.rules.property.<Name>Extractor` and implements `Extractor` from Plan 0. Extractors mutate `ParseContext.matches` by appending `Match` records produced via `PatternMatcher.regex/string`. Cross-cutting concerns (separator-aware validation, value formatting, the `dash` abbreviation) live in `io.guessit.engine.Seps` + `io.guessit.engine.Validators` + a new `Abbreviations` helper. Per-rule post-processing (e.g. `KeepMarkedYearInFilepart`, `PostProcessScreenSize`, `ValidateVideoCodec`, `AudioValidatorRule`) runs in `Extractor.postProcess(ctx)` after the central `ConflictSolver` so the conflict-of-conflicts mirrors Python's rebulk pass order.
+**Architecture:** Each extractor lives in `io.guessit.rules.extractors.<Name>Extractor` and implements `Extractor` from Plan 0. Extractors mutate `ParseContext.matches` by appending `Match` records produced via `PatternMatcher.regex/string`. Cross-cutting concerns (separator-aware validation, value formatting, the `dash` abbreviation) live in `io.guessit.core.text.Seps` + `io.guessit.core.text.Validators` + a new `Abbreviations` helper. Per-rule post-processing (e.g. `KeepMarkedYearInFilepart`, `PostProcessScreenSize`, `ValidateVideoCodec`, `AudioValidatorRule`) runs in `Extractor.postProcess(ctx)` after the central `ConflictSolver` so the conflict-of-conflicts mirrors Python's rebulk pass order.
 
 **Tech Stack:** Same as Plan 0 — Java 25, JUnit Jupiter 5.12.x, Apache Commons CSV (already on classpath), no new dependencies.
 
@@ -77,22 +77,29 @@ Responsibilities (one per file):
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.text.Seps;
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class SepsTest {
-    @Test void containsAllPythonSeparators() {
+    @Test
+    void containsAllPythonSeparators() {
         // Python guessit: seps = " [](){}+*|=-_~#/\\.,;:"
         for (char c : " [](){}+*|=-_~#/\\.,;:".toCharArray()) {
             assertTrue(Seps.isSep(c), "Missing separator: " + c);
         }
     }
-    @Test void rejectsLettersAndDigits() {
+
+    @Test
+    void rejectsLettersAndDigits() {
         assertFalse(Seps.isSep('a'));
         assertFalse(Seps.isSep('5'));
         assertFalse(Seps.isSep('Z'));
     }
-    @Test void escapedForRegexCharClass() {
+
+    @Test
+    void escapedForRegexCharClass() {
         // Should be usable inside [...] without breaking the class.
         var re = java.util.regex.Pattern.compile("[" + Seps.regexCharClass() + "]");
         assertTrue(re.matcher(".").find());
@@ -169,8 +176,12 @@ git commit -m "feat(engine): add Seps separator alphabet"
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.text.Validators;
 import org.junit.jupiter.api.Test;
+
 import java.util.function.Predicate;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class ValidatorsTest {
@@ -178,29 +189,40 @@ class ValidatorsTest {
         return new Match("x", null, s, e, input.substring(s, e), 1000, java.util.Set.of(), false);
     }
 
-    @Test void sepsSurround_atStartOfString() {
+    @Test
+    void sepsSurround_atStartOfString() {
         Predicate<Match> v = Validators.sepsSurround("hello world");
         assertTrue(v.test(m(0, 5, "hello world")));        // start of string is a virtual sep
     }
-    @Test void sepsSurround_atEndOfString() {
+
+    @Test
+    void sepsSurround_atEndOfString() {
         Predicate<Match> v = Validators.sepsSurround("hello world");
         assertTrue(v.test(m(6, 11, "hello world")));       // end of string is a virtual sep
     }
-    @Test void sepsSurround_lettersBefore_fails() {
+
+    @Test
+    void sepsSurround_lettersBefore_fails() {
         Predicate<Match> v = Validators.sepsSurround("ahello world");
         assertFalse(v.test(m(1, 6, "ahello world")));      // 'a' before
     }
-    @Test void sepsSurround_lettersAfter_fails() {
+
+    @Test
+    void sepsSurround_lettersAfter_fails() {
         Predicate<Match> v = Validators.sepsSurround("hellow world");
         assertFalse(v.test(m(0, 5, "hellow world")));      // 'w' after
     }
-    @Test void sepsBefore_only() {
+
+    @Test
+    void sepsBefore_only() {
         Predicate<Match> v = Validators.sepsBefore("hellow");
         assertFalse(v.test(m(0, 5, "hellow")));            // boundary at end is fine, but here we test 'before only' separately
         v = Validators.sepsBefore(".hello");
         assertTrue(v.test(m(1, 6, ".hello")));
     }
-    @Test void sepsAfter_only() {
+
+    @Test
+    void sepsAfter_only() {
         Predicate<Match> v = Validators.sepsAfter("hello.");
         assertTrue(v.test(m(0, 5, "hello.")));
     }
@@ -219,10 +241,14 @@ Create `src/main/java/io/guessit/engine/Validators.java`:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.text.Seps;
+
 import java.util.function.Predicate;
 
 public final class Validators {
-    private Validators() {}
+    private Validators() {
+    }
 
     public static Predicate<Match> sepsBefore(String input) {
         return m -> m.start() == 0 || Seps.isSep(input.charAt(m.start() - 1));
@@ -267,12 +293,16 @@ Python rebulk's `dash` abbreviation expands a literal `-` in a regex source into
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.text.Abbreviations;
 import org.junit.jupiter.api.Test;
+
 import java.util.regex.Pattern;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class AbbreviationsTest {
-    @Test void dashExpandsToSepClass() {
+    @Test
+    void dashExpandsToSepClass() {
         var src = Abbreviations.dash("H-264");
         var p = Pattern.compile(src, Pattern.CASE_INSENSITIVE);
         assertTrue(p.matcher("H264").find());
@@ -281,14 +311,18 @@ class AbbreviationsTest {
         assertTrue(p.matcher("H_264").find());
         assertTrue(p.matcher("h 264").find());
     }
-    @Test void dashLeavesEscapedDashAlone() {
+
+    @Test
+    void dashLeavesEscapedDashAlone() {
         // Already escaped \\- should stay literal hyphen.
         var src = Abbreviations.dash("ABC\\-DEF");
         var p = Pattern.compile(src);
         assertTrue(p.matcher("ABC-DEF").find());
         assertFalse(p.matcher("ABC.DEF").find());
     }
-    @Test void dashLeavesDashInsideCharClassAlone() {
+
+    @Test
+    void dashLeavesDashInsideCharClassAlone() {
         var src = Abbreviations.dash("[a-z]+");
         assertEquals("[a-z]+", src);
     }
@@ -307,8 +341,11 @@ Create `src/main/java/io/guessit/engine/Abbreviations.java`:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.text.Seps;
+
 public final class Abbreviations {
-    private Abbreviations() {}
+    private Abbreviations() {
+    }
 
     /** Python `seps_no_fs` (seps with '/' and '\\' removed) escaped for a regex char class. */
     public static final String SEPS_NO_FS_CLASS = sepsNoFsClass();
@@ -339,11 +376,30 @@ public final class Abbreviations {
         int classDepth = 0;
         for (int i = 0; i < src.length(); i++) {
             char c = src.charAt(i);
-            if (escaped) { sb.append(c); escaped = false; continue; }
-            if (c == '\\') { sb.append(c); escaped = true; continue; }
-            if (c == '[') { classDepth++; sb.append(c); continue; }
-            if (c == ']' && classDepth > 0) { classDepth--; sb.append(c); continue; }
-            if (c == target && classDepth == 0) { sb.append(replacement); continue; }
+            if (escaped) {
+                sb.append(c);
+                escaped = false;
+                continue;
+            }
+            if (c == '\\') {
+                sb.append(c);
+                escaped = true;
+                continue;
+            }
+            if (c == '[') {
+                classDepth++;
+                sb.append(c);
+                continue;
+            }
+            if (c == ']' && classDepth > 0) {
+                classDepth--;
+                sb.append(c);
+                continue;
+            }
+            if (c == target && classDepth == 0) {
+                sb.append(replacement);
+                continue;
+            }
             sb.append(c);
         }
         return sb.toString();
@@ -417,31 +473,52 @@ Open `src/main/java/io/guessit/engine/RegexOpts.java` and replace its contents:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
 public record RegexOpts(
-    int priority,
-    Set<String> tags,
-    boolean isPrivate,
-    Function<String, Object> valueExtractor,
-    Function<Object, Object> valueFormatter,
-    Predicate<Match> validator
+        int priority,
+        Set<String> tags,
+        boolean isPrivate,
+        Function<String, Object> valueExtractor,
+        Function<Object, Object> valueFormatter,
+        Predicate<Match> validator
 ) {
     public RegexOpts {
         tags = tags == null ? Set.of() : Set.copyOf(tags);
         if (validator == null) validator = m -> true;
     }
+
     public static RegexOpts defaults() {
         return new RegexOpts(1000, Set.of(), false, s -> s, v -> v, m -> true);
     }
-    public RegexOpts withPriority(int p) { return new RegexOpts(p, tags, isPrivate, valueExtractor, valueFormatter, validator); }
-    public RegexOpts withTags(Set<String> t) { return new RegexOpts(priority, t, isPrivate, valueExtractor, valueFormatter, validator); }
-    public RegexOpts asPrivate() { return new RegexOpts(priority, tags, true, valueExtractor, valueFormatter, validator); }
-    public RegexOpts withValue(Function<String, Object> ex) { return new RegexOpts(priority, tags, isPrivate, ex, valueFormatter, validator); }
-    public RegexOpts withFormatter(Function<Object, Object> fmt) { return new RegexOpts(priority, tags, isPrivate, valueExtractor, fmt, validator); }
-    public RegexOpts withValidator(Predicate<Match> v) { return new RegexOpts(priority, tags, isPrivate, valueExtractor, valueFormatter, v); }
+
+    public RegexOpts withPriority(int p) {
+        return new RegexOpts(p, tags, isPrivate, valueExtractor, valueFormatter, validator);
+    }
+
+    public RegexOpts withTags(Set<String> t) {
+        return new RegexOpts(priority, t, isPrivate, valueExtractor, valueFormatter, validator);
+    }
+
+    public RegexOpts asPrivate() {
+        return new RegexOpts(priority, tags, true, valueExtractor, valueFormatter, validator);
+    }
+
+    public RegexOpts withValue(Function<String, Object> ex) {
+        return new RegexOpts(priority, tags, isPrivate, ex, valueFormatter, validator);
+    }
+
+    public RegexOpts withFormatter(Function<Object, Object> fmt) {
+        return new RegexOpts(priority, tags, isPrivate, valueExtractor, fmt, validator);
+    }
+
+    public RegexOpts withValidator(Predicate<Match> v) {
+        return new RegexOpts(priority, tags, isPrivate, valueExtractor, valueFormatter, v);
+    }
 }
 ```
 
@@ -452,29 +529,47 @@ Open `src/main/java/io/guessit/engine/StringOpts.java` and replace its contents:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+
 import java.util.Set;
 import java.util.function.Predicate;
 
 public record StringOpts(
-    int priority,
-    Set<String> tags,
-    boolean isPrivate,
-    boolean caseSensitive,
-    boolean wholeWord,
-    Predicate<Match> validator
+        int priority,
+        Set<String> tags,
+        boolean isPrivate,
+        boolean caseSensitive,
+        boolean wholeWord,
+        Predicate<Match> validator
 ) {
     public StringOpts {
         tags = tags == null ? Set.of() : Set.copyOf(tags);
         if (validator == null) validator = m -> true;
     }
+
     public static StringOpts defaults() {
         return new StringOpts(1000, Set.of(), false, false, true, m -> true);
     }
-    public StringOpts withPriority(int p) { return new StringOpts(p, tags, isPrivate, caseSensitive, wholeWord, validator); }
-    public StringOpts withTags(Set<String> t) { return new StringOpts(priority, t, isPrivate, caseSensitive, wholeWord, validator); }
-    public StringOpts caseSensitive(boolean v) { return new StringOpts(priority, tags, isPrivate, v, wholeWord, validator); }
-    public StringOpts wholeWord(boolean v) { return new StringOpts(priority, tags, isPrivate, caseSensitive, v, validator); }
-    public StringOpts withValidator(Predicate<Match> v) { return new StringOpts(priority, tags, isPrivate, caseSensitive, wholeWord, v); }
+
+    public StringOpts withPriority(int p) {
+        return new StringOpts(p, tags, isPrivate, caseSensitive, wholeWord, validator);
+    }
+
+    public StringOpts withTags(Set<String> t) {
+        return new StringOpts(priority, t, isPrivate, caseSensitive, wholeWord, validator);
+    }
+
+    public StringOpts caseSensitive(boolean v) {
+        return new StringOpts(priority, tags, isPrivate, v, wholeWord, validator);
+    }
+
+    public StringOpts wholeWord(boolean v) {
+        return new StringOpts(priority, tags, isPrivate, caseSensitive, v, validator);
+    }
+
+    public StringOpts withValidator(Predicate<Match> v) {
+        return new StringOpts(priority, tags, isPrivate, caseSensitive, wholeWord, v);
+    }
 }
 ```
 
@@ -541,11 +636,11 @@ Python source: `/tmp/guessit/guessit/rules/properties/date.py` (year regex + `Ke
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Options;
 import io.guessit.config.OptionsConfig;
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.rules.markers.GroupMarker;
 import io.guessit.rules.markers.PathMarker;
 import org.junit.jupiter.api.Test;
@@ -557,7 +652,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class YearExtractorTest {
 
     private static List<Match> run(String input) {
-        var ctx = new ParseContext(input, Options.defaults(), OptionsConfig.empty());
+        var ctx = new ParseContext(input, io.guessit.api.Options.defaults(), OptionsConfig.empty());
         new PathMarker().produce(ctx);
         new GroupMarker().produce(ctx);
         var x = new YearExtractor();
@@ -566,33 +661,44 @@ class YearExtractorTest {
         return ctx.matches.named("year").toList();
     }
 
-    @Test void simpleYear() {
+    @Test
+    void simpleYear() {
         var ms = run("Movie.Title.2015.1080p.mkv");
         assertEquals(1, ms.size());
         assertEquals(2015, ms.get(0).value());
     }
-    @Test void rejectsOutOfRange() {
+
+    @Test
+    void rejectsOutOfRange() {
         assertTrue(run("file.1900.mkv").isEmpty());
         assertTrue(run("file.2030.mkv").isEmpty());
         assertTrue(run("file.1234.mkv").isEmpty());
     }
-    @Test void requiresSepsSurround() {
+
+    @Test
+    void requiresSepsSurround() {
         assertTrue(run("X2015Y").isEmpty());
     }
-    @Test void prefersGroupedYearWhenMultipleInFilepart() {
+
+    @Test
+    void prefersGroupedYearWhenMultipleInFilepart() {
         // Marked year wins, ungrouped years dropped after the first.
         var ms = run("Movie.2015.Title.[2018].mkv");
         assertEquals(1, ms.size());
         assertEquals(2018, ms.get(0).value());
     }
-    @Test void noGroupedYear_keepsFirstAndDropsLaterDuplicates() {
+
+    @Test
+    void noGroupedYear_keepsFirstAndDropsLaterDuplicates() {
         var ms = run("Movie.2015.Cut.2018.Edit.2020.mkv");
         // Ungrouped: keep first, keep nothing past index 1; per Python: keep [0], drop [2..]
         assertEquals(2, ms.size());
         assertEquals(2015, ms.get(0).value());
         assertEquals(2018, ms.get(1).value());
     }
-    @Test void boundaryValues() {
+
+    @Test
+    void boundaryValues() {
         assertEquals(1920, run("F.1920.mkv").get(0).value());
         assertEquals(2029, run("F.2029.mkv").get(0).value());
     }
@@ -609,30 +715,41 @@ Expected: FAIL — `YearExtractor` missing.
 Create `src/main/java/io/guessit/rules/property/YearExtractor.java`:
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.PatternMatcher;
+import io.guessit.core.text.RegexOpts;
+import io.guessit.core.text.Validators;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Pattern;
 
 public final class YearExtractor implements Extractor {
     private static final Pattern PATTERN = Pattern.compile("\\d{4}");
 
-    @Override public String name() { return "year"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "year";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     @Override
     public void extract(ParseContext ctx) {
         var input = ctx.input;
         var opts = RegexOpts.defaults()
-            .withValue(s -> Integer.valueOf(s))
-            .withValidator(m -> {
-                if (!Validators.sepsSurround(input).test(m)) return false;
-                int v = (Integer) m.value();
-                return 1920 <= v && v < 2030;
-            });
+                .withValue(s -> Integer.valueOf(s))
+                .withValidator(m -> {
+                    if (!Validators.sepsSurround(input).test(m)) return false;
+                    int v = (Integer) m.value();
+                    return 1920 <= v && v < 2030;
+                });
         for (var match : PatternMatcher.regex(input, PATTERN, "year", opts)) {
             ctx.matches.add(match);
         }
@@ -648,15 +765,15 @@ public final class YearExtractor implements Extractor {
         for (var filepart : ctx.markers) {
             if (!"path".equals(filepart.name())) continue;
             var inPart = years.stream()
-                .filter(y -> filepart.covers(y.start(), y.end()))
-                .toList();
+                    .filter(y -> filepart.covers(y.start(), y.end()))
+                    .toList();
             if (inPart.size() <= 1) continue;
 
             var grouped = new ArrayList<Match>();
             var ungrouped = new ArrayList<Match>();
             for (var y : inPart) {
                 boolean inGroup = ctx.markers.stream()
-                    .anyMatch(mk -> "group".equals(mk.name()) && mk.covers(y.start(), y.end()));
+                        .anyMatch(mk -> "group".equals(mk.name()) && mk.covers(y.start(), y.end()));
                 (inGroup ? grouped : ungrouped).add(y);
             }
             if (!grouped.isEmpty() && !ungrouped.isEmpty()) {
@@ -703,11 +820,11 @@ Conflict resolution between the two flavors and other properties (source, video_
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Options;
+import io.guessit.api.Options;
 import io.guessit.config.ConfigLoader;
-import io.guessit.engine.ParseContext;
+import io.guessit.core.pipeline.state.ParseContext;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -722,16 +839,37 @@ class ContainerExtractorTest {
         return ctx.matches.named("container").map(m -> m.value()).toList();
     }
 
-    @Test void videoExtension() { assertEquals(List.of("mkv"), run("Movie.2015.mkv")); }
-    @Test void subtitleExtension() { assertEquals(List.of("srt"), run("Movie.2015.srt")); }
-    @Test void torrentExtension() { assertEquals(List.of("torrent"), run("Movie.2015.torrent")); }
-    @Test void infoExtension() { assertEquals(List.of("nfo"), run("Movie.2015.nfo")); }
-    @Test void noExtension_returnsBodyContainer() {
+    @Test
+    void videoExtension() {
+        assertEquals(List.of("mkv"), run("Movie.2015.mkv"));
+    }
+
+    @Test
+    void subtitleExtension() {
+        assertEquals(List.of("srt"), run("Movie.2015.srt"));
+    }
+
+    @Test
+    void torrentExtension() {
+        assertEquals(List.of("torrent"), run("Movie.2015.torrent"));
+    }
+
+    @Test
+    void infoExtension() {
+        assertEquals(List.of("nfo"), run("Movie.2015.nfo"));
+    }
+
+    @Test
+    void noExtension_returnsBodyContainer() {
         // 'avi' appears in the body, no trailing extension.
         var values = run("Movie.avi.Title");
         assertTrue(values.contains("avi"));
     }
-    @Test void unknownExtensionDropped() { assertTrue(run("Movie.2015.exe").isEmpty()); }
+
+    @Test
+    void unknownExtensionDropped() {
+        assertTrue(run("Movie.2015.exe").isEmpty());
+    }
 }
 ```
 
@@ -745,48 +883,64 @@ Expected: FAIL — `ContainerExtractor` missing.
 Create `src/main/java/io/guessit/rules/property/ContainerExtractor.java`:
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.PatternMatcher;
+import io.guessit.core.text.RegexOpts;
+import io.guessit.core.text.StringOpts;
+import io.guessit.core.text.Validators;
 
 import java.util.*;
 import java.util.regex.Pattern;
 
 public final class ContainerExtractor implements Extractor {
 
-    @Override public String name() { return "container"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "container";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     @Override
     public void extract(ParseContext ctx) {
         var section = ctx.config.section("container");
         var subtitles = stringList(section.get("subtitles"));
-        var info       = stringList(section.get("info"));
-        var videos     = stringList(section.get("videos"));
-        var torrent    = stringList(section.get("torrent"));
-        var nzb        = stringList(section.get("nzb"));
+        var info = stringList(section.get("info"));
+        var videos = stringList(section.get("videos"));
+        var torrent = stringList(section.get("torrent"));
+        var nzb = stringList(section.get("nzb"));
 
         var input = ctx.input;
 
         // 1. Extension matches: trailing `.<ext>` only; tagged "extension" + kind.
         addExtensionRegex(ctx, input, subtitles, "subtitle");
-        addExtensionRegex(ctx, input, info,      "info");
-        addExtensionRegex(ctx, input, videos,    "video");
-        addExtensionRegex(ctx, input, torrent,   "torrent");
-        addExtensionRegex(ctx, input, nzb,       "nzb");
+        addExtensionRegex(ctx, input, info, "info");
+        addExtensionRegex(ctx, input, videos, "video");
+        addExtensionRegex(ctx, input, torrent, "torrent");
+        addExtensionRegex(ctx, input, nzb, "nzb");
 
         // 2. Body matches: same words but anywhere, requires seps_surround.
         var body = new HashSet<String>();
-        body.addAll(subtitles); body.remove("sub"); body.remove("ass");  // matches Python carve-out
-        body.addAll(videos); body.addAll(torrent); body.addAll(nzb);
+        body.addAll(subtitles);
+        body.remove("sub");
+        body.remove("ass");  // matches Python carve-out
+        body.addAll(videos);
+        body.addAll(torrent);
+        body.addAll(nzb);
         var opts = StringOpts.defaults()
-            .withValidator(Validators.sepsSurround(input))
-            .withTags(Set.of("body"));
+                .withValidator(Validators.sepsSurround(input))
+                .withTags(Set.of("body"));
         for (var m : PatternMatcher.string(input, body, "container", opts)) {
             // Skip body matches that overlap an extension match — extension wins.
             boolean overlapsExt = ctx.matches.named("container")
-                .anyMatch(other -> other.tags().contains("extension")
-                                && other.start() < m.end() && m.start() < other.end());
+                    .anyMatch(other -> other.tags().contains("extension")
+                            && other.start() < m.end() && m.start() < other.end());
             if (!overlapsExt) ctx.matches.add(m);
         }
     }
@@ -796,8 +950,8 @@ public final class ContainerExtractor implements Extractor {
         var or = String.join("|", exts.stream().map(Pattern::quote).toList());
         var p = Pattern.compile("\\.(?:" + or + ")$", Pattern.CASE_INSENSITIVE);
         var opts = RegexOpts.defaults()
-            .withValue(s -> s.startsWith(".") ? s.substring(1).toLowerCase(Locale.ROOT) : s.toLowerCase(Locale.ROOT))
-            .withTags(Set.of("extension", kindTag));
+                .withValue(s -> s.startsWith(".") ? s.substring(1).toLowerCase(Locale.ROOT) : s.toLowerCase(Locale.ROOT))
+                .withTags(Set.of("extension", kindTag));
         for (var m : PatternMatcher.regex(input, p, "container", opts)) {
             ctx.matches.add(m);
         }
@@ -838,12 +992,12 @@ Python source: `/tmp/guessit/guessit/rules/properties/screen_size.py`. Config un
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Options;
+import io.guessit.api.Options;
 import io.guessit.config.ConfigLoader;
-import io.guessit.engine.ConflictSolver;
-import io.guessit.engine.ParseContext;
+import io.guessit.core.pipeline.phases.ConflictSolver;
+import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.rules.markers.GroupMarker;
 import io.guessit.rules.markers.PathMarker;
 import org.junit.jupiter.api.Test;
@@ -853,7 +1007,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class ScreenSizeExtractorTest {
 
     private static ParseContext run(String input) {
-        var ctx = new ParseContext(input, Options.defaults(), ConfigLoader.load(Options.defaults()));
+        var ctx = new ParseContext(input, Options.defaults(), ConfigLoader.load(io.guessit.api.Options.defaults()));
         new PathMarker().produce(ctx);
         new GroupMarker().produce(ctx);
         var x = new ScreenSizeExtractor();
@@ -863,30 +1017,41 @@ class ScreenSizeExtractorTest {
         return ctx;
     }
 
-    @Test void progressive1080p() {
+    @Test
+    void progressive1080p() {
         var ctx = run("Movie.2015.1080p.BluRay.mkv");
         assertEquals("1080p", ctx.matches.named("screen_size").findFirst().get().value());
     }
-    @Test void interlaced1080i() {
+
+    @Test
+    void interlaced1080i() {
         var ctx = run("Show.2015.1080i.HDTV.mkv");
         assertEquals("1080i", ctx.matches.named("screen_size").findFirst().get().value());
     }
-    @Test void widthByHeight() {
+
+    @Test
+    void widthByHeight() {
         var ctx = run("Movie.2015.1920x1080.mkv");
         // standard ar, width+height present → normalize to "1080p"
         assertEquals("1080p", ctx.matches.named("screen_size").findFirst().get().value());
         assertEquals(1.778, ((Number) ctx.matches.named("aspect_ratio").findFirst().get().value()).doubleValue(), 0.001);
     }
-    @Test void fourK() {
+
+    @Test
+    void fourK() {
         var ctx = run("Movie.4K.mkv");
         assertEquals("2160p", ctx.matches.named("screen_size").findFirst().get().value());
     }
-    @Test void frameRate24p() {
+
+    @Test
+    void frameRate24p() {
         var ctx = run("Movie.2015.1080p24.mkv");
         assertEquals("1080p", ctx.matches.named("screen_size").findFirst().get().value());
         assertNotNull(ctx.matches.named("frame_rate").findFirst().orElse(null));
     }
-    @Test void rejectsLooseDigits() {
+
+    @Test
+    void rejectsLooseDigits() {
         var ctx = run("File.no.resolution.here.mkv");
         assertEquals(0L, ctx.matches.named("screen_size").count());
     }
@@ -903,17 +1068,30 @@ Expected: FAIL — extractor missing.
 Create `src/main/java/io/guessit/rules/property/ScreenSizeExtractor.java`:
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.PatternMatcher;
+import io.guessit.core.text.RegexOpts;
+import io.guessit.core.text.StringOpts;
+import io.guessit.core.text.Validators;
 
 import java.util.*;
 import java.util.regex.Pattern;
 
 public final class ScreenSizeExtractor implements Extractor {
 
-    @Override public String name() { return "screen_size"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "screen_size";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     @Override
     public void extract(ParseContext ctx) {
@@ -940,7 +1118,7 @@ public final class ScreenSizeExtractor implements Extractor {
         var fourK = StringOpts.defaults().withValidator(validator);
         for (var m : PatternMatcher.string(input, Set.of("4k"), "screen_size", fourK)) {
             ctx.matches.add(new Match("screen_size", "2160p", m.start(), m.end(), m.raw(),
-                m.priority(), Set.of("normalized"), false));
+                    m.priority(), Set.of("normalized"), false));
         }
 
         // width-x-height fallback for non-standard sizes
@@ -953,8 +1131,8 @@ public final class ScreenSizeExtractor implements Extractor {
         // frame_rate standalone, with mandatory `p` or `fps` suffix.
         var frP = Pattern.compile("(" + fr + ")-?(?:p|fps)", Pattern.CASE_INSENSITIVE);
         var frOpts = RegexOpts.defaults()
-            .withValue(s -> Integer.valueOf(s.replaceAll("\\..*$", "")))
-            .withValidator(validator);
+                .withValue(s -> Integer.valueOf(s.replaceAll("\\..*$", "")))
+                .withValidator(validator);
         for (var m : PatternMatcher.regex(input, frP, "frame_rate", frOpts)) {
             ctx.matches.add(m);
         }
@@ -977,7 +1155,7 @@ public final class ScreenSizeExtractor implements Extractor {
 
         // PostProcessScreenSize: parse raw with named groups via regex re-match on raw text.
         var widthHeight = Pattern.compile("(?<width>\\d{3,4})[x*-](?<height>\\d{3,4})", Pattern.CASE_INSENSITIVE);
-        var heightScan  = Pattern.compile("(?<height>\\d{3,4})(?<scan>[ip])?", Pattern.CASE_INSENSITIVE);
+        var heightScan = Pattern.compile("(?<height>\\d{3,4})(?<scan>[ip])?", Pattern.CASE_INSENSITIVE);
         var toReplace = new ArrayList<Match[]>();
         for (var m : ctx.matches.named("screen_size").toList()) {
             if (m.tags().contains("normalized")) continue;
@@ -987,12 +1165,12 @@ public final class ScreenSizeExtractor implements Extractor {
                 int h = Integer.parseInt(wh.group("height"));
                 double ar = (double) w / h;
                 ctx.matches.add(new Match("aspect_ratio", Math.round(ar * 1000.0) / 1000.0,
-                    m.start(), m.end(), m.raw(), m.priority(), Set.of(), false));
+                        m.start(), m.end(), m.raw(), m.priority(), Set.of(), false));
                 String value = (standardHeights.contains(String.valueOf(h)) && minAr < ar && ar < maxAr)
-                    ? h + "p" : w + "x" + h;
-                toReplace.add(new Match[]{ m, m.withTags(Set.of("normalized")) });
+                        ? h + "p" : w + "x" + h;
+                toReplace.add(new Match[]{m, m.withTags(Set.of("normalized"))});
                 ctx.matches.replace(m, new Match("screen_size", value, m.start(), m.end(), m.raw(),
-                    m.priority(), Set.of("normalized"), false));
+                        m.priority(), Set.of("normalized"), false));
                 continue;
             }
             var hs = heightScan.matcher(m.raw());
@@ -1000,7 +1178,7 @@ public final class ScreenSizeExtractor implements Extractor {
                 String h = hs.group("height");
                 String scan = hs.group("scan") == null ? "p" : hs.group("scan").toLowerCase(Locale.ROOT);
                 ctx.matches.replace(m, new Match("screen_size", h + scan, m.start(), m.end(), m.raw(),
-                    m.priority(), Set.of("normalized"), false));
+                        m.priority(), Set.of("normalized"), false));
             }
         }
 
@@ -1008,9 +1186,9 @@ public final class ScreenSizeExtractor implements Extractor {
         for (var filepart : ctx.markers) {
             if (!"path".equals(filepart.name())) continue;
             var inPart = ctx.matches.named("screen_size")
-                .filter(m -> filepart.covers(m.start(), m.end()))
-                .sorted(Comparator.comparingInt(Match::start).reversed())
-                .toList();
+                    .filter(m -> filepart.covers(m.start(), m.end()))
+                    .sorted(Comparator.comparingInt(Match::start).reversed())
+                    .toList();
             if (inPart.size() <= 1) continue;
             var distinct = inPart.stream().map(m -> String.valueOf(m.value())).distinct().count();
             if (distinct > 1) {
@@ -1052,12 +1230,11 @@ Python source: `/tmp/guessit/guessit/rules/properties/video_codec.py`. Patterns 
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Options;
 import io.guessit.config.OptionsConfig;
-import io.guessit.engine.ConflictSolver;
-import io.guessit.engine.ParseContext;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.phases.ConflictSolver;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -1065,7 +1242,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class VideoCodecExtractorTest {
 
     private static ParseContext run(String input) {
-        var ctx = new ParseContext(input, Options.defaults(), OptionsConfig.empty());
+        var ctx = new ParseContext(input, io.guessit.api.Options.defaults(), OptionsConfig.empty());
         var x = new VideoCodecExtractor();
         x.extract(ctx);
         ConflictSolver.solve(ctx.matches);
@@ -1073,33 +1250,50 @@ class VideoCodecExtractorTest {
         return ctx;
     }
 
-    @Test void h264() {
+    @Test
+    void h264() {
         assertEquals("H.264", run("Movie.2015.1080p.x264.mkv").matches.named("video_codec").findFirst().get().value());
     }
-    @Test void h265() {
+
+    @Test
+    void h265() {
         assertEquals("H.265", run("Movie.2015.1080p.x265.mkv").matches.named("video_codec").findFirst().get().value());
     }
-    @Test void hevc() {
+
+    @Test
+    void hevc() {
         assertEquals("H.265", run("Movie.2015.1080p.HEVC.mkv").matches.named("video_codec").findFirst().get().value());
     }
-    @Test void hevc10ColorDepth() {
+
+    @Test
+    void hevc10ColorDepth() {
         var ctx = run("Movie.2015.1080p.HEVC10.mkv");
         assertEquals("H.265", ctx.matches.named("video_codec").findFirst().get().value());
         assertEquals("10-bit", ctx.matches.named("color_depth").findFirst().get().value());
     }
-    @Test void xvid() {
+
+    @Test
+    void xvid() {
         assertEquals("Xvid", run("Movie.2015.XviD.avi").matches.named("video_codec").findFirst().get().value());
     }
-    @Test void divx() {
+
+    @Test
+    void divx() {
         assertEquals("DivX", run("Movie.2015.DivX.avi").matches.named("video_codec").findFirst().get().value());
     }
-    @Test void mpeg2() {
+
+    @Test
+    void mpeg2() {
         assertEquals("MPEG-2", run("Movie.2015.MPEG-2.mkv").matches.named("video_codec").findFirst().get().value());
     }
-    @Test void dxvaApi() {
+
+    @Test
+    void dxvaApi() {
         assertEquals("DXVA", run("Movie.2015.DXVA.mkv").matches.named("video_api").findFirst().get().value());
     }
-    @Test void rejectsBareDigits() {
+
+    @Test
+    void rejectsBareDigits() {
         assertTrue(run("Random.text.264.no.codec").matches.named("video_codec").findAny().isEmpty());
     }
 }
@@ -1115,17 +1309,27 @@ Expected: FAIL — extractor missing.
 Create `src/main/java/io/guessit/rules/property/VideoCodecExtractor.java`:
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.*;
 
 import java.util.*;
 import java.util.regex.Pattern;
 
 public final class VideoCodecExtractor implements Extractor {
 
-    @Override public String name() { return "video_codec"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "video_codec";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     @Override
     public void extract(ParseContext ctx) {
@@ -1133,18 +1337,18 @@ public final class VideoCodecExtractor implements Extractor {
         var v = Validators.sepsSurround(input);
 
         // codec
-        addCodec(ctx, "Rv\\d{2}",                                   "RealVideo", v);
-        addCodec(ctx, "Mpe?g-?2",                                    "MPEG-2",    v);
-        addCodec(ctx, "[hx]-?262",                                   "MPEG-2",    v);
-        addCodec(ctx, "DVDivX|DivX",                                 "DivX",      v);
-        addCodec(ctx, "XviD",                                        "Xvid",      v);
-        addCodec(ctx, "VC-?1",                                       "VC-1",      v);
-        addCodec(ctx, "VP7",                                         "VP7",       v);
-        addCodec(ctx, "VP8|VP80",                                    "VP8",       v);
-        addCodec(ctx, "VP9",                                         "VP9",       v);
-        addCodec(ctx, "[hx]-?263",                                   "H.263",     v);
-        addCodec(ctx, "[hx]-?264|(?:MPEG-?4)?AVC(?:HD)?",            "H.264",     v);
-        addCodec(ctx, "[hx]-?265|HEVC",                              "H.265",     v);
+        addCodec(ctx, "Rv\\d{2}", "RealVideo", v);
+        addCodec(ctx, "Mpe?g-?2", "MPEG-2", v);
+        addCodec(ctx, "[hx]-?262", "MPEG-2", v);
+        addCodec(ctx, "DVDivX|DivX", "DivX", v);
+        addCodec(ctx, "XviD", "Xvid", v);
+        addCodec(ctx, "VC-?1", "VC-1", v);
+        addCodec(ctx, "VP7", "VP7", v);
+        addCodec(ctx, "VP8|VP80", "VP8", v);
+        addCodec(ctx, "VP9", "VP9", v);
+        addCodec(ctx, "[hx]-?263", "H.263", v);
+        addCodec(ctx, "[hx]-?264|(?:MPEG-?4)?AVC(?:HD)?", "H.264", v);
+        addCodec(ctx, "[hx]-?265|HEVC", "H.265", v);
 
         // hevc10 → H.265 + 10-bit color_depth
         var hevc10 = Pattern.compile("hevc(10)", Pattern.CASE_INSENSITIVE);
@@ -1152,20 +1356,20 @@ public final class VideoCodecExtractor implements Extractor {
         for (var m : PatternMatcher.regex(input, hevc10, "video_codec", optsCodec)) {
             ctx.matches.add(m);
             ctx.matches.add(new Match("color_depth", "10-bit",
-                m.start(), m.end(), m.raw(), m.priority(), Set.of(), false));
+                    m.start(), m.end(), m.raw(), m.priority(), Set.of(), false));
         }
 
         // video_profile (validated, validators enforce seps_surround)
-        addStr(ctx, "video_profile", "Baseline",                            Set.of("BP"),  v);
-        addStr(ctx, "video_profile", "Extended",                            Set.of("XP","EP"), v);
-        addStr(ctx, "video_profile", "Main",                                Set.of("MP"),  v);
-        addStr(ctx, "video_profile", "High",                                Set.of("HP","HiP"), v);
-        addStr(ctx, "video_profile", "Scalable Video Coding",               Set.of("SC","SVC"), v);
-        addRegexProfile(ctx, "AVC(?:HD)?",                                  "Advanced Video Codec High Definition", v);
-        addStr(ctx, "video_profile", "High Efficiency Video Coding",        Set.of("HEVC"), v);
-        addRegexProfile(ctx, "Hi422P",                                      "High 4:2:2", v);
-        addRegexProfile(ctx, "Hi444PP",                                     "High 4:4:4 Predictive", v);
-        addRegexProfile(ctx, "Hi10P?",                                      "High 10", v);
+        addStr(ctx, "video_profile", "Baseline", Set.of("BP"), v);
+        addStr(ctx, "video_profile", "Extended", Set.of("XP", "EP"), v);
+        addStr(ctx, "video_profile", "Main", Set.of("MP"), v);
+        addStr(ctx, "video_profile", "High", Set.of("HP", "HiP"), v);
+        addStr(ctx, "video_profile", "Scalable Video Coding", Set.of("SC", "SVC"), v);
+        addRegexProfile(ctx, "AVC(?:HD)?", "Advanced Video Codec High Definition", v);
+        addStr(ctx, "video_profile", "High Efficiency Video Coding", Set.of("HEVC"), v);
+        addRegexProfile(ctx, "Hi422P", "High 4:2:2", v);
+        addRegexProfile(ctx, "Hi444PP", "High 4:4:4 Predictive", v);
+        addRegexProfile(ctx, "Hi10P?", "High 10", v);
 
         // video_api
         addStr(ctx, "video_api", "DXVA", Set.of("DXVA"), v);
@@ -1173,7 +1377,7 @@ public final class VideoCodecExtractor implements Extractor {
         // color_depth
         addRegexNamed(ctx, "color_depth", "12.?bits?", "12-bit", v);
         addRegexNamed(ctx, "color_depth", "10.?bits?|YUV420P10|Hi10P?", "10-bit", v);
-        addRegexNamed(ctx, "color_depth", "8.?bits?",  "8-bit",  v);
+        addRegexNamed(ctx, "color_depth", "8.?bits?", "8-bit", v);
     }
 
     /** Replicates ValidateVideoCodec + VideoProfileRule. */
@@ -1189,20 +1393,23 @@ public final class VideoCodecExtractor implements Extractor {
         var opts = RegexOpts.defaults().withValidator(v).withValue(s -> value);
         for (var m : PatternMatcher.regex(ctx.input, p, "video_codec", opts)) ctx.matches.add(m);
     }
+
     private void addRegexProfile(ParseContext ctx, String src, String value, java.util.function.Predicate<Match> v) {
         addRegexNamed(ctx, "video_profile", src, value, v);
     }
+
     private void addRegexNamed(ParseContext ctx, String name, String src, String value, java.util.function.Predicate<Match> v) {
         var p = Pattern.compile(Abbreviations.dash(src), Pattern.CASE_INSENSITIVE);
         var opts = RegexOpts.defaults().withValidator(v).withValue(s -> value);
         for (var m : PatternMatcher.regex(ctx.input, p, name, opts)) ctx.matches.add(m);
     }
+
     private void addStr(ParseContext ctx, String name, String value, Set<String> needles,
                         java.util.function.Predicate<Match> v) {
         var opts = StringOpts.defaults().withValidator(v);
         for (var m : PatternMatcher.string(ctx.input, needles, name, opts)) {
             ctx.matches.add(new Match(name, value, m.start(), m.end(), m.raw(),
-                m.priority(), m.tags(), m.isPrivate()));
+                    m.priority(), m.tags(), m.isPrivate()));
         }
     }
 }
@@ -1233,19 +1440,19 @@ Python source: `/tmp/guessit/guessit/rules/properties/audio_codec.py` + `config/
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Options;
+import io.guessit.api.Options;
 import io.guessit.config.ConfigLoader;
-import io.guessit.engine.ConflictSolver;
-import io.guessit.engine.ParseContext;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.phases.ConflictSolver;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class AudioCodecExtractorTest {
     private static ParseContext run(String input) {
-        var ctx = new ParseContext(input, Options.defaults(), ConfigLoader.load(Options.defaults()));
+        var ctx = new ParseContext(input, io.guessit.api.Options.defaults(), ConfigLoader.load(Options.defaults()));
         var x = new AudioCodecExtractor();
         x.extract(ctx);
         ConflictSolver.solve(ctx.matches);
@@ -1253,28 +1460,43 @@ class AudioCodecExtractorTest {
         return ctx;
     }
 
-    @Test void aac() {
+    @Test
+    void aac() {
         assertEquals("AAC", run("Movie.2015.1080p.AAC.mkv").matches.named("audio_codec").findFirst().get().value());
     }
-    @Test void mp3() {
+
+    @Test
+    void mp3() {
         assertEquals("MP3", run("Movie.2015.MP3.avi").matches.named("audio_codec").findFirst().get().value());
     }
-    @Test void dolbyDigital_ac3() {
+
+    @Test
+    void dolbyDigital_ac3() {
         assertEquals("Dolby Digital", run("Movie.2015.AC3.mkv").matches.named("audio_codec").findFirst().get().value());
     }
-    @Test void dts() {
+
+    @Test
+    void dts() {
         assertEquals("DTS", run("Movie.2015.DTS.mkv").matches.named("audio_codec").findFirst().get().value());
     }
-    @Test void dtsHd() {
+
+    @Test
+    void dtsHd() {
         assertEquals("DTS-HD", run("Movie.2015.DTS-HD.mkv").matches.named("audio_codec").findFirst().get().value());
     }
-    @Test void channels_5_1() {
+
+    @Test
+    void channels_5_1() {
         assertEquals("5.1", run("Movie.2015.5.1.mkv").matches.named("audio_channels").findFirst().get().value());
     }
-    @Test void channels_2_0() {
+
+    @Test
+    void channels_2_0() {
         assertEquals("2.0", run("Movie.2015.2.0.mkv").matches.named("audio_channels").findFirst().get().value());
     }
-    @Test void rejectsLooseLetters() {
+
+    @Test
+    void rejectsLooseLetters() {
         assertTrue(run("Movie.AACX.mkv").matches.named("audio_codec").findAny().isEmpty());
     }
 }
@@ -1290,9 +1512,12 @@ Expected: FAIL — extractor missing.
 Create `src/main/java/io/guessit/rules/property/AudioCodecExtractor.java`:
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.*;
 
 import java.util.*;
 import java.util.regex.Pattern;
@@ -1301,8 +1526,15 @@ public final class AudioCodecExtractor implements Extractor {
 
     private static final Set<String> AUDIO_PROPS = Set.of("audio_codec", "audio_profile", "audio_channels");
 
-    @Override public String name() { return "audio_codec"; }
-    @Override public int priority() { return 1000; }
+    @Override
+    public String name() {
+        return "audio_codec";
+    }
+
+    @Override
+    public int priority() {
+        return 1000;
+    }
 
     @Override
     public void extract(ParseContext ctx) {
@@ -1320,9 +1552,9 @@ public final class AudioCodecExtractor implements Extractor {
         var toRemove = new ArrayList<Match>();
         for (var a : audio) {
             boolean before = a.start() == 0 || Seps.isSep(input.charAt(a.start() - 1))
-                || audio.stream().anyMatch(o -> o != a && o.end() == a.start());
+                    || audio.stream().anyMatch(o -> o != a && o.end() == a.start());
             boolean after = a.end() == input.length() || Seps.isSep(input.charAt(a.end()))
-                || audio.stream().anyMatch(o -> o != a && o.start() == a.end());
+                    || audio.stream().anyMatch(o -> o != a && o.start() == a.end());
             if (!before || !after) toRemove.add(a);
         }
         for (var m : toRemove) ctx.matches.remove(m);
@@ -1346,7 +1578,7 @@ public final class AudioCodecExtractor implements Extractor {
                     var opts = StringOpts.defaults().withValidator(v);
                     for (var m : PatternMatcher.string(ctx.input, Set.of(pattern.source()), propName, opts)) {
                         ctx.matches.add(new Match(propName, value, m.start(), m.end(), m.raw(),
-                            m.priority(), m.tags(), m.isPrivate()));
+                                m.priority(), m.tags(), m.isPrivate()));
                     }
                 }
             }
@@ -1354,7 +1586,8 @@ public final class AudioCodecExtractor implements Extractor {
     }
 
     /** Pattern config can be: String → string match, list of {String|Map}, Map with "string"/"regex" keys. */
-    private record PatternEntry(String source, boolean regex) {}
+    private record PatternEntry(String source, boolean regex) {
+    }
 
     @SuppressWarnings("unchecked")
     private static List<PatternEntry> flattenPatterns(Object def) {
@@ -1408,14 +1641,14 @@ with:
 
 ```java
     public static List<Extractor> allInOrder() {
-        return List.of(
-            new io.guessit.rules.property.YearExtractor(),
-            new io.guessit.rules.property.ContainerExtractor(),
-            new io.guessit.rules.property.ScreenSizeExtractor(),
-            new io.guessit.rules.property.VideoCodecExtractor(),
-            new io.guessit.rules.property.AudioCodecExtractor()
-        );
-    }
+    return List.of(
+            new io.guessit.rules.extractors.YearExtractor(),
+            new io.guessit.rules.extractors.ContainerExtractor(),
+            new io.guessit.rules.extractors.ScreenSizeExtractor(),
+            new io.guessit.rules.extractors.VideoCodecExtractor(),
+            new io.guessit.rules.extractors.AudioCodecExtractor()
+    );
+}
 ```
 
 - [ ] **Step 2: Smoke run**
@@ -1426,7 +1659,7 @@ Expected: stdout shows `year: 2015`, `screen_size: 1080p`, `video_codec: H.264`,
 If the CLI binary path differs in your repo, run instead:
 
 ```bash
-mvn -q test -Dtest='io.guessit.rules.property.*'
+mvn -q test -Dtest='io.guessit.rules.extractors.*'
 ```
 
 Expected: all 5 property test classes green.
@@ -1454,7 +1687,7 @@ Open `src/test/java/io/guessit/parity/YmlParityTest.java` and replace its full c
 ```java
 package io.guessit.parity;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -1468,9 +1701,9 @@ class YmlParityTest {
 
     /** Properties shipped through Plan 1. Cases that *only* expect these will run; others assumed-skipped. */
     private static final Set<String> PHASE_1_PROPS = Set.of(
-        "year", "container", "screen_size", "aspect_ratio", "frame_rate",
-        "video_codec", "video_profile", "color_depth", "video_api",
-        "audio_codec", "audio_profile", "audio_channels"
+            "year", "container", "screen_size", "aspect_ratio", "frame_rate",
+            "video_codec", "video_profile", "color_depth", "video_api",
+            "audio_codec", "audio_profile", "audio_channels"
     );
 
     @ParameterizedTest(name = "{0}")

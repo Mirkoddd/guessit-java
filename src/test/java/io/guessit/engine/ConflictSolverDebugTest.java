@@ -1,5 +1,10 @@
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.phases.ConflictSolver;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.MatchSet;
+import io.guessit.core.trace.Trace;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

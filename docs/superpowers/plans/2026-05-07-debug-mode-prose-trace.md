@@ -35,6 +35,7 @@ Create `src/test/java/io/guessit/engine/TraceDefaultsTest.java`:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.trace.Trace;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -58,7 +59,10 @@ class TraceDefaultsTest {
     void threeArgStepDelegatesToTwoArgWhenNotOverridden() {
         var seen = new java.util.ArrayList<String>();
         Trace t = new Trace() {
-            @Override public void step(String kind, String name) { seen.add(kind + ":" + name); }
+            @Override
+            public void step(String kind, String name) {
+                seen.add(kind + ":" + name);
+            }
         };
         t.step("post", "year", "describe me");
         assertThat(seen).containsExactly("post:year");
@@ -68,7 +72,10 @@ class TraceDefaultsTest {
     void twoArgPhaseDelegateFromThreeArg() {
         var seen = new java.util.ArrayList<String>();
         Trace t = new Trace() {
-            @Override public void phase(String name) { seen.add(name); }
+            @Override
+            public void phase(String name) {
+                seen.add(name);
+            }
         };
         t.phase("markers", "describe me");
         assertThat(seen).containsExactly("markers");
@@ -88,7 +95,12 @@ Replace `src/main/java/io/guessit/engine/Trace.java` with:
 ```java
 package io.guessit.engine;
 
-import io.guessit.GuessResult;
+import io.guessit.api.GuessResult;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.trace.CompositeTrace;
+import io.guessit.core.trace.DebugTrace;
+import io.guessit.core.trace.PrintTrace;
 
 import java.util.List;
 
@@ -100,28 +112,54 @@ import java.util.List;
  * {@link CompositeTrace}.
  */
 public interface Trace {
-    Trace NOOP = new Trace() {};
+    Trace NOOP = new Trace() {
+    };
 
-    default void input(String s) {}
-    default void phase(String name) {}
+    default void input(String s) {
+    }
+
+    default void phase(String name) {
+    }
+
     /** Phase header with a human-readable description. Default delegates to {@link #phase(String)}. */
-    default void phase(String name, String description) { phase(name); }
-    default void step(String kind, String name) {}
-    /** Step header with a human-readable description. Default delegates to {@link #step(String,String)}. */
-    default void step(String kind, String name, String description) { step(kind, name); }
-    default void added(Match m) {}
-    default void removed(Match m) {}
-    default void noChanges() {}
-    default void note(String msg) {}
+    default void phase(String name, String description) {
+        phase(name);
+    }
+
+    default void step(String kind, String name) {
+    }
+
+    /** Step header with a human-readable description. Default delegates to {@link #step(String, String)}. */
+    default void step(String kind, String name, String description) {
+        step(kind, name);
+    }
+
+    default void added(Match m) {
+    }
+
+    default void removed(Match m) {
+    }
+
+    default void noChanges() {
+    }
+
+    default void note(String msg) {
+    }
+
     /** Generic indented sub-event emitted from inside a step (e.g. PatternMatcher
      *  tries, ConflictSolver pair decisions, processor sub-stages, per-property
      *  output assignments). */
-    default void subStep(String message) {}
+    default void subStep(String message) {
+    }
+
     /** Snapshot of all live spans (non-private matches + markers) plus the input,
      *  emitted by phases when the match set changed within a step. DebugTrace
      *  with span rendering enabled paints an ASCII view; everything else no-ops. */
-    default void spans(String input, List<Match> matches, List<Marker> markers) {}
-    default void result(GuessResult r) {}
+    default void spans(String input, List<Match> matches, List<Marker> markers) {
+    }
+
+    default void result(GuessResult r) {
+    }
 }
 ```
 
@@ -167,6 +205,10 @@ Create `src/test/java/io/guessit/engine/DescribedTest.java`:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.phases.MarkerPhase;
+import io.guessit.core.pipeline.phases.PostPhase;
+import io.guessit.core.pipeline.state.ParseContext;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -176,8 +218,14 @@ class DescribedTest {
     @Test
     void extractorDescriptionFallsBackToName() {
         Extractor anon = new Extractor() {
-            @Override public String name() { return "x"; }
-            @Override public void extract(ParseContext ctx) {}
+            @Override
+            public String name() {
+                return "x";
+            }
+
+            @Override
+            public void extract(ParseContext ctx) {
+            }
         };
         assertThat(anon.description()).isEqualTo("x");
     }
@@ -185,23 +233,35 @@ class DescribedTest {
     @Test
     void extractorDescriptionOverridable() {
         Extractor anon = new Extractor() {
-            @Override public String name() { return "year"; }
-            @Override public String description() { return "4-digit year"; }
-            @Override public void extract(ParseContext ctx) {}
+            @Override
+            public String name() {
+                return "year";
+            }
+
+            @Override
+            public String description() {
+                return "4-digit year";
+            }
+
+            @Override
+            public void extract(ParseContext ctx) {
+            }
         };
         assertThat(anon.description()).isEqualTo("4-digit year");
     }
 
     @Test
     void postProcessorDescriptionFallsBackToSimpleClassName() {
-        PostPhase.PostProcessor proc = ctx -> {};
+        PostPhase.PostProcessor proc = ctx -> {
+        };
         // Default fallback is class simple name; a concrete class returns its own name.
         assertThat(proc.description()).isNotNull().isNotEmpty();
     }
 
     @Test
     void markerProducerDescriptionFallsBackToSimpleClassName() {
-        MarkerPhase.MarkerProducer prod = ctx -> {};
+        MarkerPhase.MarkerProducer prod = ctx -> {
+        };
         assertThat(prod.description()).isNotNull().isNotEmpty();
     }
 }
@@ -218,6 +278,8 @@ Create `src/main/java/io/guessit/engine/Described.java`:
 
 ```java
 package io.guessit.engine;
+
+import io.guessit.core.trace.DebugTrace;
 
 /**
  * One-line human-readable description of a pipeline component. Used by
@@ -320,6 +382,8 @@ Create `src/test/java/io/guessit/engine/CompositeTraceTest.java`:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.trace.CompositeTrace;
+import io.guessit.core.trace.Trace;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -344,8 +408,18 @@ class CompositeTraceTest {
     @Test
     void preservesSinkOrder() {
         var seen = new ArrayList<String>();
-        Trace a = new Trace() { @Override public void note(String m) { seen.add("a"); } };
-        Trace b = new Trace() { @Override public void note(String m) { seen.add("b"); } };
+        Trace a = new Trace() {
+            @Override
+            public void note(String m) {
+                seen.add("a");
+            }
+        };
+        Trace b = new Trace() {
+            @Override
+            public void note(String m) {
+                seen.add("b");
+            }
+        };
         new CompositeTrace(a, b).note("x");
         assertThat(seen).containsExactly("a", "b");
     }
@@ -353,7 +427,12 @@ class CompositeTraceTest {
     @Test
     void exceptionInOneSinkDoesNotSkipOthers() {
         var b = new RecordingTrace();
-        Trace a = new Trace() { @Override public void note(String m) { throw new RuntimeException("boom"); } };
+        Trace a = new Trace() {
+            @Override
+            public void note(String m) {
+                throw new RuntimeException("boom");
+            }
+        };
         var t = new CompositeTrace(a, b);
         // Composite swallows per-sink throwables to keep tracing best-effort.
         t.note("x");
@@ -362,10 +441,26 @@ class CompositeTraceTest {
 
     private static final class RecordingTrace implements Trace {
         final List<String> events = new ArrayList<>();
-        @Override public void input(String s) { events.add("input:" + s); }
-        @Override public void phase(String name) { events.add("phase:" + name); }
-        @Override public void subStep(String m) { events.add("subStep:" + m); }
-        @Override public void note(String m) { events.add("note:" + m); }
+
+        @Override
+        public void input(String s) {
+            events.add("input:" + s);
+        }
+
+        @Override
+        public void phase(String name) {
+            events.add("phase:" + name);
+        }
+
+        @Override
+        public void subStep(String m) {
+            events.add("subStep:" + m);
+        }
+
+        @Override
+        public void note(String m) {
+            events.add("note:" + m);
+        }
     }
 }
 ```
@@ -382,7 +477,10 @@ Create `src/main/java/io/guessit/engine/CompositeTrace.java`:
 ```java
 package io.guessit.engine;
 
-import io.guessit.GuessResult;
+import io.guessit.api.GuessResult;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.trace.Trace;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -398,27 +496,81 @@ public final class CompositeTrace implements Trace {
 
     private final List<Trace> sinks;
 
-    public CompositeTrace(Trace... sinks) { this.sinks = List.of(sinks); }
-    public CompositeTrace(List<Trace> sinks) { this.sinks = List.copyOf(sinks); }
+    public CompositeTrace(Trace... sinks) {
+        this.sinks = List.of(sinks);
+    }
+
+    public CompositeTrace(List<Trace> sinks) {
+        this.sinks = List.copyOf(sinks);
+    }
 
     private void forEach(Consumer<Trace> action) {
         for (var s : sinks) {
-            try { action.accept(s); } catch (RuntimeException ignored) { /* best-effort */ }
+            try {
+                action.accept(s);
+            } catch (RuntimeException ignored) { /* best-effort */ }
         }
     }
 
-    @Override public void input(String s)                            { forEach(t -> t.input(s)); }
-    @Override public void phase(String name)                         { forEach(t -> t.phase(name)); }
-    @Override public void phase(String name, String description)     { forEach(t -> t.phase(name, description)); }
-    @Override public void step(String kind, String name)             { forEach(t -> t.step(kind, name)); }
-    @Override public void step(String kind, String name, String d)   { forEach(t -> t.step(kind, name, d)); }
-    @Override public void added(Match m)                             { forEach(t -> t.added(m)); }
-    @Override public void removed(Match m)                           { forEach(t -> t.removed(m)); }
-    @Override public void noChanges()                                { forEach(Trace::noChanges); }
-    @Override public void note(String msg)                           { forEach(t -> t.note(msg)); }
-    @Override public void subStep(String msg)                        { forEach(t -> t.subStep(msg)); }
-    @Override public void spans(String in, List<Match> ms, List<Marker> mk) { forEach(t -> t.spans(in, ms, mk)); }
-    @Override public void result(GuessResult r)                      { forEach(t -> t.result(r)); }
+    @Override
+    public void input(String s) {
+        forEach(t -> t.input(s));
+    }
+
+    @Override
+    public void phase(String name) {
+        forEach(t -> t.phase(name));
+    }
+
+    @Override
+    public void phase(String name, String description) {
+        forEach(t -> t.phase(name, description));
+    }
+
+    @Override
+    public void step(String kind, String name) {
+        forEach(t -> t.step(kind, name));
+    }
+
+    @Override
+    public void step(String kind, String name, String d) {
+        forEach(t -> t.step(kind, name, d));
+    }
+
+    @Override
+    public void added(Match m) {
+        forEach(t -> t.added(m));
+    }
+
+    @Override
+    public void removed(Match m) {
+        forEach(t -> t.removed(m));
+    }
+
+    @Override
+    public void noChanges() {
+        forEach(Trace::noChanges);
+    }
+
+    @Override
+    public void note(String msg) {
+        forEach(t -> t.note(msg));
+    }
+
+    @Override
+    public void subStep(String msg) {
+        forEach(t -> t.subStep(msg));
+    }
+
+    @Override
+    public void spans(String in, List<Match> ms, List<Marker> mk) {
+        forEach(t -> t.spans(in, ms, mk));
+    }
+
+    @Override
+    public void result(GuessResult r) {
+        forEach(t -> t.result(r));
+    }
 }
 ```
 
@@ -458,6 +610,10 @@ Create `src/test/java/io/guessit/engine/SpanRendererTest.java`:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.trace.SpanRenderer;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -468,22 +624,22 @@ class SpanRendererTest {
 
     @Test
     void rendersDisjointMatches() {
-        var year      = match(MatchName.YEAR,        2020, 4, 8,  "2020");
-        var container = match(MatchName.CONTAINER,   "mkv", 9, 12, "mkv");
+        var year = match(MatchName.YEAR, 2020, 4, 8, "2020");
+        var container = match(MatchName.CONTAINER, "mkv", 9, 12, "mkv");
         String out = SpanRenderer.render("XxX.2020.mkv", List.of(year, container), List.of());
         assertThat(out).isEqualTo(
-            "  XxX.2020.mkv\n" +
-            "      ---- ---\n" +
-            "       |    |\n" +
-            "      year container\n"
+                "  XxX.2020.mkv\n" +
+                        "      ---- ---\n" +
+                        "       |    |\n" +
+                        "      year container\n"
         );
     }
 
     @Test
     void stacksOverlappingLabelsOnSeparateRows() {
-        var year      = match(MatchName.YEAR,        2024, 4, 8,  "2024");
-        var screen    = match(MatchName.SCREEN_SIZE, "1080p", 9, 14, "1080p");
-        var src       = match(MatchName.SOURCE,      "WEB-DL", 15, 21, "WEB-DL");
+        var year = match(MatchName.YEAR, 2024, 4, 8, "2024");
+        var screen = match(MatchName.SCREEN_SIZE, "1080p", 9, 14, "1080p");
+        var src = match(MatchName.SOURCE, "WEB-DL", 15, 21, "WEB-DL");
         String out = SpanRenderer.render("XxX.2024.1080p.WEB-DL", List.of(year, screen, src), List.of());
         // Just assert that all three labels appear and indentation is two spaces.
         assertThat(out).startsWith("  XxX.2024.1080p.WEB-DL\n");
@@ -503,7 +659,7 @@ class SpanRendererTest {
     @Test
     void skipsPrivateMatches() {
         var visible = new Match(MatchName.YEAR, 2020, 0, 4, "2020", 1000, java.util.Set.of(), false);
-        var hidden  = new Match(MatchName.YEAR, 2020, 0, 4, "2020", 1000, java.util.Set.of(), true);
+        var hidden = new Match(MatchName.YEAR, 2020, 0, 4, "2020", 1000, java.util.Set.of(), true);
         String out = SpanRenderer.render("2020", List.of(visible, hidden), List.of());
         // Only one underline run; no doubled label.
         assertThat(out.lines().filter(l -> l.contains("year")).count()).isEqualTo(1L);
@@ -526,6 +682,9 @@ Create `src/main/java/io/guessit/engine/SpanRenderer.java`:
 
 ```java
 package io.guessit.engine;
+
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -552,12 +711,18 @@ import java.util.Locale;
  */
 public final class SpanRenderer {
 
-    private SpanRenderer() {}
+    private SpanRenderer() {
+    }
 
     public static String render(String input, List<Match> matches, List<Marker> markers) {
         record Span(int start, int end, String label) {
-            int mid() { return start + (end - start) / 2; }
-            int width() { return end - start; }
+            int mid() {
+                return start + (end - start) / 2;
+            }
+
+            int width() {
+                return end - start;
+            }
         }
 
         var spans = new ArrayList<Span>();
@@ -596,11 +761,20 @@ public final class SpanRenderer {
                     int eHalf = existing.label().length() / 2;
                     int eStart = Math.max(0, existing.mid() - eHalf);
                     int eEnd = eStart + existing.label().length();
-                    if (labelStart < eEnd + 1 && eStart < labelEnd + 1) { fits = false; break; }
+                    if (labelStart < eEnd + 1 && eStart < labelEnd + 1) {
+                        fits = false;
+                        break;
+                    }
                 }
-                if (fits) { placedRow = r; break; }
+                if (fits) {
+                    placedRow = r;
+                    break;
+                }
             }
-            if (placedRow < 0) { rows.add(new ArrayList<>()); placedRow = rows.size() - 1; }
+            if (placedRow < 0) {
+                rows.add(new ArrayList<>());
+                placedRow = rows.size() - 1;
+            }
             rows.get(placedRow).add(s);
         }
 
@@ -678,6 +852,9 @@ Create `src/test/java/io/guessit/engine/DebugTraceTest.java`:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.trace.DebugTrace;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -783,7 +960,13 @@ Create `src/main/java/io/guessit/engine/DebugTrace.java`:
 ```java
 package io.guessit.engine;
 
-import io.guessit.GuessResult;
+import io.guessit.api.GuessResult;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.trace.CompositeTrace;
+import io.guessit.core.trace.PrintTrace;
+import io.guessit.core.trace.Trace;
+import io.guessit.core.trace.SpanRenderer;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -809,29 +992,37 @@ public final class DebugTrace implements Trace {
     private final Appendable out;
     private final boolean renderSpans;
 
-    public DebugTrace(Appendable out) { this(out, false); }
+    public DebugTrace(Appendable out) {
+        this(out, false);
+    }
+
     public DebugTrace(Appendable out, boolean renderSpans) {
         this.out = out;
         this.renderSpans = renderSpans;
     }
 
-    @Override public void input(String s) {
+    @Override
+    public void input(String s) {
         write("For: " + s + "\n\n");
     }
 
-    @Override public void phase(String name) {
+    @Override
+    public void phase(String name) {
         write(capitalise(name) + " phase\n");
     }
 
-    @Override public void phase(String name, String description) {
+    @Override
+    public void phase(String name, String description) {
         write(capitalise(name) + " phase — " + description + "\n");
     }
 
-    @Override public void step(String kind, String name) {
+    @Override
+    public void step(String kind, String name) {
         write("  " + verb(kind) + " " + name + "\n");
     }
 
-    @Override public void step(String kind, String name, String description) {
+    @Override
+    public void step(String kind, String name, String description) {
         if (description == null || description.isEmpty() || description.equals(name)) {
             step(kind, name);
             return;
@@ -839,24 +1030,29 @@ public final class DebugTrace implements Trace {
         write("  " + verb(kind) + " " + name + " (" + description + ")\n");
     }
 
-    @Override public void subStep(String message) {
+    @Override
+    public void subStep(String message) {
         write("    " + message + "\n");
     }
 
-    @Override public void noChanges() {
+    @Override
+    public void noChanges() {
         write("    (no changes)\n");
     }
 
-    @Override public void note(String msg) {
+    @Override
+    public void note(String msg) {
         write("  " + msg + "\n");
     }
 
-    @Override public void spans(String input, List<Match> matches, List<Marker> markers) {
+    @Override
+    public void spans(String input, List<Match> matches, List<Marker> markers) {
         if (!renderSpans) return;
         write(SpanRenderer.render(input, matches, markers));
     }
 
-    @Override public void result(GuessResult r) {
+    @Override
+    public void result(GuessResult r) {
         write("\nGuessIt found:\n" + io.guessit.cli.PlainFormatter.format(r) + "\n");
     }
 
@@ -869,15 +1065,19 @@ public final class DebugTrace implements Trace {
     private static String verb(String kind) {
         return switch (kind) {
             case "extract" -> "Looking for";
-            case "post"    -> "Refining";
-            case "rule"    -> "Running rule";
-            case "marker"  -> "Detecting";
-            default        -> "Step (" + kind + "):";
+            case "post" -> "Refining";
+            case "rule" -> "Running rule";
+            case "marker" -> "Detecting";
+            default -> "Step (" + kind + "):";
         };
     }
 
     private void write(String s) {
-        try { out.append(s); } catch (IOException e) { throw new UncheckedIOException(e); }
+        try {
+            out.append(s);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
 ```
@@ -923,7 +1123,13 @@ Create `src/test/java/io/guessit/engine/TraceDiffSpansTest.java`:
 ```java
 package io.guessit.engine;
 
-import io.guessit.Options;
+import io.guessit.api.Options;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.trace.Trace;
+import io.guessit.core.trace.TraceDiff;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -937,10 +1143,25 @@ class TraceDiffSpansTest {
     void firesSpansEventWhenSetChanged() {
         var fired = new ArrayList<String>();
         Trace tr = new Trace() {
-            @Override public void added(Match m)   { fired.add("+" + m.raw()); }
-            @Override public void removed(Match m) { fired.add("-" + m.raw()); }
-            @Override public void noChanges()      { fired.add("nochg"); }
-            @Override public void spans(String i, List<Match> ms, List<Marker> mk) { fired.add("spans:" + ms.size() + "/" + mk.size()); }
+            @Override
+            public void added(Match m) {
+                fired.add("+" + m.raw());
+            }
+
+            @Override
+            public void removed(Match m) {
+                fired.add("-" + m.raw());
+            }
+
+            @Override
+            public void noChanges() {
+                fired.add("nochg");
+            }
+
+            @Override
+            public void spans(String i, List<Match> ms, List<Marker> mk) {
+                fired.add("spans:" + ms.size() + "/" + mk.size());
+            }
         };
         var ctx = new ParseContext("XxX.2020.mkv", Options.defaults(), null, tr);
         var year = Match.of(MatchName.YEAR, 2020, 4, 8, "2020");
@@ -954,10 +1175,17 @@ class TraceDiffSpansTest {
     void firesNoChangesAndNoSpansWhenSetUnchanged() {
         var fired = new ArrayList<String>();
         Trace tr = new Trace() {
-            @Override public void noChanges() { fired.add("nochg"); }
-            @Override public void spans(String i, List<Match> ms, List<Marker> mk) { fired.add("spans"); }
+            @Override
+            public void noChanges() {
+                fired.add("nochg");
+            }
+
+            @Override
+            public void spans(String i, List<Match> ms, List<Marker> mk) {
+                fired.add("spans");
+            }
         };
-        var ctx = new ParseContext("XxX.2020.mkv", Options.defaults(), null, tr);
+        var ctx = new ParseContext("XxX.2020.mkv", io.guessit.api.Options.defaults(), null, tr);
         var snap = ctx.matches.snapshot();
         TraceDiff.emit(snap, snap, ctx);
         assertThat(fired).containsExactly("nochg");
@@ -977,6 +1205,11 @@ Edit `src/main/java/io/guessit/engine/TraceDiff.java`. Bump visibility of the ex
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchSet;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.trace.Trace;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -993,7 +1226,8 @@ import java.util.List;
  * changed, so DebugTrace can paint an updated span view.
  */
 public final class TraceDiff {
-    private TraceDiff() {}
+    private TraceDiff() {
+    }
 
     /** Diff-only emit. Fires {@code noChanges} when sets are identical. */
     public static void emit(List<Match> before, List<Match> after, Trace trace) {
@@ -1084,8 +1318,9 @@ Create `src/test/java/io/guessit/engine/PhaseDebugWiringTest.java`:
 ```java
 package io.guessit.engine;
 
-import io.guessit.Guessit;
-import io.guessit.Options;
+import io.guessit.api.Guessit;
+import io.guessit.api.Options;
+import io.guessit.core.trace.DebugTrace;
 import org.junit.jupiter.api.Test;
 
 import java.io.StringWriter;
@@ -1099,23 +1334,23 @@ class PhaseDebugWiringTest {
         var sw = new StringWriter();
         var trace = new DebugTrace(sw);
         Guessit.withOptions(Options.defaults())
-            .guess("Movie.Name.2020.1080p.BluRay.x264-GRP.mkv", trace);
+                .guess("Movie.Name.2020.1080p.BluRay.x264-GRP.mkv", trace);
         var out = sw.toString();
         assertThat(out)
-            .contains("Markers phase — ")
-            .contains("Extractors phase — ")
-            .contains("Conflicts phase — ")
-            .contains("Extractor_post phase — ")
-            .contains("Post phase — ")
-            .contains("Output phase — ");
+                .contains("Markers phase — ")
+                .contains("Extractors phase — ")
+                .contains("Conflicts phase — ")
+                .contains("Extractor_post phase — ")
+                .contains("Post phase — ")
+                .contains("Output phase — ");
     }
 
     @Test
     void debugTraceShowsLookingForStepHeader() {
         var sw = new StringWriter();
         var trace = new DebugTrace(sw);
-        Guessit.withOptions(Options.defaults())
-            .guess("Movie.2020.mkv", trace);
+        io.guessit.api.Guessit.withOptions(Options.defaults())
+                .guess("Movie.2020.mkv", trace);
         assertThat(sw.toString()).contains("  Looking for year");
     }
 
@@ -1123,8 +1358,8 @@ class PhaseDebugWiringTest {
     void spansEmittedWhenToggleEnabled() {
         var sw = new StringWriter();
         var trace = new DebugTrace(sw, true);
-        Guessit.withOptions(Options.defaults())
-            .guess("Movie.2020.mkv", trace);
+        io.guessit.api.Guessit.withOptions(Options.defaults())
+                .guess("Movie.2020.mkv", trace);
         // The input string appears at least once embedded in a span view block.
         assertThat(sw.toString()).contains("Movie.2020.mkv");
         // Per-row underline must appear under at least one step.
@@ -1145,6 +1380,10 @@ Edit `src/main/java/io/guessit/engine/MarkerPhase.java`:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.contracts.Described;
+import io.guessit.core.pipeline.phases.Phase;
+import io.guessit.core.pipeline.state.ParseContext;
+
 import java.util.HashSet;
 import java.util.List;
 
@@ -1155,10 +1394,14 @@ public record MarkerPhase(List<MarkerProducer> producers) implements Phase {
         void produce(ParseContext ctx);
 
         @Override
-        default String description() { return getClass().getSimpleName(); }
+        default String description() {
+            return getClass().getSimpleName();
+        }
     }
 
-    public MarkerPhase { producers = List.copyOf(producers); }
+    public MarkerPhase {
+        producers = List.copyOf(producers);
+    }
 
     @Override
     public void apply(ParseContext ctx) {
@@ -1185,10 +1428,17 @@ Edit `src/main/java/io/guessit/engine/ExtractorPhase.java`:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.phases.Phase;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.trace.TraceDiff;
+
 import java.util.List;
 
 public record ExtractorPhase(List<Extractor> extractors) implements Phase {
-    public ExtractorPhase { extractors = List.copyOf(extractors); }
+    public ExtractorPhase {
+        extractors = List.copyOf(extractors);
+    }
 
     @Override
     public void apply(ParseContext ctx) {
@@ -1208,10 +1458,17 @@ Edit `src/main/java/io/guessit/engine/ExtractorPostPhase.java`:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.phases.Phase;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.trace.TraceDiff;
+
 import java.util.List;
 
 public record ExtractorPostPhase(List<Extractor> extractors) implements Phase {
-    public ExtractorPostPhase { extractors = List.copyOf(extractors); }
+    public ExtractorPostPhase {
+        extractors = List.copyOf(extractors);
+    }
 
     @Override
     public void apply(ParseContext ctx) {
@@ -1230,6 +1487,11 @@ Edit `src/main/java/io/guessit/engine/ConflictPhase.java`:
 
 ```java
 package io.guessit.engine;
+
+import io.guessit.core.pipeline.phases.ConflictSolver;
+import io.guessit.core.pipeline.phases.Phase;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.trace.TraceDiff;
 
 public record ConflictPhase() implements Phase {
     @Override
@@ -1263,6 +1525,11 @@ Edit `src/main/java/io/guessit/engine/PostPhase.java`:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.contracts.Described;
+import io.guessit.core.pipeline.phases.Phase;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.trace.TraceDiff;
+
 import java.util.List;
 
 public record PostPhase(List<PostProcessor> processors) implements Phase {
@@ -1272,10 +1539,14 @@ public record PostPhase(List<PostProcessor> processors) implements Phase {
         void process(ParseContext ctx);
 
         @Override
-        default String description() { return getClass().getSimpleName(); }
+        default String description() {
+            return getClass().getSimpleName();
+        }
     }
 
-    public PostPhase { processors = List.copyOf(processors); }
+    public PostPhase {
+        processors = List.copyOf(processors);
+    }
 
     @Override
     public void apply(ParseContext ctx) {
@@ -1294,6 +1565,9 @@ Edit `src/main/java/io/guessit/engine/OutputPhase.java`:
 
 ```java
 package io.guessit.engine;
+
+import io.guessit.core.pipeline.phases.Phase;
+import io.guessit.core.pipeline.state.ParseContext;
 
 import java.util.function.Consumer;
 
@@ -1352,6 +1626,12 @@ Create `src/test/java/io/guessit/engine/PatternMatcherDebugTest.java`:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.trace.Trace;
+import io.guessit.core.text.PatternMatcher;
+import io.guessit.core.text.RegexOpts;
+import io.guessit.core.text.StringOpts;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -1366,7 +1646,12 @@ class PatternMatcherDebugTest {
     @Test
     void regexEmitsTryAndAcceptedSubsteps() {
         var fired = new ArrayList<String>();
-        Trace tr = new Trace() { @Override public void subStep(String m) { fired.add(m); } };
+        Trace tr = new Trace() {
+            @Override
+            public void subStep(String m) {
+                fired.add(m);
+            }
+        };
         var opts = RegexOpts.defaults().withValue(Integer::valueOf);
         PatternMatcher.regex("XxX.2020.mkv", Pattern.compile("\\d{4}"), MatchName.YEAR, opts, tr);
         assertThat(fired).anyMatch(s -> s.startsWith("Trying regex "));
@@ -1376,10 +1661,15 @@ class PatternMatcherDebugTest {
     @Test
     void regexEmitsRejectedSubstepWhenValidatorFails() {
         var fired = new ArrayList<String>();
-        Trace tr = new Trace() { @Override public void subStep(String m) { fired.add(m); } };
+        Trace tr = new Trace() {
+            @Override
+            public void subStep(String m) {
+                fired.add(m);
+            }
+        };
         var opts = RegexOpts.defaults()
-            .withValue(Integer::valueOf)
-            .withValidator(m -> false);
+                .withValue(Integer::valueOf)
+                .withValidator(m -> false);
         PatternMatcher.regex("foo 2020 bar", Pattern.compile("\\d{4}"), MatchName.YEAR, opts, tr);
         assertThat(fired).anyMatch(s -> s.contains("rejected"));
     }
@@ -1387,7 +1677,12 @@ class PatternMatcherDebugTest {
     @Test
     void stringEmitsTryAndAccepted() {
         var fired = new ArrayList<String>();
-        Trace tr = new Trace() { @Override public void subStep(String m) { fired.add(m); } };
+        Trace tr = new Trace() {
+            @Override
+            public void subStep(String m) {
+                fired.add(m);
+            }
+        };
         var opts = StringOpts.defaults();
         PatternMatcher.string("Foo.1080p.bar", Set.of("1080p", "720p"), MatchName.SCREEN_SIZE, opts, tr);
         assertThat(fired).anyMatch(s -> s.startsWith("Trying needles"));
@@ -1416,6 +1711,12 @@ Edit `src/main/java/io/guessit/engine/PatternMatcher.java`. Replace the body wit
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.trace.Trace;
+import io.guessit.core.text.RegexOpts;
+import io.guessit.core.text.StringOpts;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -1425,7 +1726,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
 
 public final class PatternMatcher {
-    private PatternMatcher() {}
+    private PatternMatcher() {
+    }
 
     /* Existing no-trace overloads: delegate to the trace-aware version with NOOP. */
 
@@ -1484,7 +1786,7 @@ public final class PatternMatcher {
             boolean wordOk = !opts.wholeWord() || isWordBoundary(hay, idx, end);
             if (wordOk) {
                 var match = new Match(name, raw, idx, end, input.substring(idx, end),
-                    opts.priority(), opts.tags(), opts.isPrivate());
+                        opts.priority(), opts.tags(), opts.isPrivate());
                 if (opts.validator().test(match)) {
                     out.add(match);
                     trace.subStep("Considered '" + raw + "' at " + idx + "-" + end + " — accepted");
@@ -1563,6 +1865,11 @@ Create `src/test/java/io/guessit/engine/ConflictSolverDebugTest.java`:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.phases.ConflictSolver;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.MatchSet;
+import io.guessit.core.trace.Trace;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -1574,7 +1881,12 @@ class ConflictSolverDebugTest {
     @Test
     void emitsDropDecisionForShorterSpan() {
         var fired = new ArrayList<String>();
-        Trace tr = new Trace() { @Override public void subStep(String m) { fired.add(m); } };
+        Trace tr = new Trace() {
+            @Override
+            public void subStep(String m) {
+                fired.add(m);
+            }
+        };
         var ms = new MatchSet();
         ms.add(Match.of(MatchName.YEAR, 2020, 4, 8, "2020"));        // length 4
         ms.add(Match.of(MatchName.SCREEN_SIZE, "x", 6, 14, "y1080p"));// length 8, overlaps year
@@ -1585,7 +1897,12 @@ class ConflictSolverDebugTest {
     @Test
     void emitsNothingWhenNoOverlap() {
         var fired = new ArrayList<String>();
-        Trace tr = new Trace() { @Override public void subStep(String m) { fired.add(m); } };
+        Trace tr = new Trace() {
+            @Override
+            public void subStep(String m) {
+                fired.add(m);
+            }
+        };
         var ms = new MatchSet();
         ms.add(Match.of(MatchName.YEAR, 2020, 0, 4, "2020"));
         ms.add(Match.of(MatchName.SCREEN_SIZE, "1080p", 5, 10, "1080p"));
@@ -1615,19 +1932,26 @@ Edit `src/main/java/io/guessit/engine/ConflictSolver.java`. Replace the body wit
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchSet;
+import io.guessit.core.trace.Trace;
+
 import java.util.*;
 
 public final class ConflictSolver {
-    private ConflictSolver() {}
+    private ConflictSolver() {
+    }
 
     /** Backwards-compatible: no trace. */
-    public static void solve(MatchSet matches) { solve(matches, Trace.NOOP); }
+    public static void solve(MatchSet matches) {
+        solve(matches, Trace.NOOP);
+    }
 
     public static void solve(MatchSet matches, Trace trace) {
         var publicMatches = matches.all()
-            .filter(m -> !m.isPrivate())
-            .sorted(Comparator.comparingInt(Match::length))
-            .toList();
+                .filter(m -> !m.isPrivate())
+                .sorted(Comparator.comparingInt(Match::length))
+                .toList();
         var toRemove = new HashSet<Match>();
         for (var match : publicMatches) {
             if (toRemove.contains(match)) continue;
@@ -1692,6 +2016,11 @@ Edit `src/main/java/io/guessit/engine/ConflictPhase.java`:
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.phases.ConflictSolver;
+import io.guessit.core.pipeline.phases.Phase;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.trace.TraceDiff;
+
 public record ConflictPhase() implements Phase {
     @Override
     public void apply(ParseContext ctx) {
@@ -1750,9 +2079,7 @@ Create `src/test/java/io/guessit/rules/post/OutputBuilderDebugTest.java`:
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.Guessit;
-import io.guessit.Options;
-import io.guessit.engine.DebugTrace;
+import io.guessit.core.trace.DebugTrace;
 import org.junit.jupiter.api.Test;
 
 import java.io.StringWriter;
@@ -1765,8 +2092,8 @@ class OutputBuilderDebugTest {
     void emitsSetSubstepPerProperty() {
         var sw = new StringWriter();
         var trace = new DebugTrace(sw);
-        Guessit.withOptions(Options.defaults())
-            .guess("Movie.Name.2020.1080p.BluRay.x264-GRP.mkv", trace);
+        io.guessit.api.Guessit.withOptions(io.guessit.api.Options.defaults())
+                .guess("Movie.Name.2020.1080p.BluRay.x264-GRP.mkv", trace);
         var out = sw.toString();
         assertThat(out).contains("Set year ← 2020");
         assertThat(out).contains("Set screen_size ← 1080p");
@@ -1860,9 +2187,7 @@ Create `src/test/java/io/guessit/rules/post/MultiStageProcessorDebugTest.java`:
 ```java
 package io.guessit.rules.post;
 
-import io.guessit.Guessit;
-import io.guessit.Options;
-import io.guessit.engine.DebugTrace;
+import io.guessit.core.trace.DebugTrace;
 import org.junit.jupiter.api.Test;
 
 import java.io.StringWriter;
@@ -1876,7 +2201,7 @@ class MultiStageProcessorDebugTest {
         var sw = new StringWriter();
         var trace = new DebugTrace(sw);
         // Input chosen to exercise SeasonYear / SeasonYearLink stages.
-        Guessit.withOptions(Options.defaults()).guess("Show.S01.2020.1080p.mkv", trace);
+        io.guessit.api.Guessit.withOptions(io.guessit.api.Options.defaults()).guess("Show.S01.2020.1080p.mkv", trace);
         var out = sw.toString();
         assertThat(out).contains("Stage ");
     }
@@ -1948,11 +2273,10 @@ EOF
 Create `src/test/java/io/guessit/rules/property/ExtractorTraceWiringTest.java`:
 
 ```java
-package io.guessit.rules.property;
+package io.guessit.rules.extractors;
 
-import io.guessit.Guessit;
-import io.guessit.Options;
-import io.guessit.engine.DebugTrace;
+import io.guessit.api.Guessit;
+import io.guessit.core.trace.DebugTrace;
 import org.junit.jupiter.api.Test;
 
 import java.io.StringWriter;
@@ -1965,7 +2289,7 @@ class ExtractorTraceWiringTest {
     void yearExtractorPropagatesTraceToPatternMatcher() {
         var sw = new StringWriter();
         var trace = new DebugTrace(sw);
-        Guessit.withOptions(Options.defaults()).guess("Movie.2020.mkv", trace);
+        Guessit.withOptions(io.guessit.api.Options.defaults()).guess("Movie.2020.mkv", trace);
         var out = sw.toString();
         assertThat(out).contains("Looking for year");
         assertThat(out).contains("Trying regex \\d{4}");
@@ -1976,7 +2300,7 @@ class ExtractorTraceWiringTest {
     void screenSizeExtractorPropagatesTraceToPatternMatcher() {
         var sw = new StringWriter();
         var trace = new DebugTrace(sw);
-        Guessit.withOptions(Options.defaults()).guess("Movie.1080p.mkv", trace);
+        Guessit.withOptions(io.guessit.api.Options.defaults()).guess("Movie.1080p.mkv", trace);
         var out = sw.toString();
         assertThat(out).contains("Looking for screen_size");
         assertThat(out).containsAnyOf("Trying needles", "Trying regex");
@@ -2373,43 +2697,66 @@ if (debugMarkers && !debug) {
 3c. Replace the existing `var trace = new PrintTrace(System.out);` block with the composite-trace wiring:
 
 ```java
+import io.guessit.core.trace.Trace;
+
 // Open the debug sink (stderr or file). Closed in finally.
 java.io.Writer debugSink = null;
-DebugTrace debugTrace = null;
-if (debug) {
-    if (debugOut != null) {
-        debugSink = java.nio.file.Files.newBufferedWriter(debugOut, java.nio.charset.StandardCharsets.UTF_8);
-    } else {
-        debugSink = new java.io.OutputStreamWriter(System.err, java.nio.charset.StandardCharsets.UTF_8);
+        DebugTrace debugTrace = null;
+if(debug){
+        if(debugOut !=null){
+        debugSink =java.nio.file.Files.
+
+        newBufferedWriter(debugOut, java.nio.charset.StandardCharsets.UTF_8);
+    }else{
+        debugSink =new java.io.
+
+        OutputStreamWriter(System.err, java.nio.charset.StandardCharsets.UTF_8);
     }
-    debugTrace = new DebugTrace(debugSink, debugMarkers);
+        debugTrace =new
+
+        DebugTrace(debugSink, debugMarkers);
 }
 
-PrintTrace verboseTrace = verbose ? new PrintTrace(System.out) : null;
+        PrintTrace verboseTrace = verbose ? new PrintTrace(System.out) : null;
 
-io.guessit.engine.Trace trace;
-if (verboseTrace != null && debugTrace != null) trace = new io.guessit.engine.CompositeTrace(verboseTrace, debugTrace);
-else if (verboseTrace != null)                  trace = verboseTrace;
-else if (debugTrace  != null)                   trace = debugTrace;
-else                                            trace = io.guessit.engine.Trace.NOOP;
+        Trace trace;
+if(verboseTrace !=null&&debugTrace !=null)trace =new io.guessit.engine.
 
-try {
-    for (int i = 0; i < filenames.size(); i++) {
-        if (i > 0 && (verbose || debug)) {
-            // Blank line between trace blocks.
-            if (verbose) System.out.println();
-            if (debug && debugSink != null) debugSink.append("\n");
+        CompositeTrace(verboseTrace, debugTrace);
+else if(verboseTrace !=null)trace =verboseTrace;
+else if(debugTrace  !=null)trace =debugTrace;
+else trace =Trace.NOOP;
+
+try{
+        for(
+        int i = 0; i <filenames.
+
+        size();
+
+        i++){
+        if(i >0&&(verbose ||debug)){
+        // Blank line between trace blocks.
+        if(verbose)System.out.
+
+        println();
+            if(debug &&debugSink !=null)debugSink.
+
+        append("\n");
         }
         var result = guessit.guess(filenames.get(i), trace);
-        if (!verbose) {
-            // Existing structured-output path stays exactly as it was.
-            // (json / yaml / showProperty / PlainFormatter)
+        if(!verbose){
+        // Existing structured-output path stays exactly as it was.
+        // (json / yaml / showProperty / PlainFormatter)
         }
-    }
-} finally {
-    if (debugSink != null && debugOut != null) debugSink.close();
-    // When debugSink wraps System.err, do NOT close it — flushing is enough.
-    if (debugSink != null && debugOut == null) debugSink.flush();
+        }
+        }finally{
+        if(debugSink !=null&&debugOut !=null)debugSink.
+
+        close();
+// When debugSink wraps System.err, do NOT close it — flushing is enough.
+    if(debugSink !=null&&debugOut ==null)debugSink.
+
+        flush();
 }
 ```
 

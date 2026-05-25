@@ -1,14 +1,18 @@
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Holes;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.text.Formatters;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static io.guessit.engine.Holes.Hole;
-import static io.guessit.engine.Holes.compute;
-import static io.guessit.engine.MatchName.*;
-import static io.guessit.engine.Seps.TITLE_CHARS;
+import static io.guessit.core.pipeline.state.Holes.Hole;
+import static io.guessit.core.pipeline.state.Holes.compute;
+import static io.guessit.core.pipeline.state.MatchName.*;
+import static io.guessit.core.text.Seps.TITLE_CHARS;
 import static java.util.List.of;
 import static org.assertj.core.api.Assertions.assertThat;
 

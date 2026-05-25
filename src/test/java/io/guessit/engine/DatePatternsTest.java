@@ -1,6 +1,6 @@
 package io.guessit.engine;
 
-import io.guessit.engine.date.DatePatterns;
+import io.guessit.rules.date.DatePatterns;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;

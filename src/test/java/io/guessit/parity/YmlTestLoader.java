@@ -1,7 +1,7 @@
 package io.guessit.parity;
 
-import io.guessit.Options;
-import io.guessit.OptionsBuilder;
+import io.guessit.api.Options;
+import io.guessit.api.OptionsBuilder;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;

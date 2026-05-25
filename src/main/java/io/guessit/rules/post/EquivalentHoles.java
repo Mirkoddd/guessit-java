@@ -1,7 +1,8 @@
 package io.guessit.rules.post;
 
-import io.guessit.engine.*;
-import io.guessit.engine.PostPhase.PostProcessor;
+import io.guessit.core.pipeline.state.*;
+import io.guessit.core.text.Formatters;
+import io.guessit.core.pipeline.contracts.PostProcessor;
 
 import java.util.Objects;
 import java.util.stream.Stream;

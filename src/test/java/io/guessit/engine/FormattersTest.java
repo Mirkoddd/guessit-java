@@ -2,7 +2,7 @@ package io.guessit.engine;
 
 import org.junit.jupiter.api.Test;
 
-import static io.guessit.engine.Formatters.*;
+import static io.guessit.core.text.Formatters.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class FormattersTest {

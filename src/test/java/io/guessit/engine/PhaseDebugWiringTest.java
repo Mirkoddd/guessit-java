@@ -1,7 +1,8 @@
 package io.guessit.engine;
 
-import io.guessit.Guessit;
-import io.guessit.Options;
+import io.guessit.api.Guessit;
+import io.guessit.api.Options;
+import io.guessit.core.trace.DebugTrace;
 import org.junit.jupiter.api.Test;
 
 import java.io.StringWriter;

@@ -1,10 +1,11 @@
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.phases.Chain;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import static io.guessit.engine.Chain.Repeater.PLUS;
-import static io.guessit.engine.Chain.Repeater.STAR;
+import static io.guessit.core.pipeline.phases.Chain.Repeater.PLUS;
+import static io.guessit.core.pipeline.phases.Chain.Repeater.STAR;
 import static java.util.List.of;
 import static java.util.regex.Pattern.compile;
 import static org.assertj.core.api.Assertions.assertThat;

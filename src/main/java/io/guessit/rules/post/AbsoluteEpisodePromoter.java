@@ -1,6 +1,9 @@
 package io.guessit.rules.post;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.PostProcessor;
+import io.guessit.core.pipeline.phases.PostPhase;
+import io.guessit.core.pipeline.state.*;
+import io.guessit.core.text.Seps;
 
 import java.util.*;
 
@@ -9,7 +12,7 @@ import java.util.*;
  * {@link EpisodeNumberSeparatorRange} and {@link RangeFiller} have expanded all
  * bare episode ranges.
  */
-public final class AbsoluteEpisodePromoter implements PostPhase.PostProcessor {
+public final class AbsoluteEpisodePromoter implements PostProcessor {
 
     private static final int MAX_ABS_RANGE = 20;
     private static final int MAX_NON_ENC_GAP = 10;

@@ -49,7 +49,8 @@
 ```java
 package io.guessit.engine;
 
-import io.guessit.GuessResult;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.trace.PrintTrace;
 
 /**
  * Sink for verbose pipeline trace events. All methods default to no-ops so
@@ -57,15 +58,29 @@ import io.guessit.GuessResult;
  * verbose mode is disabled. CLI {@code -v} attaches a {@link PrintTrace}.
  */
 public interface Trace {
-    Trace NOOP = new Trace() {};
+    Trace NOOP = new Trace() {
+    };
 
-    default void input(String s) {}
-    default void phase(String name) {}
-    default void step(String kind, String name) {}
-    default void added(Match m) {}
-    default void removed(Match m) {}
-    default void note(String msg) {}
-    default void result(GuessResult r) {}
+    default void input(String s) {
+    }
+
+    default void phase(String name) {
+    }
+
+    default void step(String kind, String name) {
+    }
+
+    default void added(Match m) {
+    }
+
+    default void removed(Match m) {
+    }
+
+    default void note(String msg) {
+    }
+
+    default void result(io.guessit.api.GuessResult r) {
+    }
 }
 ```
 
@@ -130,6 +145,8 @@ git commit -m "feat(engine): expose Trace sink on ParseContext"
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.trace.PrintTrace;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
@@ -148,14 +165,14 @@ class PrintTraceTest {
     void includesPrivateBeforeName() {
         var m = new Match("weak_episode", 2020, 11, 15, "2020", 1000, Set.of(), true);
         assertThat(PrintTrace.formatMatch(m))
-            .isEqualTo("2020:(11,15)+private+name=weak_episode");
+                .isEqualTo("2020:(11,15)+private+name=weak_episode");
     }
 
     @Test
     void includesPriorityWhenNotDefault() {
         var m = Match.of("source", "Blu-ray", 22, 28, "Blu-ray").withPriority(2048);
         assertThat(PrintTrace.formatMatch(m))
-            .isEqualTo("Blu-ray:(22,28)+name=source+priority=2048");
+                .isEqualTo("Blu-ray:(22,28)+name=source+priority=2048");
     }
 
     @Test
@@ -171,7 +188,7 @@ class PrintTraceTest {
         tags.add("weak-duplicate");
         var m = Match.of("season", 20, 11, 13, "20").withTags(tags);
         assertThat(PrintTrace.formatMatch(m))
-            .isEqualTo("20:(11,13)+name=season+tags=[weak-episode,weak-duplicate]");
+                .isEqualTo("20:(11,13)+name=season+tags=[weak-episode,weak-duplicate]");
     }
 
     @Test
@@ -192,7 +209,9 @@ Expected: COMPILATION FAILURE — `PrintTrace` does not exist.
 ```java
 package io.guessit.engine;
 
-import io.guessit.GuessResult;
+import io.guessit.api.GuessResult;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.trace.Trace;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -205,7 +224,9 @@ public final class PrintTrace implements Trace {
 
     private final Appendable out;
 
-    public PrintTrace(Appendable out) { this.out = out; }
+    public PrintTrace(Appendable out) {
+        this.out = out;
+    }
 
     static String formatMatch(Match m) {
         var sb = new StringBuilder();
@@ -226,18 +247,47 @@ public final class PrintTrace implements Trace {
         return sb.toString();
     }
 
-    @Override public void input(String s)    { write("For: " + s + "\n\n"); }
-    @Override public void phase(String name) { write("[phase] " + name + "\n"); }
-    @Override public void step(String kind, String name) { write("  [" + kind + "] " + name + "\n"); }
-    @Override public void added(Match m)     { write("    + " + formatMatch(m) + "\n"); }
-    @Override public void removed(Match m)   { write("    - " + formatMatch(m) + "\n"); }
-    @Override public void note(String msg)   { write("  " + msg + "\n"); }
-    @Override public void result(GuessResult r) {
+    @Override
+    public void input(String s) {
+        write("For: " + s + "\n\n");
+    }
+
+    @Override
+    public void phase(String name) {
+        write("[phase] " + name + "\n");
+    }
+
+    @Override
+    public void step(String kind, String name) {
+        write("  [" + kind + "] " + name + "\n");
+    }
+
+    @Override
+    public void added(Match m) {
+        write("    + " + formatMatch(m) + "\n");
+    }
+
+    @Override
+    public void removed(Match m) {
+        write("    - " + formatMatch(m) + "\n");
+    }
+
+    @Override
+    public void note(String msg) {
+        write("  " + msg + "\n");
+    }
+
+    @Override
+    public void result(GuessResult r) {
         write("\nGuessIt found:\n" + io.guessit.cli.PlainFormatter.format(r) + "\n");
     }
 
     private void write(String s) {
-        try { out.append(s); } catch (IOException e) { throw new UncheckedIOException(e); }
+        try {
+            out.append(s);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
 ```
@@ -336,6 +386,10 @@ git commit -m "test(engine): assert PrintTrace line shapes for each event"
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.trace.PrintTrace;
+import io.guessit.core.trace.Trace;
+import io.guessit.core.trace.TraceDiff;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -347,8 +401,16 @@ class TraceDiffTest {
 
     static class CapturingTrace implements Trace {
         final List<String> events = new ArrayList<>();
-        @Override public void added(Match m)   { events.add("+ " + PrintTrace.formatMatch(m)); }
-        @Override public void removed(Match m) { events.add("- " + PrintTrace.formatMatch(m)); }
+
+        @Override
+        public void added(Match m) {
+            events.add("+ " + PrintTrace.formatMatch(m));
+        }
+
+        @Override
+        public void removed(Match m) {
+            events.add("- " + PrintTrace.formatMatch(m));
+        }
     }
 
     @Test
@@ -382,8 +444,8 @@ class TraceDiffTest {
         var trace = new CapturingTrace();
         TraceDiff.emit(List.of(year), List.of(screen), trace);
         assertThat(trace.events).containsExactly(
-            "- 2020:(11,15)+name=year",
-            "+ 1080p:(16,21)+name=screen_size"
+                "- 2020:(11,15)+name=year",
+                "+ 1080p:(16,21)+name=screen_size"
         );
     }
 
@@ -394,8 +456,8 @@ class TraceDiffTest {
         var trace = new CapturingTrace();
         TraceDiff.emit(List.of(), List.of(a, b), trace);
         assertThat(trace.events).containsExactly(
-            "+ 2020:(11,15)+name=year",
-            "+ 1080p:(16,21)+name=screen_size"
+                "+ 2020:(11,15)+name=year",
+                "+ 1080p:(16,21)+name=screen_size"
         );
     }
 }
@@ -411,10 +473,13 @@ Expected: COMPILATION FAILURE — `TraceDiff` does not exist.
 ```java
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchSet;
+import io.guessit.core.trace.Trace;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Computes added / removed matches between two {@link MatchSet} snapshots and
@@ -426,7 +491,8 @@ import java.util.Map;
  * order; removals preserve {@code before} order.
  */
 final class TraceDiff {
-    private TraceDiff() {}
+    private TraceDiff() {
+    }
 
     static void emit(List<Match> before, List<Match> after, Trace trace) {
         var afterCounts = new HashMap<Match, Integer>();
@@ -498,7 +564,7 @@ Replace the existing `guess` method block:
 Add the missing import:
 
 ```java
-import io.guessit.engine.Trace;
+
 ```
 
 - [ ] **Step 2: Compile + run existing tests (no regressions)**
@@ -748,13 +814,15 @@ git commit -m "feat(engine): OutputPhase emits trace events"
 Replace the per-filename loop and surrounding code in `call()`:
 
 ```java
-    @Override
-    public Integer call() {
-        if (filenames.isEmpty()) {
-            System.err.println("No input filename provided. See --help.");
-            return 2;
-        }
-        var opts = OptionsBuilder.options()
+    import io.guessit.core.trace.PrintTrace;
+
+@Override
+public Integer call() {
+    if (filenames.isEmpty()) {
+        System.err.println("No input filename provided. See --help.");
+        return 2;
+    }
+    var opts = OptionsBuilder.options()
             .type(type)
             .name(name)
             .expectedTitle(expectedTitles)
@@ -770,37 +838,37 @@ Replace the per-filename loop and surrounding code in `call()`:
             .noUserConfig(noUserConfig)
             .noDefaultConfig(noDefaultConfig)
             .build();
-        var guessit = Guessit.withOptions(opts);
+    var guessit = Guessit.withOptions(opts);
 
-        if (verbose) {
-            if (json || yaml || showProperty != null) {
-                System.err.println("warning: --json/--yaml/--show-property ignored when --verbose is set");
-            }
-            var trace = new io.guessit.engine.PrintTrace(System.out);
-            for (int i = 0; i < filenames.size(); i++) {
-                if (i > 0) System.out.println();
-                guessit.guess(filenames.get(i), trace);
-            }
-            return 0;
+    if (verbose) {
+        if (json || yaml || showProperty != null) {
+            System.err.println("warning: --json/--yaml/--show-property ignored when --verbose is set");
         }
-
-        for (var fn : filenames) {
-            var result = guessit.guess(fn);
-            String output;
-            if (showProperty != null) {
-                var v = result.toMap().get(showProperty);
-                output = v == null ? "" : v.toString();
-            } else if (json) {
-                output = JsonFormatter.format(result);
-            } else if (yaml) {
-                output = YamlFormatter.format(result);
-            } else {
-                output = PlainFormatter.format(result);
-            }
-            System.out.println(output);
+        var trace = new PrintTrace(System.out);
+        for (int i = 0; i < filenames.size(); i++) {
+            if (i > 0) System.out.println();
+            guessit.guess(filenames.get(i), trace);
         }
         return 0;
     }
+
+    for (var fn : filenames) {
+        var result = guessit.guess(fn);
+        String output;
+        if (showProperty != null) {
+            var v = result.toMap().get(showProperty);
+            output = v == null ? "" : v.toString();
+        } else if (json) {
+            output = JsonFormatter.format(result);
+        } else if (yaml) {
+            output = YamlFormatter.format(result);
+        } else {
+            output = PlainFormatter.format(result);
+        }
+        System.out.println(output);
+    }
+    return 0;
+}
 ```
 
 - [ ] **Step 2: Run existing CLI tests**

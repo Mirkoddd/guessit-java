@@ -1,14 +1,14 @@
 package io.guessit.rules.post;
 
-import io.guessit.Options;
+import io.guessit.api.Options;
 import io.guessit.config.OptionsConfig;
-import io.guessit.engine.Marker;
-import io.guessit.engine.ParseContext;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.ParseContext;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import static io.guessit.engine.Match.of;
-import static io.guessit.engine.MatchName.TITLE;
+import static io.guessit.core.pipeline.state.Match.of;
+import static io.guessit.core.pipeline.state.MatchName.TITLE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class EnlargeGroupMatchesTest {

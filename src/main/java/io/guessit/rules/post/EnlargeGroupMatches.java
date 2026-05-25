@@ -1,9 +1,10 @@
 package io.guessit.rules.post;
 
-import io.guessit.engine.Marker;
-import io.guessit.engine.Match;
-import io.guessit.engine.ParseContext;
-import io.guessit.engine.PostPhase;
+import io.guessit.core.pipeline.contracts.PostProcessor;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.phases.PostPhase;
 
 import java.util.ArrayList;
 
@@ -14,7 +15,7 @@ import java.util.ArrayList;
  * extended rightward to {@code group.end}.  This ensures the surrounding bracket
  * characters are included in the matched span.
  */
-public final class EnlargeGroupMatches implements PostPhase.PostProcessor {
+public final class EnlargeGroupMatches implements PostProcessor {
     @Override
     public String description() {
         return "enlarge match span to cover its containing bracket group";

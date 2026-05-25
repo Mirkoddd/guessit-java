@@ -1,6 +1,12 @@
 package io.guessit.engine;
 
-import io.guessit.Options;
+import io.guessit.api.Options;
+import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.trace.Trace;
+import io.guessit.core.trace.TraceDiff;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

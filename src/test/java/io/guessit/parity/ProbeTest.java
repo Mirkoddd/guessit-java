@@ -1,14 +1,14 @@
 package io.guessit.parity;
 
-import io.guessit.Guessit;
-import io.guessit.lang.Language;
+import io.guessit.api.Guessit;
+import io.guessit.api.models.Language;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static io.guessit.Guessit.parse;
-import static io.guessit.OptionsBuilder.options;
+import static io.guessit.api.Guessit.parse;
+import static io.guessit.api.OptionsBuilder.options;
 import static io.guessit.parity.YmlTestLoader.parseContent;
 import static java.util.List.of;
 import static org.assertj.core.api.Assertions.assertThat;

@@ -1,10 +1,11 @@
 package io.guessit.engine;
 
+import io.guessit.core.text.Abbreviations;
 import org.junit.jupiter.api.Test;
 
 import java.util.regex.Pattern;
 
-import static io.guessit.engine.Abbreviations.dash;
+import static io.guessit.core.text.Abbreviations.dash;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;

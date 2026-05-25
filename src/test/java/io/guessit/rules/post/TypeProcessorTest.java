@@ -1,17 +1,17 @@
 package io.guessit.rules.post;
 
-import io.guessit.Options;
+import io.guessit.api.Options;
 import io.guessit.config.OptionsConfig;
-import io.guessit.engine.Match;
-import io.guessit.engine.MatchName;
-import io.guessit.engine.ParseContext;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.ParseContext;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import static io.guessit.OptionsBuilder.options;
+import static io.guessit.api.OptionsBuilder.options;
 import static io.guessit.config.OptionsConfig.empty;
-import static io.guessit.engine.Match.of;
-import static io.guessit.engine.MatchName.*;
+import static io.guessit.core.pipeline.state.Match.of;
+import static io.guessit.core.pipeline.state.MatchName.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TypeProcessorTest {

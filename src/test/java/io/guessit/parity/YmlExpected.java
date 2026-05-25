@@ -1,12 +1,12 @@
 package io.guessit.parity;
 
-import io.guessit.GuessResult;
-import io.guessit.GuessResultBuilder;
-import io.guessit.lang.Country;
-import io.guessit.lang.Language;
-import io.guessit.lang.LanguageRegistry;
-import io.guessit.util.BitRate;
-import io.guessit.util.Size;
+import io.guessit.api.GuessResult;
+import io.guessit.api.GuessResultBuilder;
+import io.guessit.api.models.Country;
+import io.guessit.api.models.Language;
+import io.guessit.rules.lang.LanguageRegistry;
+import io.guessit.api.models.BitRate;
+import io.guessit.api.models.Size;
 
 import java.time.LocalDate;
 import java.time.ZoneId;

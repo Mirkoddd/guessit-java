@@ -1,9 +1,9 @@
 package io.guessit.rules.post;
 
-import io.guessit.Guessit;
+import io.guessit.api.Guessit;
 import org.junit.jupiter.api.Test;
 
-import static io.guessit.Guessit.parse;
+import static io.guessit.api.Guessit.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RemoveAmbiguousTest {

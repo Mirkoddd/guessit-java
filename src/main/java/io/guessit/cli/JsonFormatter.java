@@ -1,6 +1,6 @@
 package io.guessit.cli;
 
-import io.guessit.GuessResult;
+import io.guessit.api.GuessResult;
 
 public final class JsonFormatter {
     private JsonFormatter() {}

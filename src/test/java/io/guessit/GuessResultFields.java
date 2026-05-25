@@ -1,5 +1,7 @@
 package io.guessit;
 
+import io.guessit.api.GuessResult;
+
 import java.util.List;
 import java.util.Map;
 

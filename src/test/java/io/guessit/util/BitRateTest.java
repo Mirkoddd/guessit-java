@@ -2,7 +2,7 @@ package io.guessit.util;
 
 import org.junit.jupiter.api.Test;
 
-import static io.guessit.util.BitRate.fromString;
+import static io.guessit.api.models.BitRate.fromString;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class BitRateTest {

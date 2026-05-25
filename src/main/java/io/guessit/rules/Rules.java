@@ -1,15 +1,18 @@
 package io.guessit.rules;
 
-import io.guessit.engine.*;
+import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.contracts.PostProcessor;
+import io.guessit.core.pipeline.phases.*;
+import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.rules.markers.GroupMarker;
 import io.guessit.rules.markers.PathMarker;
 import io.guessit.rules.post.*;
-import io.guessit.rules.property.*;
+import io.guessit.rules.extractors.*;
 
 import java.util.List;
 
 /**
- * Composition layer: wires {@link io.guessit.engine.Phase}s and
+ * Composition layer: wires {@link Phase}s and
  * {@link Extractor}s into a working parser.
  *
  * <p>The order in {@link #allInOrder()} is part of the contract — extractors
@@ -59,11 +62,11 @@ public final class Rules {
     }
 
     /**
-     * All default {@link PostPhase.PostProcessor}s in pipeline order.
+     * All default {@link PostProcessor}s in pipeline order.
      * Extracted here so the coverage test can iterate over every registered
      * processor without duplicating the list.
      */
-    public static List<PostPhase.PostProcessor> defaultPostProcessors() {
+    public static List<PostProcessor> defaultPostProcessors() {
         return List.of(
             new EnlargeGroupMatches(),
             new BitRateTypeRule(),

@@ -1,7 +1,7 @@
 package io.guessit.config;
 
-import io.guessit.Options;
-import io.guessit.OptionsBuilder;
+import io.guessit.api.Options;
+import io.guessit.api.OptionsBuilder;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -11,7 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-import static io.guessit.OptionsBuilder.options;
+import static io.guessit.api.OptionsBuilder.options;
 import static io.guessit.config.ConfigLoader.load;
 import static java.nio.file.Files.writeString;
 import static java.util.List.of;
@@ -29,7 +29,7 @@ class ConfigLoaderTest {
 
     @Test
     void noDefaultConfigSkipsBundle() {
-        var opts = OptionsBuilder.options().noDefaultConfig(true).noUserConfig(true).build();
+        var opts = options().noDefaultConfig(true).noUserConfig(true).build();
         var cfg = ConfigLoader.load(opts);
         Assertions.assertThat(cfg.raw()).isEmpty();
     }
@@ -86,7 +86,7 @@ class ConfigLoaderTest {
         var b = tmp.resolve("b.json");
         Files.writeString(a, "{\"key\": \"original\"}");
         Files.writeString(b, "{\"key\": null}");
-        var opts = OptionsBuilder.options()
+        var opts = options()
             .noDefaultConfig(true).noUserConfig(true)
             .configPaths(java.util.List.of(a, b)).build();
         var cfg = ConfigLoader.load(opts);

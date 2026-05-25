@@ -1,0 +1,31 @@
+package io.guessit.rules.extractors;
+
+import io.guessit.api.Guessit;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class EpisodeDetailsExtractorTest {
+    @Test void specialNextToEpisode() {
+        var r = Guessit.parse("Show.S01E02.Special.mkv");
+        var details = r.extras() != null ? r.extras().get("episode_details") : null;
+        assertThat(details).isEqualTo("Special");
+    }
+    @Test void pilotStandalone() {
+        var r = Guessit.parse("Show.S01E01.Pilot.mkv");
+        var details = r.extras() != null ? r.extras().get("episode_details") : null;
+        assertThat(details).isEqualTo("Pilot");
+    }
+    @Test void detachedPilotIsDropped() {
+        var r = Guessit.parse("PilotXFilesShow.mkv");
+        var details = r.extras() != null ? r.extras().get("episode_details") : null;
+        assertNull(details);
+    }
+    @Test void multipleDetails() {
+        var r = Guessit.parse("Show.S01E02.Special.Final.mkv");
+        var details = r.extras() != null ? r.extras().get("episode_details") : null;
+        assertTrue(details instanceof java.util.List<?> l && l.size() == 2 && l.contains("Special") && l.contains("Final"));
+    }
+}

@@ -1,14 +1,16 @@
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.trace.PrintTrace;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import static io.guessit.engine.Match.of;
-import static io.guessit.engine.MatchName.*;
-import static io.guessit.engine.PrintTrace.formatMatch;
+import static io.guessit.core.pipeline.state.Match.of;
+import static io.guessit.core.pipeline.state.MatchName.*;
+import static io.guessit.core.trace.PrintTrace.formatMatch;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class PrintTraceTest {

@@ -1,10 +1,12 @@
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.text.Validators;
 import org.junit.jupiter.api.Test;
 
 import java.util.function.Predicate;
 
-import static io.guessit.engine.MatchName.G;
+import static io.guessit.core.pipeline.state.MatchName.G;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

@@ -1,16 +1,21 @@
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.text.PatternMatcher;
+import io.guessit.core.text.RegexOpts;
+import io.guessit.core.text.StringOpts;
+import io.guessit.core.text.Validators;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Set;
 
-import static io.guessit.engine.MatchName.*;
-import static io.guessit.engine.PatternMatcher.regex;
-import static io.guessit.engine.PatternMatcher.string;
-import static io.guessit.engine.RegexOpts.defaults;
-import static io.guessit.engine.Validators.sepsSurround;
+import static io.guessit.core.pipeline.state.MatchName.*;
+import static io.guessit.core.text.PatternMatcher.regex;
+import static io.guessit.core.text.PatternMatcher.string;
+import static io.guessit.core.text.RegexOpts.defaults;
+import static io.guessit.core.text.Validators.sepsSurround;
 import static java.util.Set.of;
 import static java.util.regex.Pattern.compile;
 import static org.assertj.core.api.Assertions.assertThat;

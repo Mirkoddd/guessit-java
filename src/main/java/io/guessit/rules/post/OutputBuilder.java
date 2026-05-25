@@ -1,12 +1,13 @@
 package io.guessit.rules.post;
 
-import io.guessit.engine.Match;
-import io.guessit.engine.MatchName;
-import io.guessit.engine.ParseContext;
-import io.guessit.lang.Country;
-import io.guessit.lang.Language;
-import io.guessit.GuessResultBuilder;
-import io.guessit.util.Quantity;
+import io.guessit.api.GuessResultBuilder;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.api.models.Country;
+import io.guessit.api.models.Language;
+import io.guessit.api.models.Quantity;
+import io.guessit.core.trace.Trace;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -206,7 +207,7 @@ public final class OutputBuilder implements Consumer<ParseContext> {
                 });
     }
 
-    private static Map<String, Object> dispatchToBuilder(GuessResultBuilder b, Map<MatchName, List<Match>> grouped, io.guessit.engine.Trace trace) {
+    private static Map<String, Object> dispatchToBuilder(GuessResultBuilder b, Map<MatchName, List<Match>> grouped, Trace trace) {
         var extras = new LinkedHashMap<String, Object>();
 
         for (var e : grouped.entrySet()) {
@@ -225,7 +226,7 @@ public final class OutputBuilder implements Consumer<ParseContext> {
         return extras;
     }
 
-    private static void traceAssignment(io.guessit.engine.Trace trace, MatchName name, List<Match> ms) {
+    private static void traceAssignment(Trace trace, MatchName name, List<Match> ms) {
         var key = name.name().toLowerCase();
         if (ms.size() == 1) {
             var m = ms.getFirst();

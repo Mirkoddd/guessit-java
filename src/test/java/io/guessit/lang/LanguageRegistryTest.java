@@ -1,5 +1,6 @@
 package io.guessit.lang;
 
+import io.guessit.rules.lang.LanguageRegistry;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

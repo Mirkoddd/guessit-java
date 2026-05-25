@@ -1,5 +1,9 @@
 package io.guessit.engine;
 
+import io.guessit.api.GuessResultBuilder;
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.trace.DebugTrace;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -76,7 +80,7 @@ class DebugTraceTest {
     void resultPrintsClosingMarker() {
         var sb = new StringBuilder();
         var t = new DebugTrace(sb);
-        var r = io.guessit.GuessResultBuilder.result().title("Foo").build();
+        var r = GuessResultBuilder.result().title("Foo").build();
         t.result(r);
         assertThat(sb.toString()).isEqualTo("\nGuessIt parsed.\n");
     }

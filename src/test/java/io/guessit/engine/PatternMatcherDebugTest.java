@@ -1,5 +1,11 @@
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.trace.Trace;
+import io.guessit.core.text.PatternMatcher;
+import io.guessit.core.text.RegexOpts;
+import io.guessit.core.text.StringOpts;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
