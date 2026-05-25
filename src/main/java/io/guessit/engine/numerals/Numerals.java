@@ -6,6 +6,7 @@ import com.mirkoddd.sift.core.engine.SiftCompiledPattern;
 
 import java.util.EnumSet;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -41,22 +42,19 @@ public final class Numerals {
     private static final SiftCompiledPattern WS_SPLIT_PATTERN = oneOrMore().whitespace().sieve();
 
     /**
-     * Parse digits, Roman, or word numerals — whichever matches first.
+     * Safely tries to parse a numeral, returning an empty Optional if invalid.
      */
-    public static int parse(String value) {
-        return parse(value, EnumSet.allOf(Type.class));
+    public static Optional<Integer> tryParseOptional(String value) {
+        return tryParseOptional(value, EnumSet.allOf(Type.class));
     }
 
     /**
-     * Parse {@code value} as a numeral, trying enabled forms in order:
-     * decimal digits → Roman → number words. Throws {@link IllegalArgumentException}
-     * when no enabled form matches.
+     * Safely tries to parse a numeral using enabled forms, returning an empty Optional if invalid.
      */
-    public static int parse(String value, Set<Type> enabledTypes) {
-
+    private static Optional<Integer> tryParseOptional(String value, Set<Type> enabledTypes) {
         if (enabledTypes.contains(Type.DIGIT)) {
             Integer result = DIGIT_PARSER.tryParse(value);
-            if (result != null) return result;
+            if (result != null) return Optional.of(result);
         }
 
         if (enabledTypes.contains(Type.ROMAN) || enabledTypes.contains(Type.WORD)) {
@@ -67,10 +65,18 @@ public final class Numerals {
                     .map(type -> type == Type.ROMAN ? ROMAN_PARSER : WORD_PARSER)
                     .map(parser -> parser.tryParse(words))
                     .filter(Objects::nonNull)
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Invalid numeral: " + value));
+                    .findFirst();
         }
 
-        throw new IllegalArgumentException("Invalid numeral: " + value);
+        return Optional.empty();
+    }
+
+    /**
+     * Parse digits, Roman, or word numerals — whichever matches first.
+     * Throws {@link IllegalArgumentException} when no form matches.
+     */
+    public static int parse(String value) {
+        return tryParseOptional(value)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid numeral: " + value));
     }
 }
