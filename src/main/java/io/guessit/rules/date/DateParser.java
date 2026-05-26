@@ -11,15 +11,8 @@ import java.util.Optional;
 final class DateParser {
 
     private static final int CENTURY_BASE = 2000;
-    private static final int LAST_CENTURY_BASE = 1900;
     private static final int FOUR_DIGIT_YEAR_THRESHOLD = 100;
     private static final int REQUIRED_PARTS_COUNT = 3;
-
-    /**
-     * Pivot at 30: Years 00-29 resolve to 2000-2029 (modern media), while 30-99 resolve to 1930-1999.
-     * This safely covers almost a century of cinema history without breaking current release dates.
-     */
-    private static final int TWO_DIGIT_PIVOT = 30;
 
     private static final int PART_1 = 0;
     private static final int PART_2 = 1;
@@ -98,10 +91,8 @@ final class DateParser {
     }
 
     private static int resolveYear(int value) {
-        if (value >= FOUR_DIGIT_YEAR_THRESHOLD) {
-            return value;
-        }
-        return value < TWO_DIGIT_PIVOT ? CENTURY_BASE + value : LAST_CENTURY_BASE + value;
+        if (value >= FOUR_DIGIT_YEAR_THRESHOLD) return value;
+        return CENTURY_BASE + value;
     }
 
     private static Optional<LocalDate> tryParseNumeric(int part1, int part2, int part3, boolean isYearFirst, boolean isDayFirst) {
