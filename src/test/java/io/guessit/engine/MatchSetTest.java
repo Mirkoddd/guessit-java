@@ -3,6 +3,7 @@ package io.guessit.engine;
 import io.guessit.core.pipeline.state.Marker;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchSet;
+import io.guessit.core.pipeline.state.Priority;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -121,7 +122,7 @@ class MatchSetTest {
     @Test
     void taggedFiltersByTagSet() {
         var set = new MatchSet();
-        set.add(new Match(OTHER, null, 0, 1, "a", 1000, Set.of("foo"), false));
+        set.add(new Match(OTHER, null, 0, 1, "a", Priority.DEFAULT, Set.of("foo"), false));
         set.add(of(OTHER, null, 2, 3, "b"));
         var tagged = set.tagged("foo").toList();
         assertThat(tagged).hasSize(1);

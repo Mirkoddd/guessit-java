@@ -4,6 +4,7 @@ import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.contracts.PostProcessor;
+import io.guessit.core.pipeline.state.Priority;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -114,11 +115,11 @@ public final class EpisodeNumberSeparatorRange implements PostProcessor {
 
         // Add vb itself as an episode match.
         fills.add(new Match(EPISODE, span.value(), span.start(), span.end(),
-            ctx.input.substring(span.start(), span.end()), 1000, Set.of(RANGE_FILL), false));
+            ctx.input.substring(span.start(), span.end()), Priority.DEFAULT, Set.of(RANGE_FILL), false));
         // Add intermediate values va+1 .. vb-1 (zero-width, anchored at numStart).
         for (int v = va + 1; v < span.value(); v++) {
             fills.add(new Match(EPISODE, v, span.start(), span.start(),
-                "", 1000, Set.of(RANGE_FILL), false));
+                "", Priority.DEFAULT, Set.of(RANGE_FILL), false));
         }
     }
 

@@ -5,6 +5,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Validators;
 
 import java.util.HashSet;
@@ -30,7 +31,6 @@ public final class DiscRule implements Extractor {
     public static final String EXTRACTOR_NAME = "disc";
     public static final String TAG_DISC_MARKER = "disc-marker";
 
-    private static final int PRIORITY = 1000;
     private static final String GRP_VAL = "val";
 
     private static final Pattern PATTERN = buildDiscPattern();
@@ -74,12 +74,12 @@ public final class DiscRule implements Extractor {
         var m = PATTERN.matcher(input);
 
         while (m.find()) {
-            var head = new Match(MatchName.DISC, null, m.start(), m.end(), m.group(), PRIORITY, Set.of(), false);
+            var head = new Match(MatchName.DISC, null, m.start(), m.end(), m.group(), Priority.DEFAULT, Set.of(), false);
 
             if (seps.test(head)) {
                 int v = Integer.parseInt(m.group(GRP_VAL));
                 ctx.matches.add(new Match(MatchName.DISC, v, m.start(GRP_VAL), m.end(GRP_VAL),
-                        m.group(GRP_VAL), PRIORITY, Set.of(), false));
+                        m.group(GRP_VAL), Priority.DEFAULT, Set.of(), false));
             }
         }
     }

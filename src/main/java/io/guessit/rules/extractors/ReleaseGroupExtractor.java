@@ -2,10 +2,7 @@ package io.guessit.rules.extractors;
 
 import com.mirkoddd.sift.core.SiftPatterns;
 import io.guessit.core.pipeline.contracts.Extractor;
-import io.guessit.core.pipeline.state.Marker;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Validators;
 
@@ -34,9 +31,6 @@ public final class ReleaseGroupExtractor implements Extractor {
     public static final MatchName SUBTITLE_LANGUAGE = MatchName.SUBTITLE_LANGUAGE;
     public static final MatchName OTHER = MatchName.OTHER;
     public static final MatchName CONTAINER = MatchName.CONTAINER;
-
-    private static final int PRIORITY_EXPECTED = 2000;
-    private static final int PRIORITY_SCENE = 1500;
 
     private static final Set<MatchName> SCENE_PREV = Set.of(
             VIDEO_CODEC, SOURCE, VIDEO_API, AUDIO_CODEC, AUDIO_PROFILE, MatchName.VIDEO_PROFILE,
@@ -131,7 +125,7 @@ public final class ReleaseGroupExtractor implements Extractor {
         while ((idx = hay.indexOf(n, from)) >= 0) {
             int end = idx + name.length();
             var m = new Match(MatchName.RELEASE_GROUP, name, idx, end, input.substring(idx, end),
-                    PRIORITY_EXPECTED, Set.of(EXPECTED_TAG), false);
+                    Priority.EXPECTED, Set.of(EXPECTED_TAG), false);
 
             if (validator.test(m)) ctx.matches.add(m);
             from = idx + 1;
@@ -153,7 +147,7 @@ public final class ReleaseGroupExtractor implements Extractor {
                 .filter(res -> res.end() > res.start())
                 .map(res -> {
                     var raw = input.substring(res.start(), res.end());
-                    return new Match(MatchName.RELEASE_GROUP, raw, res.start(), res.end(), raw, PRIORITY_EXPECTED, Set.of(EXPECTED_TAG), false);
+                    return new Match(MatchName.RELEASE_GROUP, raw, res.start(), res.end(), raw, Priority.EXPECTED, Set.of(EXPECTED_TAG), false);
                 })
                 .filter(validator)
                 .forEach(ctx.matches::add);
@@ -217,7 +211,7 @@ public final class ReleaseGroupExtractor implements Extractor {
 
         removeOverlappingLanguages(env.ctx(), absStart, absDashEnd);
         env.ctx().matches.add(new Match(MatchName.RELEASE_GROUP, candidate, absStart, absDashEnd,
-                rawCandidate, PRIORITY_SCENE, Set.of(SCENE_TAG), false));
+                rawCandidate, Priority.SCENE, Set.of(SCENE_TAG), false));
         return true;
     }
 
@@ -260,7 +254,7 @@ public final class ReleaseGroupExtractor implements Extractor {
     private void addReleaseGroupMatch(ParseContext ctx, String candidate, String raw, int s, int e) {
         dropHdInsideCandidate(ctx, s, e);
         removeOverlappingLanguages(ctx, s, e);
-        ctx.matches.add(new Match(MatchName.RELEASE_GROUP, candidate, s, e, raw, PRIORITY_SCENE, Set.of(SCENE_TAG), false));
+        ctx.matches.add(new Match(MatchName.RELEASE_GROUP, candidate, s, e, raw, Priority.SCENE, Set.of(SCENE_TAG), false));
     }
 
     private boolean isValidLeadingDashPosition(String part, int firstDash) {
@@ -478,7 +472,7 @@ public final class ReleaseGroupExtractor implements Extractor {
         if (!validGroupName(rawPrev, false, true)) return null;
 
         env.ctx().matches.remove(prev);
-        return new Match(MatchName.RELEASE_GROUP, rawPrev, prev.start(), prev.end(), rawPrev, PRIORITY_SCENE, Set.of(SCENE_TAG), false);
+        return new Match(MatchName.RELEASE_GROUP, rawPrev, prev.start(), prev.end(), rawPrev, Priority.SCENE, Set.of(SCENE_TAG), false);
     }
 
     private boolean canPromoteScenePrevToReleaseGroup(ParseContext ctx, String input, Marker filePart, Match prev, int rangeEnd) {
@@ -497,7 +491,7 @@ public final class ReleaseGroupExtractor implements Extractor {
 
         dropHdInsideCandidate(env.ctx(), span.start, span.end);
         removeOverlappingLanguages(env.ctx(), span.start, span.end);
-        return new Match(MatchName.RELEASE_GROUP, candidate, span.start, span.end, raw, PRIORITY_SCENE, Set.of(SCENE_TAG), false);
+        return new Match(MatchName.RELEASE_GROUP, candidate, span.start, span.end, raw, Priority.SCENE, Set.of(SCENE_TAG), false);
     }
 
     private boolean isValidSceneCandidate(ParseContext ctx, Marker filePart, Match prev, String candidate, CandidateSpan span) {
@@ -542,7 +536,7 @@ public final class ReleaseGroupExtractor implements Extractor {
         }
 
         return Optional.of(new Match(MatchName.RELEASE_GROUP, trimmed, fInnerS, fInnerE,
-                innerStr, PRIORITY_SCENE, Set.of("anime"), false));
+                innerStr, Priority.SCENE, Set.of("anime"), false));
     }
 
     private static boolean candidateIsLikelyTitle(ParseContext ctx, Marker filePart, Match prev, int candidateEnd) {

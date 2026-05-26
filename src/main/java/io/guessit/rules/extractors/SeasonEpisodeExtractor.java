@@ -8,6 +8,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Validators;
 
 import java.util.ArrayList;
@@ -251,7 +252,7 @@ public final class SeasonEpisodeExtractor implements Extractor {
 
         while (m.find()) {
             var head = new Match(MatchName.SEASON, null, m.start(), m.end(),
-                    m.group(), 1000, Set.of(SXX_EXX), false);
+                    m.group(), Priority.DEFAULT, Set.of(SXX_EXX), false);
 
             if (seps.test(head)) {
                 String cg = ctx.nextCoexistGroupTag();
@@ -261,11 +262,11 @@ public final class SeasonEpisodeExtractor implements Extractor {
                 int aEnd = m.end(ALL_GROUP);
 
                 ctx.matches.add(new Match(MatchName.SEASON, Integer.parseInt(m.group(SEASON_GROUP)),
-                        sStart, sEnd, m.group(SEASON_GROUP), 1000,
+                        sStart, sEnd, m.group(SEASON_GROUP), Priority.DEFAULT,
                         Set.of(SXX_EXX, COEXIST, cg), false));
 
                 ctx.matches.add(new Match(MatchName.OTHER, "Complete",
-                        aStart, aEnd, m.group(ALL_GROUP), 1000,
+                        aStart, aEnd, m.group(ALL_GROUP), Priority.DEFAULT,
                         Set.of(SXX_EXX, COEXIST, cg), false));
             }
         }
@@ -277,19 +278,19 @@ public final class SeasonEpisodeExtractor implements Extractor {
 
         while (m.find()) {
             var head = new Match(MatchName.SEASON, null, m.start(), m.end(),
-                    m.group(), 1000, Set.of(SXX_EXX), false);
+                    m.group(), Priority.DEFAULT, Set.of(SXX_EXX), false);
 
             if (seps.test(head)) {
                 String cg = ctx.nextCoexistGroupTag();
                 ctx.matches.add(new Match(MatchName.SEASON_HEAD, null, m.start(), m.end(),
-                        m.group(), 1000, Set.of(SXX_EXX), true));
+                        m.group(), Priority.DEFAULT, Set.of(SXX_EXX), true));
 
                 ctx.matches.add(new Match(MatchName.SEASON, Integer.parseInt(m.group(SEASON_GROUP)),
-                        m.start(SEASON_GROUP), m.end(SEASON_GROUP), m.group(SEASON_GROUP), 1000,
+                        m.start(SEASON_GROUP), m.end(SEASON_GROUP), m.group(SEASON_GROUP), Priority.DEFAULT,
                         Set.of(SXX_EXX, COEXIST, cg), false));
 
                 ctx.matches.add(new Match(MatchName.OTHER, "Extras",
-                        m.start(EXTRAS_GROUP), m.end(EXTRAS_GROUP), m.group(EXTRAS_GROUP), 1000,
+                        m.start(EXTRAS_GROUP), m.end(EXTRAS_GROUP), m.group(EXTRAS_GROUP), Priority.DEFAULT,
                         Set.of(SXX_EXX, COEXIST, cg, "no-release-group-prefix"), false));
             }
         }
@@ -306,7 +307,7 @@ public final class SeasonEpisodeExtractor implements Extractor {
                 int runEnd = calculateRunEnd(run, trimmedRun.episodeSpans, trimmedRun.seasonSpans);
 
                 var headMatch = new Match(MatchName.SEASON_HEAD, null, run.start(), runEnd,
-                        input.substring(run.start(), runEnd), 1000, Set.of(SXX_EXX), true);
+                        input.substring(run.start(), runEnd), Priority.DEFAULT, Set.of(SXX_EXX), true);
 
                 if (seps.test(headMatch)) {
                     ctx.matches.add(headMatch);
@@ -399,7 +400,7 @@ public final class SeasonEpisodeExtractor implements Extractor {
             int[] sp = seasonSpans.get(i);
             var stags = cg != null ? Set.of(SXX_EXX, COEXIST, cg) : Set.of(SXX_EXX, COEXIST);
             ctx.matches.add(new Match(MatchName.SEASON, Integer.valueOf(seasonValues.get(i)),
-                    sp[0], sp[1], input.substring(sp[0], sp[1]), 1000, stags, false));
+                    sp[0], sp[1], input.substring(sp[0], sp[1]), Priority.DEFAULT, stags, false));
         }
     }
 
@@ -414,7 +415,7 @@ public final class SeasonEpisodeExtractor implements Extractor {
         for (int i = 0; i < episodeValues.size(); i++) {
             int[] ep = episodeSpans.get(i);
             ctx.matches.add(new Match(MatchName.EPISODE, Integer.valueOf(episodeValues.get(i)),
-                    ep[0], ep[1], input.substring(ep[0], ep[1]), 1000, tags, false));
+                    ep[0], ep[1], input.substring(ep[0], ep[1]), Priority.DEFAULT, tags, false));
         }
     }
 
@@ -485,7 +486,7 @@ public final class SeasonEpisodeExtractor implements Extractor {
 
         while (matcher.find()) {
             var head = new Match(MatchName.SEASON, null, matcher.start(), matcher.end(),
-                    matcher.group(), 1000, Set.of(SXX_EXX, SEE_PATTERN), false);
+                    matcher.group(), Priority.DEFAULT, Set.of(SXX_EXX, SEE_PATTERN), false);
 
             if (seps.test(head)) {
                 extractCapMatchAndExtensions(ctx, matcher);
@@ -498,11 +499,11 @@ public final class SeasonEpisodeExtractor implements Extractor {
 
         ctx.matches.add(new Match(MatchName.SEASON, Integer.parseInt(matcher.group(SEASON_GROUP)),
                 matcher.start(SEASON_GROUP), matcher.end(SEASON_GROUP), matcher.group(SEASON_GROUP),
-                1000, Set.of(SXX_EXX, COEXIST, SEE_PATTERN, cg), false));
+                Priority.DEFAULT, Set.of(SXX_EXX, COEXIST, SEE_PATTERN, cg), false));
 
         ctx.matches.add(new Match(MatchName.EPISODE, Integer.parseInt(matcher.group(EPISODE_GROUP)),
                 matcher.start(EPISODE_GROUP), matcher.end(EPISODE_GROUP), matcher.group(EPISODE_GROUP),
-                1000, Set.of(SXX_EXX, COEXIST, SEE_PATTERN, cg), false));
+                Priority.DEFAULT, Set.of(SXX_EXX, COEXIST, SEE_PATTERN, cg), false));
 
         if (matcher.group(SEASON2_GROUP) != null) {
             extractCapSecondaryEpisode(ctx, matcher, cg);
@@ -518,12 +519,12 @@ public final class SeasonEpisodeExtractor implements Extractor {
         int e2 = Integer.parseInt(matcher.group(EPISODE2_GROUP));
 
         ctx.matches.add(new Match(MatchName.EPISODE, e2, e2Start, e2End,
-                matcher.group(EPISODE2_GROUP), 1000, Set.of(SXX_EXX, COEXIST, SEE_PATTERN, cg), false));
+                matcher.group(EPISODE2_GROUP), Priority.DEFAULT, Set.of(SXX_EXX, COEXIST, SEE_PATTERN, cg), false));
 
         if (s2 == s1 && e2 > e1) {
             for (int v = e1 + 1; v < e2; v++) {
                 ctx.matches.add(new Match(MatchName.EPISODE, v, matcher.end(EPISODE_GROUP), e2Start,
-                        String.valueOf(v), 1000,
+                        String.valueOf(v), Priority.DEFAULT,
                         Set.of(SXX_EXX, COEXIST, SEE_PATTERN, RANGE_FILL_TAG, cg), false));
             }
         }
@@ -605,7 +606,7 @@ public final class SeasonEpisodeExtractor implements Extractor {
 
         for (int v = prevVal + 1; v < nextVal; v++) {
             ctx.matches.add(new Match(MatchName.EPISODE, v, prev.end(), next.start(),
-                    String.valueOf(v), 1000, fillTags, false));
+                    String.valueOf(v), Priority.DEFAULT, fillTags, false));
         }
     }
 

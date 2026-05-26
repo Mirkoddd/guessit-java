@@ -1,10 +1,7 @@
 package io.guessit.rules.extractors;
 
 import io.guessit.core.pipeline.contracts.Extractor;
-import io.guessit.core.pipeline.state.Marker;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Words;
 import io.guessit.api.models.Country;
@@ -110,7 +107,7 @@ public final class LanguageExtractor implements Extractor {
 
             if (pairLang != null && isAllowed(pairLang, env.allowedLc())) {
                 env.ctx().matches.add(new Match(MatchName.LANGUAGE, pairLang, w1.start(), w2.end(),
-                        input.substring(w1.start(), w2.end()), 1000, Set.of(), false));
+                        input.substring(w1.start(), w2.end()), Priority.DEFAULT, Set.of(), false));
 
                 env.pairConsumed().add(i);
                 env.pairConsumed().add(i + 1);
@@ -138,7 +135,7 @@ public final class LanguageExtractor implements Extractor {
                     String substring = input.substring(w1.start(), w2.end());
                     env.ctx().matches.add(new Match(MARKER_PREFIX, substring,
                             w1.start(), w2.end(), substring,
-                            1000, Set.of(), true));
+                            Priority.DEFAULT, Set.of(), true));
 
                     env.pairConsumed().add(i);
                     env.pairConsumed().add(i + 1);
@@ -171,7 +168,7 @@ public final class LanguageExtractor implements Extractor {
     private boolean tryProcessSubtitleAffix(ExtractionEnv env, Words.Word word, String lower) {
         if (matchesAny(lower, env.affixes().subtitlePrefixes()) || matchesAny(lower, env.affixes().subtitleSuffixes())) {
             env.ctx().matches.add(new Match(MARKER_PREFIX, word.value(),
-                    word.start(), word.end(), word.value(), 1000, Set.of(), true));
+                    word.start(), word.end(), word.value(), Priority.DEFAULT, Set.of(), true));
             return true;
         }
         return false;
@@ -182,7 +179,7 @@ public final class LanguageExtractor implements Extractor {
             var und = env.registry().find("und").orElse(null);
             if (und != null && isAllowed(und, env.allowedLc())) {
                 env.ctx().matches.add(new Match(MatchName.LANGUAGE, und, word.start(), word.end(),
-                        word.value(), 1000, Set.of(), false));
+                        word.value(), Priority.DEFAULT, Set.of(), false));
                 return true;
             }
         }
@@ -202,12 +199,12 @@ public final class LanguageExtractor implements Extractor {
             Language langWithCountry = new Language(lang.alpha2(), lang.alpha3(), lang.name(), cc.country());
 
             env.ctx().matches.add(new Match(MatchName.LANGUAGE, langWithCountry, word.start(), cc.end(),
-                    env.ctx().input.substring(word.start(), cc.end()), 1000, Set.of(), false));
+                    env.ctx().input.substring(word.start(), cc.end()), Priority.DEFAULT, Set.of(), false));
 
             markCountryWordAsConsumedIfPresent(env, wi, cc.end());
         } else {
             env.ctx().matches.add(new Match(MatchName.LANGUAGE, lang, word.start(), word.end(),
-                    env.ctx().input.substring(word.start(), word.end()), 1000, Set.of(), false));
+                    env.ctx().input.substring(word.start(), word.end()), Priority.DEFAULT, Set.of(), false));
         }
 
         return true;
@@ -263,7 +260,7 @@ public final class LanguageExtractor implements Extractor {
                     .filter(m -> m.end() <= ws && Seps.betweenIsSeps(input, m.end(), ws))
                     .max(Comparator.comparingInt(Match::end))
                     .ifPresent(_ -> env.ctx().matches.add(new Match(MatchName.LANGUAGE_SUFFIX,
-                            word.value(), word.start(), word.end(), word.value(), 1000, Set.of(), true)));
+                            word.value(), word.start(), word.end(), word.value(), Priority.DEFAULT, Set.of(), true)));
         }
     }
 
@@ -285,7 +282,7 @@ public final class LanguageExtractor implements Extractor {
 
         foundLang.ifPresent(lang -> {
             Set<String> tags = MatchName.SUBTITLE_LANGUAGE.equals(name) ? Set.of("attached-affix") : Set.of();
-            env.ctx().matches.add(new Match(name, lang, word.start(), word.end(), word.value(), 1000, tags, false));
+            env.ctx().matches.add(new Match(name, lang, word.start(), word.end(), word.value(), Priority.DEFAULT, tags, false));
         });
 
         return foundLang.isPresent();
@@ -398,7 +395,7 @@ public final class LanguageExtractor implements Extractor {
 
             if (isStandaloneAffix(ctx, marker) && und != null) {
                 ctx.matches.add(new Match(MatchName.SUBTITLE_LANGUAGE, und, marker.start(), marker.end(),
-                        marker.raw(), 1000, Set.of(), false));
+                        marker.raw(), Priority.DEFAULT, Set.of(), false));
             }
             toDropMarker.add(marker);
         }
@@ -580,8 +577,7 @@ public final class LanguageExtractor implements Extractor {
     }
 
     private static void renameToSubtitle(ParseContext ctx, Match lang) {
-        ctx.matches.replace(lang, new Match(MatchName.SUBTITLE_LANGUAGE, lang.value(),
-                lang.start(), lang.end(), lang.raw(), lang.priority() + 1, lang.tags(), false));
+        ctx.matches.replace(lang, lang.withName(MatchName.SUBTITLE_LANGUAGE));
     }
 
     private void renameWithSubtitleExtension(ParseContext ctx) {

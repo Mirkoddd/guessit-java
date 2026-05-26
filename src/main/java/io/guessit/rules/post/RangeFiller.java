@@ -7,6 +7,7 @@ import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.contracts.PostProcessor;
+import io.guessit.core.pipeline.state.Priority;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -24,7 +25,6 @@ public final class RangeFiller implements PostProcessor {
 
     private static final int MAX_GAP = 6;
     private static final int MAX_JUMP = 20;
-    private static final int FILL_CONFIDENCE = 1000;
 
     private static final String TAG_RANGE_FILL = "range-fill";
 
@@ -93,7 +93,7 @@ public final class RangeFiller implements PostProcessor {
 
             for (int v = prevVal + 1; v < nextVal; v++) {
                 fills.add(new Match(prop, v, prev.end(), next.start(),
-                        String.valueOf(v), FILL_CONFIDENCE, Set.of(TAG_RANGE_FILL), false));
+                        String.valueOf(v), Priority.DEFAULT, Set.of(TAG_RANGE_FILL), false));
             }
         }
 

@@ -4,6 +4,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.PatternMatcher;
 import io.guessit.core.text.RegexOpts;
 import io.guessit.core.text.StringOpts;
@@ -76,17 +77,17 @@ public final class VideoCodecExtractor implements Extractor {
             String cRaw = m.group(VideoCodecRules.GRP_C);
             String dRaw = m.group(VideoCodecRules.GRP_D);
 
-            var dummy = new Match(MatchName.DUMMY, "", cStart, cEnd, cRaw, 0, Set.of(), false);
+            var dummy = new Match(MatchName.DUMMY, "", cStart, cEnd, cRaw, Priority.NONE, Set.of(), false);
             if (Validators.sepsBefore(ctx.input).test(dummy)) {
                 ctx.matches.named(VIDEO_CODEC_NAME)
                         .filter(e -> e.start() == cStart && e.end() < cEnd)
                         .toList()
                         .forEach(ctx.matches::remove);
 
-                ctx.matches.add(new Match(VIDEO_CODEC_NAME, "H.265", cStart, cEnd, cRaw, 1000,
+                ctx.matches.add(new Match(VIDEO_CODEC_NAME, "H.265", cStart, cEnd, cRaw, Priority.DEFAULT,
                         Set.of("source-suffix", "streaming_service.suffix"), false));
 
-                ctx.matches.add(new Match(COLOR_DEPTH_NAME, "10-bit", dStart, dEnd, dRaw, 1000,
+                ctx.matches.add(new Match(COLOR_DEPTH_NAME, "10-bit", dStart, dEnd, dRaw, Priority.DEFAULT,
                         Set.of("video-codec-suffix", "derivedFrom:video_codec"), false));
             }
         }
