@@ -1,5 +1,6 @@
 package io.guessit.rules.extractors;
 
+import io.guessit.core.pipeline.state.Priority;
 import io.guessit.rules.date.DatePatterns;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
@@ -30,8 +31,8 @@ public final class DateExtractor implements Extractor {
     }
 
     @Override
-    public int priority() {
-        return 1100;
+    public Priority priority() {
+        return Priority.OVERRIDE;
     }
 
     @Override

@@ -266,7 +266,7 @@ public final class EpisodeTitleExtractor implements Extractor {
 
         var h = findEpisodeTitleHoles(ctx, subdirectory);
         if (h != null) {
-            ctx.matches.add(new Match(MatchName.TITLE, h.value(), h.start, h.end, h.raw(), 1000, Set.of(), false));
+            ctx.matches.add(new Match(MatchName.TITLE, h.value(), h.start, h.end, h.raw(), Priority.DEFAULT, Set.of(), false));
         }
     }
 
@@ -319,7 +319,7 @@ public final class EpisodeTitleExtractor implements Extractor {
 
         var h = findEpisodeTitleHoles(ctx, directory);
         if (h != null) {
-            ctx.matches.add(new Match(MatchName.TITLE, h.value(), h.start, h.end, h.raw(), 1000, Set.of(FILE_PART_TITLE_TAG), false));
+            ctx.matches.add(new Match(MatchName.TITLE, h.value(), h.start, h.end, h.raw(), Priority.DEFAULT, Set.of(FILE_PART_TITLE_TAG), false));
         }
     }
 }

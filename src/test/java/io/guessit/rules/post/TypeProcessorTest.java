@@ -5,6 +5,7 @@ import io.guessit.config.OptionsConfig;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.Priority;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -55,7 +56,7 @@ class TypeProcessorTest {
     @Test void episodeTitleWithAlternativeReplacedTagSurvivesMovieDemotion() {
         var ctx = ctx("Some Movie");
         ctx.matches.add(Match.of(MatchName.YEAR, 2020, 0, 4, "2020"));
-        ctx.matches.add(new Match(MatchName.EPISODE_TITLE, "X", 5, 6, "X", 1000,
+        ctx.matches.add(new Match(MatchName.EPISODE_TITLE, "X", 5, 6, "X", Priority.DEFAULT,
             java.util.Set.of("alternative-replaced"), false));
         new TypeProcessor().process(ctx);
         assertThat(ctx.matches.named(MatchName.EPISODE_TITLE).count()).isOne();

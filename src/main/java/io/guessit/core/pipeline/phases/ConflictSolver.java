@@ -85,8 +85,8 @@ public final class ConflictSolver {
         if (conflictingLen < matchLen) return conflictingMatch;
         if (matchLen < conflictingLen) return match;
 
-        if (match.priority() > conflictingMatch.priority()) return conflictingMatch;
-        if (match.priority() < conflictingMatch.priority()) return match;
+        if (match.priority().getScore() > conflictingMatch.priority().getScore()) return conflictingMatch;
+        if (match.priority().getScore() < conflictingMatch.priority().getScore()) return match;
 
         return null;
     }

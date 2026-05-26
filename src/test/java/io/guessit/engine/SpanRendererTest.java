@@ -3,6 +3,7 @@ package io.guessit.engine;
 import io.guessit.core.pipeline.state.Marker;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.trace.SpanRenderer;
 import org.junit.jupiter.api.Test;
 
@@ -46,8 +47,8 @@ class SpanRendererTest {
 
     @Test
     void skipsPrivateMatches() {
-        var visible = new Match(MatchName.YEAR, 2020, 0, 4, "2020", 1000, java.util.Set.of(), false);
-        var hidden  = new Match(MatchName.YEAR, 2020, 0, 4, "2020", 1000, java.util.Set.of(), true);
+        var visible = new Match(MatchName.YEAR, 2020, 0, 4, "2020", Priority.DEFAULT, java.util.Set.of(), false);
+        var hidden  = new Match(MatchName.YEAR, 2020, 0, 4, "2020", Priority.DEFAULT, java.util.Set.of(), true);
         String out = SpanRenderer.render("2020", List.of(visible, hidden), List.of());
         long yearLines = out.lines().filter(l -> l.contains("year")).count();
         assertThat(yearLines).isEqualTo(1L);
@@ -161,7 +162,7 @@ class SpanRendererTest {
     @Test
     void privateMatchesAreSkipped() {
         var publicMatch  = Match.of(MatchName.YEAR, 2020, 0, 4, "2020");
-        var privateMatch = new Match(MatchName.SEASON, 1, 5, 7, "01", 1000, java.util.Set.of(), true);
+        var privateMatch = new Match(MatchName.SEASON, 1, 5, 7, "01", Priority.DEFAULT, java.util.Set.of(), true);
         String out = SpanRenderer.render("2020 01 mkv", List.of(publicMatch, privateMatch), List.of());
         assertThat(out).contains("year");
         assertThat(out).doesNotContain("season");

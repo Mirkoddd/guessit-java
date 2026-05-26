@@ -4,6 +4,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.PatternMatcher;
 import io.guessit.core.text.RegexOpts;
 import io.guessit.core.text.Seps;
@@ -181,7 +182,7 @@ public final class AudioCodecExtractor implements Extractor {
             String value = entry.getKey();
             // Entries that declare a `conflict_solver` in config (e.g. "DTS-HD") should
             // win over generic audio_codec matches (e.g. "DTS") covering the same span.
-            int priority = entryHasConflictSolver(entry.getValue()) ? 1100 : 1000;
+            Priority priority = entryHasConflictSolver(entry.getValue()) ? Priority.OVERRIDE : Priority.DEFAULT;
             for (var pattern : flattenPatterns(entry.getValue())) {
                 addPatternMatches(ctx, propName, value, priority, pattern);
             }
@@ -189,7 +190,7 @@ public final class AudioCodecExtractor implements Extractor {
     }
 
     private void addPatternMatches(ParseContext ctx, MatchName propName, String value,
-                                   int priority, PatternEntry pattern) {
+                                   Priority priority, PatternEntry pattern) {
         Set<String> tags = pattern.tags() != null ? new HashSet<>(pattern.tags()) : new HashSet<>();
         if (pattern.regex()) {
             addRegexMatches(ctx, propName, value, priority, pattern, tags);
@@ -199,7 +200,7 @@ public final class AudioCodecExtractor implements Extractor {
     }
 
     private void addRegexMatches(ParseContext ctx, MatchName propName, String value,
-                                 int priority, PatternEntry pattern, Set<String> tags) {
+                                 Priority priority, PatternEntry pattern, Set<String> tags) {
         var p = compileDashedCi(pattern.source());
         if (p == null) return;
         var opts = RegexOpts.defaults().withValue(_ -> value).withPriority(priority);
@@ -210,7 +211,7 @@ public final class AudioCodecExtractor implements Extractor {
     /** Disable whole-word boundary; AudioValidatorRule checks edges later
      *  (allowing audio matches to touch other audio matches). */
     private void addStringMatches(ParseContext ctx, MatchName propName, String value,
-                                  int priority, PatternEntry pattern, Set<String> tags) {
+                                  Priority priority, PatternEntry pattern, Set<String> tags) {
         var opts = StringOpts.defaults().wholeWord(false).withPriority(priority);
         for (var m : PatternMatcher.string(ctx.input, Set.of(pattern.source()), propName, opts, ctx.trace)) {
             ctx.matches.add(new Match(propName, value, m.start(), m.end(), m.raw(),

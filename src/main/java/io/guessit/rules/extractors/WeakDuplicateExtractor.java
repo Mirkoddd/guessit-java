@@ -32,8 +32,6 @@ public final class WeakDuplicateExtractor implements Extractor {
     private static final String SEASON_WORD = "season-word";
     private static final String EXPECTED = "expected";
 
-    private static final int PRIORITY = 700;
-
     private static final String GRP_S = "s";
     private static final String GRP_E = "e";
 
@@ -58,8 +56,8 @@ public final class WeakDuplicateExtractor implements Extractor {
     }
 
     @Override
-    public int priority() {
-        return PRIORITY;
+    public Priority priority() {
+        return Priority.POSSIBLE;
     }
 
     @Override
@@ -73,14 +71,14 @@ public final class WeakDuplicateExtractor implements Extractor {
         var tags = Set.of(WEAK_EPISODE, WEAK_DUPLICATE, COEXIST);
 
         while (m.find()) {
-            var span = new Match(MatchName.WEAK, null, m.start(), m.end(), m.group(), PRIORITY, Set.of(), false);
+            var span = new Match(MatchName.WEAK, null, m.start(), m.end(), m.group(), priority(), Set.of(), false);
             if (!seps.test(span)) continue;
 
             int s = Integer.parseInt(m.group(GRP_S));
             int e = Integer.parseInt(m.group(GRP_E));
 
-            ctx.matches.add(new Match(SEASON, s, m.start(GRP_S), m.end(GRP_S), m.group(GRP_S), PRIORITY, tags, false));
-            ctx.matches.add(new Match(EPISODE, e, m.start(GRP_E), m.end(GRP_E), m.group(GRP_E), PRIORITY, tags, false));
+            ctx.matches.add(new Match(SEASON, s, m.start(GRP_S), m.end(GRP_S), m.group(GRP_S), priority(), tags, false));
+            ctx.matches.add(new Match(EPISODE, e, m.start(GRP_E), m.end(GRP_E), m.group(GRP_E), priority(), tags, false));
         }
     }
 

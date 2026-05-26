@@ -5,6 +5,7 @@ import io.guessit.core.pipeline.phases.ExtractorPhase;
 import io.guessit.core.pipeline.phases.ExtractorPostPhase;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.Priority;
 
 /**
  * Recognises one property in the input filename and adds {@link Match}es for it.
@@ -34,10 +35,10 @@ public interface Extractor extends Described {
 
     /**
      * Tie-breaker for {@link ConflictPhase} when two overlapping matches have
-     * equal span length. Higher wins. Default {@code 1000}; lower values mark
-     * deliberately weak/heuristic matches that should yield to anything stronger.
+     * equal span length. Higher wins. Default {@code Priority.DEFAULT (1000)};
+     * lower values mark deliberately weak/heuristic matches that should yield to anything stronger.
      */
-    default int priority() { return 1000; }
+    default Priority priority() { return Priority.DEFAULT; }
 
     /** First pass: scan the input and add candidate matches to {@code ctx.matches}. */
     void extract(ParseContext ctx);

@@ -1,9 +1,6 @@
 package io.guessit.rules.extractors;
 
-import io.guessit.core.pipeline.state.Marker;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Abbreviations;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Validators;
@@ -121,7 +118,7 @@ final class ConfigPatternHelpers {
     }
 
     static Match createMatch(MatchName name, String input, String value, Set<String> tags, int s, int e) {
-        return new Match(name, value, s, e, input.substring(s, e), 1000, tags, false);
+        return new Match(name, value, s, e, input.substring(s, e), Priority.DEFAULT, tags, false);
     }
 
     /**

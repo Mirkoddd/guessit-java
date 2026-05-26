@@ -13,15 +13,15 @@ import java.util.Set;
  *
  * <p>Two metadata channels influence later phases:
  * <ul>
- *   <li>{@code priority} — tie-breaker in {@link ConflictPhase} when two
- *       overlapping matches have equal length; higher wins.</li>
- *   <li>{@code tags} — string flags read by other rules. Notable values:
- *       {@code "coexist"} (opt out of conflict resolution; allowed to overlap),
- *       {@code "SxxExx"} (set by {@code SeasonEpisodeExtractor}; gates
- *       {@code WeakEpisodeExtractor}'s trailing-weak → {@code absolute_episode}
- *       rename pass).</li>
- *   <li>{@code isPrivate} — match exists only to influence other rules and
- *       is dropped before output by the {@code PrivateRemover} processor.</li>
+ * <li>{@code priority} — tie-breaker in {@link ConflictPhase} when two
+ * overlapping matches have equal length; higher wins.</li>
+ * <li>{@code tags} — string flags read by other rules. Notable values:
+ * {@code "coexist"} (opt out of conflict resolution; allowed to overlap),
+ * {@code "SxxExx"} (set by {@code SeasonEpisodeExtractor}; gates
+ * {@code WeakEpisodeExtractor}'s trailing-weak → {@code absolute_episode}
+ * rename pass).</li>
+ * <li>{@code isPrivate} — match exists only to influence other rules and
+ * is dropped before output by the {@code PrivateRemover} processor.</li>
  * </ul>
  *
  * @param name      the property name identifier (e.g., {@code year}, {@code language}, {@code episode})
@@ -29,7 +29,7 @@ import java.util.Set;
  * @param start     the zero-based inclusive start position of the match in the input string
  * @param end       the zero-based exclusive end position of the match in the input string
  * @param raw       the original substring from the input that was matched
- * @param priority  tie-breaker value used in conflict resolution; higher priority wins when matches overlap and have equal length (default 1000)
+ * @param priority  tie-breaker value used in conflict resolution; higher priority wins when matches overlap and have equal length (default {@link Priority#DEFAULT})
  * @param tags      set of string flags that control behavior in other rules (e.g., "coexist", "SxxExx"); never null
  * @param isPrivate if true, this match is used only internally and will be removed from final output
  */
@@ -39,7 +39,7 @@ public record Match(
         int start,
         int end,
         String raw,
-        int priority,
+        Priority priority,
         Set<String> tags,
         boolean isPrivate
 ) {
@@ -48,13 +48,13 @@ public record Match(
     }
 
     /**
-     * Convenience factory: default priority {@code 1000}, no tags, public.
+     * Convenience factory: default priority {@link Priority#DEFAULT}, no tags, public.
      */
     public static Match of(MatchName name, Object value, int start, int end, String raw) {
-        return new Match(name, value, start, end, raw, 1000, Set.of(), false);
+        return new Match(name, value, start, end, raw, Priority.DEFAULT, Set.of(), false);
     }
 
-    public Match withPriority(int p) {
+    public Match withPriority(Priority p) {
         return new Match(name, value, start, end, raw, p, tags, isPrivate);
     }
 

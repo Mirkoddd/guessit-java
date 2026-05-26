@@ -79,7 +79,7 @@ public final class TitleExtractor implements Extractor {
             var raw = input.substring(idx, idx + search.length());
             var formatted = Formatters.titleText(raw);
             var m = new Match(MatchName.TITLE, formatted, idx, idx + search.length(), raw,
-                1000, Set.of(EXPECTED_TAG, TITLE), false);
+                Priority.DEFAULT, Set.of(EXPECTED_TAG, TITLE), false);
             if (sepsSurround.test(m)) ctx.matches.add(m);
             idx += search.length();
         }
@@ -92,7 +92,7 @@ public final class TitleExtractor implements Extractor {
             var raw = input.substring(matcher.start(), matcher.end());
             var formatted = Formatters.titleText(raw);
             var m = new Match(MatchName.TITLE, formatted, matcher.start(), matcher.end(), raw,
-                1000, Set.of(EXPECTED_TAG, TITLE), false);
+                Priority.DEFAULT, Set.of(EXPECTED_TAG, TITLE), false);
             if (sepsSurround.test(m)) ctx.matches.add(m);
         }
     }
@@ -416,7 +416,7 @@ public final class TitleExtractor implements Extractor {
 
         var titles = new ArrayList<Match>();
         titles.add(new Match(matchName, hole.value(), hole.start, hole.end, hole.raw(),
-                1000, Set.copyOf(matchTags), false));
+                Priority.DEFAULT, Set.copyOf(matchTags), false));
 
         if (alternativeMatchName != null) {
             var split = splitAndMergeHyphenatedWords(hole, ctx.input);
@@ -474,13 +474,13 @@ public final class TitleExtractor implements Extractor {
         var titles = new ArrayList<Match>();
         var first = split.getFirst();
         titles.add(new Match(matchName, first.value(), first.start, first.end,
-                first.raw(), 1000, Set.copyOf(matchTags), false));
+                first.raw(), Priority.DEFAULT, Set.copyOf(matchTags), false));
 
         for (var i = 1; i < split.size(); i++) {
             var s = split.get(i);
             if (isRedundantSeasonWord(s.value(), ctx)) continue;
             titles.add(new Match(alternativeMatchName, s.value(), s.start, s.end, s.raw(),
-                1000, Set.of(TITLE), false));
+                Priority.DEFAULT, Set.of(TITLE), false));
         }
         return titles;
     }
@@ -488,7 +488,7 @@ public final class TitleExtractor implements Extractor {
     private List<Match> createSingleAdjustedMatch(Holes.Hole hole, MatchName matchName, List<String> matchTags) {
         var titles = new ArrayList<Match>();
         titles.add(new Match(matchName, hole.value(), hole.start, hole.end,
-            hole.raw(), 1000, Set.copyOf(matchTags), false));
+            hole.raw(), Priority.DEFAULT, Set.copyOf(matchTags), false));
         return titles;
     }
 

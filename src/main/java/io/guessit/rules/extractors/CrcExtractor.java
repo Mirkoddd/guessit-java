@@ -5,6 +5,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Validators;
 
 import java.util.Set;
@@ -26,7 +27,6 @@ import static com.mirkoddd.sift.core.SiftPatterns.*;
 public final class CrcExtractor implements Extractor {
 
     public static final String EXTRACTOR_NAME = "crc32";
-    private static final int EXTRACTOR_PRIORITY = 500;
     private static final String GRP_VALUE = "val";
 
     private static final Pattern CRC = buildCrcPattern();
@@ -67,8 +67,8 @@ public final class CrcExtractor implements Extractor {
     }
 
     @Override
-    public int priority() {
-        return EXTRACTOR_PRIORITY;
+    public Priority priority() {
+        return Priority.SPECULATIVE;
     }
 
     @Override

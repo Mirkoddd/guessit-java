@@ -83,8 +83,8 @@ public final class WeakEpisodeExtractor implements Extractor {
     }
 
     @Override
-    public int priority() {
-        return 800;
+    public Priority priority() {
+        return Priority.PROBABLE;
     }
 
     @Override
@@ -120,12 +120,12 @@ public final class WeakEpisodeExtractor implements Extractor {
             boolean isOverlapping = protectedEpisodes.stream()
                     .anyMatch(pe -> ms < pe.end() && me > pe.start());
 
-            var head = new Match(MatchName.EPISODE, null, ms, m.end(), m.group(GRP_EP), 800, Set.of(WEAK_EPISODE), false);
+            var head = new Match(MatchName.EPISODE, null, ms, m.end(), m.group(GRP_EP), Priority.PROBABLE, Set.of(WEAK_EPISODE), false);
 
             if (!isOverlapping && seps.test(head)) {
                 int v = Integer.parseInt(m.group(GRP_EP));
                 ctx.matches.add(new Match(MatchName.EPISODE, v, ms, me,
-                        m.group(GRP_EP), 800, Set.of(WEAK_EPISODE), false));
+                        m.group(GRP_EP), Priority.PROBABLE, Set.of(WEAK_EPISODE), false));
             }
         }
     }

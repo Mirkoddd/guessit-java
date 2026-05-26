@@ -8,6 +8,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.*;
 
 import java.util.*;
@@ -343,7 +344,7 @@ public final class ScreenSizeExtractor implements Extractor {
                 if (v >= 100 || io.guessit.rules.extractors.WeakEpisodeExtractor.EPISODE.equals(ctx.options.type())
                         || ctx.options.episodePreferNumber() != null) {
                     ctx.matches.add(new Match(MatchName.EPISODE, v, ws.start(), ws.end(),
-                            raw, 800, Set.of("weak-episode"), false));
+                            raw, Priority.PROBABLE, Set.of("weak-episode"), false));
                 }
             }
         }
