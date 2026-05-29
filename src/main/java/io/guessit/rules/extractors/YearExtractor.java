@@ -8,13 +8,12 @@ import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.PatternMatcher;
 import io.guessit.core.text.RegexOpts;
 import io.guessit.core.text.Validators;
+import io.guessit.core.text.patterns.YearPatterns;
 
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static com.mirkoddd.sift.core.Sift.exactly;
 
 /**
  * Extracts release {@code year} as a 4-digit integer in [1920, 2030).
@@ -27,7 +26,7 @@ import static com.mirkoddd.sift.core.Sift.exactly;
  */
 public final class YearExtractor implements Extractor {
 
-    private static final Pattern PATTERN = Pattern.compile(exactly(4).digits().shake());
+    private static final Pattern PATTERN = YearPatterns.buildYearPattern();
 
     @Override
     public String name() {

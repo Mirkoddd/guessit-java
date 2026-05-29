@@ -7,6 +7,7 @@ import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Validators;
+import io.guessit.core.text.patterns.DiscPatterns;
 
 import java.util.HashSet;
 import java.util.List;
@@ -33,29 +34,7 @@ public final class DiscRule implements Extractor {
 
     private static final String GRP_VAL = "val";
 
-    private static final Pattern PATTERN = buildDiscPattern();
-
-    private static Pattern buildDiscPattern() {
-        var prefixes = anyOf(
-                literal("disc"),
-                literal("dvd"),
-                literal("vcd"),
-                literal("bd"),
-                literal("brd"),
-                literal("bluray")
-        );
-
-        var separatorChars = anyOf(literal(" "), literal("."), literal("_"), literal("-"));
-        var separators = zeroOrMore().of(separatorChars);
-
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromWordBoundary()
-                .followedBy(List.of(prefixes, separators))
-                .then().namedCapture(capture(GRP_VAL, oneOrMore().digits()))
-                .wordBoundary();
-
-        return Pattern.compile(sift.shake());
-    }
+    private static final Pattern PATTERN = DiscPatterns.buildDiscPattern(GRP_VAL);
 
     @Override
     public String name() {

@@ -4,8 +4,8 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
-import io.guessit.core.text.Abbreviations;
 import io.guessit.core.text.Validators;
+import io.guessit.core.text.patterns.PartPatterns;
 import io.guessit.rules.numerals.Numerals;
 
 import java.util.Optional;
@@ -13,10 +13,6 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
-
-import static com.mirkoddd.sift.core.Sift.fromAnywhere;
-import static com.mirkoddd.sift.core.Sift.optional;
-import static com.mirkoddd.sift.core.SiftPatterns.*;
 
 /**
  * Detects part numbers from {@code (pt|part)-?\d+} or {@code (pt|part)-?[Roman numeral]}
@@ -30,21 +26,7 @@ public final class PartExtractor implements Extractor {
     private static final int MAX_PART_NUMBER = 100;
     private static final String NUMERAL_GROUP = "num";
 
-    private static final Pattern PART_PATTERN = buildPartPattern();
-
-    private static Pattern buildPartPattern() {
-        var anyOfParts = anyOf(literal("pt"), literal("part"));
-        var optionalSeparator = optional().of(Abbreviations.SEPS_NO_FS_PATTERN);
-
-        var numeralNameCapture = capture(NUMERAL_GROUP, Numerals.NUMERAL_PATTERN);
-
-        var partPattern = fromAnywhere().of(anyOfParts)
-                .followedBy(optionalSeparator)
-                .then()
-                .namedCapture(numeralNameCapture);
-
-        return Pattern.compile(partPattern.shake(), Pattern.CASE_INSENSITIVE);
-    }
+    private static final Pattern PART_PATTERN = PartPatterns.buildPartPattern(NUMERAL_GROUP);
 
     @Override
     public String name() {

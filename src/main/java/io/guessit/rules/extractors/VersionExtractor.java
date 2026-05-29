@@ -7,6 +7,7 @@ import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Validators;
+import io.guessit.core.text.patterns.VersionPatterns;
 
 import java.util.List;
 import java.util.Set;
@@ -30,15 +31,7 @@ public final class VersionExtractor implements Extractor {
     public static final String EXTRACTOR_NAME = "version";
     private static final String GRP_VAL = "val";
 
-    private static final Pattern PATTERN = buildPattern();
-
-    private static Pattern buildPattern() {
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .exactly(1).character('v')
-                .then().namedCapture(capture(GRP_VAL, oneOrMore().digits()));
-
-        return Pattern.compile(sift.shake());
-    }
+    private static final Pattern PATTERN = VersionPatterns.buildPattern(GRP_VAL);
 
     @Override
     public String name() {

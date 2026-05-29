@@ -481,6 +481,7 @@ git commit -m "feat(engine): add Chain head+tail regex scanner"
 ```java
 package io.guessit.engine;
 
+import io.guessit.rules.date.DateOrchestrator;
 import io.guessit.rules.date.DatePatterns;
 import org.junit.jupiter.api.Test;
 
@@ -491,49 +492,49 @@ import static org.junit.jupiter.api.Assertions.*;
 class DatePatternsTest {
     @Test
     void validYearRange() {
-        assertTrue(DatePatterns.validYear(1920));
-        assertTrue(DatePatterns.validYear(2029));
-        assertFalse(DatePatterns.validYear(1919));
-        assertFalse(DatePatterns.validYear(2030));
+        assertTrue(DateOrchestrator.validYear(1920));
+        assertTrue(DateOrchestrator.validYear(2029));
+        assertFalse(DateOrchestrator.validYear(1919));
+        assertFalse(DateOrchestrator.validYear(2030));
     }
 
     @Test
     void validWeekRange() {
-        assertTrue(DatePatterns.validWeek(1));
-        assertTrue(DatePatterns.validWeek(52));
-        assertFalse(DatePatterns.validWeek(0));
-        assertFalse(DatePatterns.validWeek(53));
+        assertTrue(DateOrchestrator.validWeek(1));
+        assertTrue(DateOrchestrator.validWeek(52));
+        assertFalse(DateOrchestrator.validWeek(0));
+        assertFalse(DateOrchestrator.validWeek(53));
     }
 
     @Test
     void searchYmd() {
-        var r = DatePatterns.search(" Show 2002-04-22 1080p ", null, null).orElseThrow();
+        var r = DateOrchestrator.search(" Show 2002-04-22 1080p ", null, null).orElseThrow();
         assertEquals(LocalDate.of(2002, 4, 22), r.date());
     }
 
     @Test
     void searchDmy() {
-        var r = DatePatterns.search("And this on 17-06-1998.", null, null).orElseThrow();
+        var r = DateOrchestrator.search("And this on 17-06-1998.", null, null).orElseThrow();
         assertEquals(LocalDate.of(1998, 6, 17), r.date());
     }
 
     @Test
     void searchTwoDigitYearGuessesDayFirst() {
         // 22-04-02 → 2002-04-22 (day_first guessed true because trailing 02 < 32).
-        var r = DatePatterns.search(" e 22-04-02 e", null, null).orElseThrow();
+        var r = DateOrchestrator.search(" e 22-04-02 e", null, null).orElseThrow();
         assertEquals(LocalDate.of(2002, 4, 22), r.date());
     }
 
     @Test
     void searchYearFirstHonoured() {
         // 02-04-22 → year_first=true → 2002-04-22.
-        var r = DatePatterns.search(" e 02.04.22 e", true, null).orElseThrow();
+        var r = DateOrchestrator.search(" e 02.04.22 e", true, null).orElseThrow();
         assertEquals(LocalDate.of(2002, 4, 22), r.date());
     }
 
     @Test
     void noDate() {
-        assertTrue(DatePatterns.search(" no date ", null, null).isEmpty());
+        assertTrue(DateOrchestrator.search(" no date ", null, null).isEmpty());
     }
 }
 ```
@@ -2087,7 +2088,7 @@ package io.guessit.rules.extractors;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.ParseContext;
-import io.guessit.rules.date.DatePatterns;
+import io.guessit.rules.date.DateOrchestrator;
 
 import java.util.ArrayList;
 import java.util.Set;
@@ -2108,7 +2109,7 @@ public final class DateExtractor implements Extractor {
         var input = ctx.input;
         var yearFirst = ctx.options.dateYearFirst();
         var dayFirst = ctx.options.dateDayFirst();
-        var found = DatePatterns.search(input, yearFirst, dayFirst);
+        var found = DateOrchestrator.search(input, yearFirst, dayFirst);
         if (found.isEmpty()) return;
         var hit = found.get();
         ctx.matches.add(new Match("date", hit.date(), hit.start(), hit.end(),
@@ -2202,7 +2203,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Validators;
-import io.guessit.rules.date.DatePatterns;
+import io.guessit.rules.date.DateOrchestrator;
 
 import java.util.List;
 import java.util.Set;
@@ -2229,7 +2230,7 @@ public final class WeekExtractor implements Extractor {
         var m = PATTERN.matcher(input);
         while (m.find()) {
             int v = Integer.parseInt(m.group(1));
-            if (!DatePatterns.validWeek(v)) continue;
+            if (!DateOrchestrator.validWeek(v)) continue;
             int valStart = m.start(1);
             int valEnd = m.end(1);
             var match = new Match("week", v, m.start(), m.end(), m.group(), 1000, Set.of(), false);

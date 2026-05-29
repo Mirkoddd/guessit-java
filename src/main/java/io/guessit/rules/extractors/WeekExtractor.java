@@ -1,43 +1,27 @@
 package io.guessit.rules.extractors;
 
-import com.mirkoddd.sift.core.SiftGlobalFlag;
-import com.mirkoddd.sift.core.dsl.Fragment;
-import com.mirkoddd.sift.core.dsl.SiftPattern;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Validators;
-import io.guessit.rules.date.DatePatterns;
+import io.guessit.core.text.patterns.WeekPatterns;
+import io.guessit.rules.date.DateOrchestrator;
 
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.*;
-
 /**
  * Extracts {@code week} from "Week 5"-style tokens. Validated against the
- * 1–52 ISO week range via {@link DatePatterns#validWeek}; out-of-range
+ * 1–52 ISO week range via {@link DateOrchestrator#validWeek}; out-of-range
  * candidates are dropped to avoid swallowing things like "Week 99".
  */
 public final class WeekExtractor implements Extractor {
 
     private static final String GRP_WEEK = "weekNum";
 
-    private static final SiftPattern<Fragment> SEPARATORS = anyOf(
-            literal(" "), literal("."), literal("_"), literal("-")
-    );
-
-    private static final Pattern PATTERN = Pattern.compile(
-            filteringWith(SiftGlobalFlag.CASE_INSENSITIVE).fromAnywhere()
-                    .of(literal("week"))
-                    .followedBy(zeroOrMore().of(SEPARATORS))
-                    .then()
-                    .namedCapture(capture(GRP_WEEK, between(1, 2).digits()))
-                    .shake()
-    );
+    private static final Pattern PATTERN = WeekPatterns.buildPattern(GRP_WEEK);
 
     @Override
     public String name() {
@@ -61,7 +45,7 @@ public final class WeekExtractor implements Extractor {
             if (seps.test(head)) {
                 int v = Integer.parseInt(m.group(GRP_WEEK));
 
-                if (DatePatterns.validWeek(v)) {
+                if (DateOrchestrator.validWeek(v)) {
                     ctx.matches.add(new Match(MatchName.WEEK, v, m.start(GRP_WEEK), m.end(GRP_WEEK),
                             m.group(GRP_WEEK), Priority.DEFAULT, Set.of(), false));
                 }

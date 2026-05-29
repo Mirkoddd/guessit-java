@@ -7,27 +7,15 @@ import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Validators;
-import com.mirkoddd.sift.core.NamedCapture;
-import com.mirkoddd.sift.core.Sift;
-import com.mirkoddd.sift.core.SiftGlobalFlag;
-import com.mirkoddd.sift.core.dsl.Fragment;
-import com.mirkoddd.sift.core.dsl.SiftPattern;
+import io.guessit.core.text.patterns.EpisodeWordPatterns;
 import io.guessit.rules.numerals.Numerals;
 
-import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static com.mirkoddd.sift.core.Sift.oneOrMore;
-import static com.mirkoddd.sift.core.Sift.zeroOrMore;
-import static com.mirkoddd.sift.core.SiftPatterns.anyOf;
-import static com.mirkoddd.sift.core.SiftPatterns.capture;
-import static com.mirkoddd.sift.core.SiftPatterns.literal;
-import static com.mirkoddd.sift.core.SiftPatterns.withFlags;
 
 /**
  * Extracts {@code season}, {@code episode}, and {@code episode_count} from
@@ -53,102 +41,12 @@ public final class EpisodeWordExtractor implements Extractor {
 
     private static final int MAX_RANGE_GAP = 1;
 
-    private static final List<String> EPISODE_WORDS = List.of(EPISODE, "episodes", "ep", "eps", "episodio", "episodios", "capitulo", "capitulos", "part", "parts", "ch", "chapter", "chapters", "e");
     private static final Set<String> SHORT_EPISODE_WORDS = Set.of("e");
-    private static final List<String> SEASON_WORDS = List.of(SEASON, "seasons", "saison", "saisons", "seizoen", "temp", "temporada", "temporadas", "staffel", "staffeln", "stagione", "stagioni");
-    private static final List<String> OF_WORDS = List.of("of", "sur", "de");
 
     private static final Set<MatchName> BLOCKED_MATCH_TYPES = EnumSet.of(
             MatchName.SCREEN_SIZE, MatchName.YEAR, MatchName.SOURCE,
             MatchName.VIDEO_CODEC, MatchName.AUDIO_CODEC,
             MatchName.VIDEO_PROFILE, MatchName.FRAME_RATE
-    );
-
-    private static final SiftPattern<Fragment> SEP_CHAR = anyOf(literal(" "), literal("."), literal("_"), literal("-"));
-    private static final SiftPattern<Fragment> SEP_OPT = zeroOrMore().of(SEP_CHAR);
-    private static final SiftPattern<Fragment> SEP_REQ = oneOrMore().of(SEP_CHAR);
-
-    private static final NamedCapture COUNT_GROUP = capture(GRP_COUNT, oneOrMore().digits());
-    private static final SiftPattern<Fragment> OF_CLAUSE = Sift.fromAnywhere()
-            .of(SEP_OPT)
-            .followedBy(List.of(buildOrPattern(OF_WORDS), SEP_OPT))
-            .then().namedCapture(COUNT_GROUP);
-
-    private static final NamedCapture SEASON_WORD_GROUP = capture(GRP_SEASON_WORD, buildOrPattern(SEASON_WORDS));
-    private static final NamedCapture SEASON_VAL_GROUP = capture(GRP_SEASON_VAL, Numerals.NUMERAL_PATTERN);
-
-    private static final Pattern SEASON_RE = Pattern.compile(
-            withFlags(Sift.fromWordBoundary()
-                    .then().namedCapture(SEASON_WORD_GROUP)
-                    .then().of(SEP_OPT)
-                    .then().namedCapture(SEASON_VAL_GROUP)
-                    .then().optional().of(OF_CLAUSE), SiftGlobalFlag.CASE_INSENSITIVE).shake()
-    );
-
-    private static final SiftPattern<Fragment> TAIL_SEP_CHAR = anyOf(literal(" "), literal("."), literal("_"));
-    private static final SiftPattern<Fragment> TAIL_SEP_OPT = Sift.fromAnywhere().zeroOrMore().of(TAIL_SEP_CHAR);
-    private static final SiftPattern<Fragment> TAIL_OPS = anyOf(
-            literal("and"), literal("et"), literal("to"), literal("a"),
-            literal("-"), literal("~"), literal("&"), literal("+")
-    );
-    private static final SiftPattern<Fragment> TAIL_OP_BLOCK = Sift.fromAnywhere()
-            .of(TAIL_SEP_OPT).then().of(TAIL_OPS).then().of(TAIL_SEP_OPT);
-
-    private static final NamedCapture TAIL_OP_GROUP = capture(GRP_OP, anyOf(TAIL_OP_BLOCK, SEP_REQ));
-    private static final NamedCapture TAIL_VAL_GROUP = capture(GRP_VAL, Sift.fromAnywhere().oneOrMore().digits());
-
-    private static final Pattern SEASON_TAIL_RE = Pattern.compile(
-            withFlags(Sift.fromAnywhere()
-                    .namedCapture(TAIL_OP_GROUP)
-                    .then().namedCapture(TAIL_VAL_GROUP), SiftGlobalFlag.CASE_INSENSITIVE).shake()
-    );
-
-    private static final Pattern AFTER_OF_RE = Pattern.compile(
-            Sift.filteringWith(SiftGlobalFlag.CASE_INSENSITIVE).fromStart()
-                    .of(SEP_OPT).then().of(buildOrPattern(OF_WORDS)).then().of(SEP_OPT).then().oneOrMore().digits()
-                    .shake()
-    );
-
-    private static final NamedCapture EP_WORD_GROUP = capture(GRP_EP_WORD, buildOrPattern(EPISODE_WORDS));
-    private static final NamedCapture EP_VAL_GROUP = capture(GRP_EP_VAL, Numerals.NUMERAL_PATTERN);
-    private static final NamedCapture EP_VAL_DIGITS_GROUP = capture(GRP_EP_VAL, Sift.fromAnywhere().oneOrMore().digits());
-    private static final NamedCapture VERSION_GROUP = capture(GRP_VERSION, Sift.fromAnywhere().oneOrMore().digits());
-
-    private static final SiftPattern<Fragment> VERSION_CLAUSE = Sift.fromAnywhere()
-            .character('v').then().namedCapture(VERSION_GROUP);
-
-    private static final SiftPattern<Fragment> EP_BASE = Sift.fromAnywhere()
-            .namedCapture(EP_WORD_GROUP)
-            .notPrecededBy(Sift.fromAnywhere().exactly(1).alphanumeric())
-            .then().of(SEP_OPT);
-
-    private static final Pattern EP_RE_EPISODE_TYPE = Pattern.compile(
-            withFlags(Sift.fromAnywhere()
-                    .of(EP_BASE)
-                    .then().namedCapture(EP_VAL_GROUP)
-                    .then().optional().of(VERSION_CLAUSE)
-                    .then().optional().of(OF_CLAUSE), SiftGlobalFlag.CASE_INSENSITIVE).shake()
-    );
-
-    private static final Pattern EP_RE_DEFAULT = Pattern.compile(
-            withFlags(Sift.fromAnywhere()
-                    .of(EP_BASE)
-                    .then().namedCapture(EP_VAL_DIGITS_GROUP)
-                    .then().optional().of(VERSION_CLAUSE)
-                    .then().optional().of(OF_CLAUSE), SiftGlobalFlag.CASE_INSENSITIVE).shake()
-    );
-
-    private static final NamedCapture DETACHED_EP_GROUP = capture(GRP_EP_VAL, Sift.fromAnywhere().oneOrMore().digits());
-
-    private static final Pattern DETACHED_EP_COUNT_RE = Pattern.compile(
-            withFlags(Sift.fromAnywhere()
-                            .namedCapture(DETACHED_EP_GROUP)
-                            .then().of(SEP_OPT)
-                            .then().of(buildOrPattern(OF_WORDS))
-                            .then().of(SEP_OPT)
-                            .then().namedCapture(COUNT_GROUP)
-                            .then().optional().of(Sift.fromAnywhere().of(SEP_OPT).then().of(buildOrPattern(EPISODE_WORDS))),
-                    SiftGlobalFlag.CASE_INSENSITIVE).shake()
     );
 
     private static final Set<String> STRONG_OPS = Set.of("&", "+", "and", "et");
@@ -167,6 +65,13 @@ public final class EpisodeWordExtractor implements Extractor {
     private static boolean isOpJunk(char c) {
         return c == '.' || c == ' ' || c == '_';
     }
+
+    private static final Pattern SEASON_RE = EpisodeWordPatterns.buildSeasonPattern(GRP_SEASON_WORD, GRP_SEASON_VAL, GRP_COUNT);
+    private static final Pattern SEASON_TAIL_RE = EpisodeWordPatterns.buildSeasonTailPattern(GRP_OP, GRP_VAL);
+    private static final Pattern AFTER_OF_RE = EpisodeWordPatterns.buildAfterOfPattern();
+    private static final Pattern EP_RE_EPISODE_TYPE = EpisodeWordPatterns.buildEpisodePattern(true, GRP_EP_WORD, GRP_EP_VAL, GRP_VERSION, GRP_COUNT);
+    private static final Pattern EP_RE_DEFAULT = EpisodeWordPatterns.buildEpisodePattern(false, GRP_EP_WORD, GRP_EP_VAL, GRP_VERSION, GRP_COUNT);
+    private static final Pattern DETACHED_EP_COUNT_RE = EpisodeWordPatterns.buildDetachedEpCountPattern(GRP_EP_VAL, GRP_COUNT);
 
     @Override
     public String name() {
@@ -485,10 +390,4 @@ public final class EpisodeWordExtractor implements Extractor {
         return s.chars().allMatch(Character::isDigit);
     }
 
-    private static SiftPattern<Fragment> buildOrPattern(List<String> words) {
-        return anyOf(words.stream()
-                .sorted(Comparator.comparingInt(String::length).reversed())
-                .map(com.mirkoddd.sift.core.SiftPatterns::literal)
-                .toList());
-    }
 }

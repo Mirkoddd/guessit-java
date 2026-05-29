@@ -1,10 +1,10 @@
 package io.guessit.rules.extractors;
 
-import com.mirkoddd.sift.core.SiftPatterns;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Validators;
+import io.guessit.core.text.patterns.ReleaseGroupPatterns;
 
 import java.util.Comparator;
 import java.util.List;
@@ -16,9 +16,6 @@ import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-import static com.mirkoddd.sift.core.Sift.fromAnywhere;
-import static com.mirkoddd.sift.core.Sift.oneOrMore;
-import static com.mirkoddd.sift.core.SiftPatterns.*;
 import static io.guessit.core.pipeline.state.MatchName.*;
 
 public final class ReleaseGroupExtractor implements Extractor {
@@ -43,52 +40,17 @@ public final class ReleaseGroupExtractor implements Extractor {
     private static final String TAG_MAIN = "main";
     private static final String TAG_SUB = "sub";
 
-    private static final Pattern PARENS_BRACKETS = buildParensBracketsPattern();
+    private static final Pattern PARENS_BRACKETS = ReleaseGroupPatterns.buildParensBracketsPattern(TAG_MAIN, TAG_SUB);
     public static final String PATH_TAG = "path";
     public static final String SUB_TAG = "sub";
 
-    private static Pattern buildParensBracketsPattern() {
-        var mainCapture = capture(TAG_MAIN, oneOrMore().anyCharacter());
-        var subCapture = capture(TAG_SUB, oneOrMore().anyCharacter());
-
-        var pattern = fromAnywhere()
-                .namedCapture(mainCapture)
-                .then().character(')')
-                .then().optional().whitespace()
-                .then().character('[')
-                .then().namedCapture(subCapture)
-                .then().character(']');
-
-        return Pattern.compile(pattern.shake());
-    }
     private static final ConcurrentMap<String, Pattern> EXPECTED_RE_CACHE = new ConcurrentHashMap<>();
 
     private static final Set<String> RG_INTERIOR_OTHER = Set.of(
             "HD", "Ultra HD", "Full HD", "HDR10", "Dolby Vision", "BT.2020",
             "Standard Dynamic Range", "High Resolution");
 
-    private static final List<String> TRAILING_EXTENSIONS = List.of(
-            "mkv", "mp4", "avi", "mov", "m4v", "mpeg", "mpg", "ts", "m2ts",
-            "wmv", "webm", "flv", "ogg", "ogm", "ogv", "iso", "3gp", "3g2",
-            "3gp2", "asf", "divx", "mka", "mk2", "mk3d", "mp4a", "qt", "ra",
-            "ram", "rm", "vob", "wav", "wma", "srt", "idx", SUB_TAG, "ssa",
-            "ass", "nfo", "torrent", "nzb"
-    );
-
-    private static final Pattern KNOWN_TRAILING_EXT = buildKnownTrailingExtPattern();
-
-    private static Pattern buildKnownTrailingExtPattern() {
-        var extFragments = TRAILING_EXTENSIONS.stream()
-                .map(SiftPatterns::literal)
-                .toList();
-
-        var pattern = fromAnywhere()
-                .character('.')
-                .followedBy(anyOf(extFragments))
-                .andNothingElse();
-
-        return Pattern.compile(pattern.shake(), Pattern.CASE_INSENSITIVE);
-    }
+    private static final Pattern KNOWN_TRAILING_EXT = ReleaseGroupPatterns.buildKnownTrailingExtPattern();
 
     private record FilePartEnv(ParseContext ctx, Marker filePart, String input) {}
 

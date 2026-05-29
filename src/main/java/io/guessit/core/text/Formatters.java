@@ -1,6 +1,8 @@
 package io.guessit.core.text;
 
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 public final class Formatters {
@@ -8,6 +10,9 @@ public final class Formatters {
 
     private static final String EXCLUDED_CLEAN_CHARS = ",:;-/\\";
     private static final Pattern MULTI_SPACE = Pattern.compile(" +");
+
+    private static final List<String> ARTICLES = List.of("the", "a", "an");
+    private static final List<String> TITLE_SEPARATORS = List.of(", ", ",");
 
     private static final String CLEAN_CHARS;
     static {
@@ -38,9 +43,11 @@ public final class Formatters {
 
     public static String cleanup(String input) {
         if (input == null || input.isEmpty()) return input;
+
         var cleanString = initialClean(input);
         var indices = findSepIndices(cleanString);
         var dots = new java.util.HashSet<Character>();
+
         if (!indices.isEmpty()) {
             var potential = findPotentialDots(indices, input);
             var replace = findReplaceablePositions(potential);
@@ -68,7 +75,7 @@ public final class Formatters {
         return idx;
     }
 
-    private static LinkedHashSet<Integer> findPotentialDots(java.util.List<Integer> indices, String input) {
+    private static LinkedHashSet<Integer> findPotentialDots(List<Integer> indices, String input) {
         var potential = new LinkedHashSet<Integer>();
         for (var i : indices) {
             if (potentialBefore(i, input) && potentialAfter(i, input)) potential.add(i);
@@ -76,7 +83,7 @@ public final class Formatters {
         return potential;
     }
 
-    private static java.util.List<Integer> findReplaceablePositions(LinkedHashSet<Integer> potential) {
+    private static List<Integer> findReplaceablePositions(LinkedHashSet<Integer> potential) {
         var replace = new java.util.ArrayList<Integer>();
         for (var p : potential) {
             if (potential.contains(p - 2) || potential.contains(p + 2)) replace.add(p);
@@ -84,7 +91,7 @@ public final class Formatters {
         return replace;
     }
 
-    private static String applyReplacements(String cleanString, java.util.List<Integer> replace,
+    private static String applyReplacements(String cleanString, List<Integer> replace,
                                             String input, java.util.HashSet<Character> dots) {
         var chars = cleanString.toCharArray();
         for (var r : replace) {
@@ -106,11 +113,11 @@ public final class Formatters {
         if (i - 1 < 0 || i >= input.length()) return false;
         if (!Seps.isSep(input.charAt(i))) return false;
         if (Seps.isSep(input.charAt(i - 1))) return false;
-        // Mirror python's negative-index wrap (input_string[i-2]): when i-2<0
-        // the python expression resolves to input_string[len + (i-2)].
-        // Required for leading acronym dots like "S." in "S.W.A.T.".
+
         int back = i - 2;
-        if (back < 0) back += input.length();
+
+        if (back < 0) return true;
+
         return Seps.isSep(input.charAt(back));
     }
 
@@ -121,13 +128,16 @@ public final class Formatters {
 
     public static String reorderTitle(String title) {
         if (title == null) return null;
-        var ltitle = title.toLowerCase(java.util.Locale.ROOT);
-        for (var article : new String[]{"the"}) {
-            for (var separator : new String[]{",", ", "}) {
+        var ltitle = title.toLowerCase(Locale.ROOT);
+
+        for (var article : ARTICLES) {
+            for (var separator : TITLE_SEPARATORS) {
                 var suffix = separator + article;
                 if (ltitle.endsWith(suffix)) {
-                    return title.substring(title.length() - suffix.length() + separator.length())
-                        + " " + title.substring(0, title.length() - suffix.length());
+                    String originalArticle = title.substring(title.length() - article.length());
+                    String coreTitle = title.substring(0, title.length() - suffix.length());
+
+                    return originalArticle + " " + coreTitle;
                 }
             }
         }

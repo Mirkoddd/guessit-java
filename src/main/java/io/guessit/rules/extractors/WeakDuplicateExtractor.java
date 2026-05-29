@@ -4,15 +4,13 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Validators;
+import io.guessit.core.text.patterns.WeakDuplicatePatterns;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.*;
 
 /**
  * Recognises 3-4 digit runs that could plausibly be a {@code SSEE} compact
@@ -35,15 +33,7 @@ public final class WeakDuplicateExtractor implements Extractor {
     private static final String GRP_S = "s";
     private static final String GRP_E = "e";
 
-    private static final Pattern PATTERN = Pattern.compile(
-            fromAnywhere()
-                    .namedCapture(capture(GRP_S, between(1, 2).digits()))
-                    .notPrecededBy(exactly(1).digits())
-                    .then()
-                    .namedCapture(capture(GRP_E, exactly(2).digits()))
-                    .notFollowedBy(exactly(1).digits())
-                    .shake()
-    );
+    private static final Pattern PATTERN = WeakDuplicatePatterns.buildPattern(GRP_S, GRP_E);
 
     @Override
     public String name() {

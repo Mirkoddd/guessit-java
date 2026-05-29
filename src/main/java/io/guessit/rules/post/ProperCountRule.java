@@ -5,15 +5,12 @@ import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.text.patterns.ProperCountPatterns;
 
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
-
-import static com.mirkoddd.sift.core.Sift.fromAnywhere;
-import static com.mirkoddd.sift.core.Sift.oneOrMore;
-import static com.mirkoddd.sift.core.SiftPatterns.capture;
 
 /**
  * Emits {@code proper_count} = total weight of distinct {@code other='Proper'} matches.
@@ -22,26 +19,10 @@ import static com.mirkoddd.sift.core.SiftPatterns.capture;
  */
 public final class ProperCountRule implements PostProcessor {
 
-    private static final String DIGITS_GROUP = "digits";
+    private static final String GROUP_DIGITS = "digits";
 
-    private static final Pattern NON_ALPHANUMERIC = buildNonAlphanumericPattern();
-    private static final Pattern TRAILING_DIGITS = buildTrailingDigitsPattern();
-
-    private static Pattern buildNonAlphanumericPattern() {
-        var pattern = oneOrMore().nonAlphanumeric().preventBacktracking();
-
-        return Pattern.compile(pattern.shake());
-    }
-
-    private static Pattern buildTrailingDigitsPattern() {
-        var digitsCapture = capture(DIGITS_GROUP, oneOrMore().digits());
-
-        var pattern = fromAnywhere()
-                .namedCapture(digitsCapture)
-                .andNothingElse();
-
-        return Pattern.compile(pattern.shake());
-    }
+    private static final Pattern NON_ALPHANUMERIC = ProperCountPatterns.buildNonAlphanumericPattern();
+    private static final Pattern TRAILING_DIGITS = ProperCountPatterns.buildTrailingDigitsPattern(GROUP_DIGITS);
 
     @Override
     public String description() {
@@ -101,7 +82,7 @@ public final class ProperCountRule implements PostProcessor {
 
         var matcher = TRAILING_DIGITS.matcher(raw);
         if (matcher.find()) {
-            return Integer.parseInt(matcher.group(DIGITS_GROUP));
+            return Integer.parseInt(matcher.group(GROUP_DIGITS));
         }
 
         return 0;

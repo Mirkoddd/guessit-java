@@ -8,12 +8,12 @@ import java.util.Optional;
  * Port of guessit/rules/common/date.py — date detection and parsing.
  *
  * <p>{@link #search} orchestrates the date detection flow by retrieving
- * regex candidates from {@link DateRegexEngine}, resolving heuristics via
+ * regex candidates from {@link DateRouter}, resolving heuristics via
  * {@link DateHeuristics}, and parsing the final date using {@link DateParser}.
  */
-public final class DatePatterns {
+public final class DateOrchestrator {
 
-    private DatePatterns() {}
+    private DateOrchestrator() {}
 
     public record Result(int start, int end, LocalDate date) {}
 
@@ -21,7 +21,7 @@ public final class DatePatterns {
      * Scans the input string to detect, resolve, and parse a valid date.
      */
     public static Optional<Result> search(String input, Boolean yearFirst, Boolean dayFirst) {
-        return DateRegexEngine.findCandidates(input)
+        return DateRouter.findCandidates(input)
                 .stream()
                 .map(candidate -> evaluateCandidate(candidate, yearFirst, dayFirst))
                 .flatMap(Optional::stream)

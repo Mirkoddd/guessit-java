@@ -1,7 +1,6 @@
 package io.guessit.rules.post;
 
 import io.guessit.core.pipeline.contracts.PostProcessor;
-import io.guessit.core.pipeline.phases.PostPhase;
 import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Seps;
 

@@ -1,18 +1,15 @@
 package io.guessit.rules.extractors;
 
-import com.mirkoddd.sift.core.SiftGlobalFlag;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Validators;
 import io.guessit.api.models.Size;
+import io.guessit.core.text.patterns.SizePatterns;
 
 import java.util.Set;
 import java.util.regex.Pattern;
-
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.*;
 
 /**
  * Extracts {@code size} (123MB, 4.5GB, …).
@@ -23,29 +20,7 @@ public final class SizeExtractor implements Extractor {
     private static final String GRP_SIZE = "val";
     private static final String TAG_RELEASE_GROUP_PREFIX = "release-group-prefix";
 
-    private static final Pattern PATTERN = buildPattern();
-
-    private static Pattern buildPattern() {
-        var decimalPart = exactly(1).character('.')
-                .then().oneOrMore().digits();
-
-        var units = anyOf(
-                literal("mb"),
-                literal("gb"),
-                literal("tb")
-        );
-
-        var sizeValue = oneOrMore().digits()
-                .then().optional().of(decimalPart)
-                .then().optional().character('-')
-                .then().of(units);
-
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .namedCapture(capture(GRP_SIZE, sizeValue));
-
-        return Pattern.compile(sift.shake());
-    }
+    private static final Pattern PATTERN = SizePatterns.buildSizePattern(GRP_SIZE);
 
     @Override
     public String name() {

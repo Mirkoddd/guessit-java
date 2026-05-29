@@ -26,10 +26,17 @@ public final class Validators {
         return m -> m.end() == input.length() || Seps.isSep(input.charAt(m.end()));
     }
 
-    /** Conjunction of {@link #sepsBefore} and {@link #sepsAfter}. */
+    /** * Conjunction of {@link #sepsBefore} and {@link #sepsAfter}.
+     * Optimized to allocate a single Predicate and avoid nested method calls.
+     */
     public static Predicate<Match> sepsSurround(String input) {
-        var before = sepsBefore(input);
-        var after = sepsAfter(input);
-        return m -> before.test(m) && after.test(m);
+        return m -> {
+            int start = m.start();
+            int end = m.end();
+            int len = input.length();
+
+            boolean validBefore = start == 0 || Seps.isSep(input.charAt(start - 1));
+            return validBefore && (end == len || Seps.isSep(input.charAt(end)));
+        };
     }
 }

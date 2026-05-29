@@ -1,6 +1,5 @@
 package io.guessit.rules.extractors;
 
-import com.mirkoddd.sift.core.SiftGlobalFlag;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Holes;
 import io.guessit.core.pipeline.state.Match;
@@ -8,13 +7,11 @@ import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Formatters;
 import io.guessit.core.text.Validators;
+import io.guessit.core.text.patterns.FilmPatterns;
 
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
-
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.*;
 
 /**
  * Detects film numbers from {@code f\d{1,2}} patterns, e.g. {@code f01}.
@@ -31,15 +28,7 @@ public final class FilmExtractor implements Extractor {
     private static final String GRP_N = "n";
     private static final String MARKER_PATH = "path";
 
-    private static final Pattern PATTERN = buildPattern();
-
-    private static Pattern buildPattern() {
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere().character('f')
-                .then().namedCapture(capture(GRP_N, between(1, 2).digits()));
-
-        return Pattern.compile(sift.shake());
-    }
+    private static final Pattern PATTERN = FilmPatterns.buildFilmPattern(GRP_N);
 
     @Override
     public String name() {

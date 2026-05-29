@@ -1,18 +1,15 @@
 package io.guessit.rules.extractors;
 
-import com.mirkoddd.sift.core.SiftGlobalFlag;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Validators;
+import io.guessit.core.text.patterns.CrcPatterns;
 
 import java.util.Set;
 import java.util.regex.Pattern;
-
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.*;
 
 /**
  * Detects 8-hex-digit CRC32 values, e.g. {@code [ABCD1234]} or {@code .ABCD1234.},
@@ -29,37 +26,9 @@ public final class CrcExtractor implements Extractor {
     public static final String EXTRACTOR_NAME = "crc32";
     private static final String GRP_VALUE = "val";
 
-    private static final Pattern CRC = buildCrcPattern();
-    private static final Pattern UUID = buildUuidPattern();
-    private static final Pattern SXX_EXX_INSIDE = buildSxxExxPattern();
-
-    private static Pattern buildCrcPattern() {
-        var hex = exactly(8).hexDigits();
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .namedCapture(capture(GRP_VALUE, hex));
-        return Pattern.compile(sift.shake());
-    }
-
-    private static Pattern buildUuidPattern() {
-        var alphaNumeric = exactly(1).alphanumeric();
-        var dash = exactly(1).character('-');
-        var validChars = anyOf(alphaNumeric, dash);
-        var uuidFragment = atLeast(20).of(validChars);
-        var sift = fromAnywhere().namedCapture(capture(GRP_VALUE, uuidFragment));
-        return Pattern.compile(sift.shake());
-    }
-
-    private static Pattern buildSxxExxPattern() {
-        var digits = between(1, 3).digits();
-        var sxx = exactly(1).character('s').followedBy(digits);
-        var exx = exactly(1).character('e').followedBy(digits);
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .of(sxx).followedBy(exx);
-
-        return Pattern.compile(sift.shake());
-    }
+    private static final Pattern CRC = CrcPatterns.buildCrcPattern(GRP_VALUE);
+    private static final Pattern UUID = CrcPatterns.buildUuidPattern(GRP_VALUE);
+    private static final Pattern SXX_EXX_INSIDE = CrcPatterns.buildSxxExxInsidePattern();
 
     @Override
     public String name() {

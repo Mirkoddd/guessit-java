@@ -5,14 +5,13 @@ import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.contracts.PostProcessor;
 import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.text.patterns.EpisodeRangePatterns;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.*;
 
 /**
  * Expands bare episode ranges like {@code 16-20} into the full sequence
@@ -42,47 +41,8 @@ public final class EpisodeNumberSeparatorRange implements PostProcessor {
 
     private static final int MAX_JUMP = 20;
 
-    /**
-     * Matches a range separator (-, ~, "to") with optional surrounding
-     * separator characters (_ . space), followed by an integer.
-     * Group 1 = the integer digits.
-     */
-
-    private static final Pattern RANGE_THEN_NUM = buildRangePattern();
-    private static final String NUM_GROUP = "num";
-
-    private static Pattern buildRangePattern() {
-        var fillingSeparator = anyOf(
-                exactly(1).whitespace(),
-                exactly(1).character('.'),
-                exactly(1).character('_')
-        );
-
-        var intervalSeparator = anyOf(
-                exactly(1).character('-'),
-                exactly(1).character('~')
-        );
-
-        var dashBranch = fromAnywhere()
-                .zeroOrMore().of(fillingSeparator)
-                .followedBy(intervalSeparator)
-                .then().zeroOrMore().of(fillingSeparator);
-
-        var toBranch = fromAnywhere()
-                .oneOrMore().of(fillingSeparator)
-                .followedBy(literal("to"))
-                .then().oneOrMore().of(fillingSeparator);
-
-        var separatorAlt = anyOf(dashBranch, toBranch);
-
-        var numCapture = capture(NUM_GROUP, oneOrMore().digits());
-
-        var pattern = fromAnywhere()
-                .of(separatorAlt)
-                .then().namedCapture(numCapture);
-
-        return Pattern.compile(pattern.shake(), Pattern.CASE_INSENSITIVE);
-    }
+    private static final String GROUP_NUM = "num";
+    private static final Pattern RANGE_THEN_NUM = EpisodeRangePatterns.buildRangePattern(GROUP_NUM);
 
     public static final MatchName EPISODE = MatchName.EPISODE;
     private static final String RANGE_FILL = "range-fill";
@@ -90,9 +50,9 @@ public final class EpisodeNumberSeparatorRange implements PostProcessor {
     @Override
     public void process(ParseContext ctx) {
         var eps = ctx.matches.named(EPISODE)
-            .filter(m -> !m.isPrivate() && m.value() instanceof Integer)
-            .sorted(Comparator.comparingInt(Match::start))
-            .toList();
+                .filter(m -> !m.isPrivate() && m.value() instanceof Integer)
+                .sorted(Comparator.comparingInt(Match::start))
+                .toList();
         var fills = new ArrayList<Match>();
         for (var a : eps) tryExtendRange(ctx, a, fills);
         for (var m : fills) ctx.matches.add(m);
@@ -115,37 +75,41 @@ public final class EpisodeNumberSeparatorRange implements PostProcessor {
 
         // Add vb itself as an episode match.
         fills.add(new Match(EPISODE, span.value(), span.start(), span.end(),
-            ctx.input.substring(span.start(), span.end()), Priority.DEFAULT, Set.of(RANGE_FILL), false));
+                ctx.input.substring(span.start(), span.end()), Priority.DEFAULT, Set.of(RANGE_FILL), false));
         // Add intermediate values va+1 .. vb-1 (zero-width, anchored at numStart).
         for (int v = va + 1; v < span.value(); v++) {
             fills.add(new Match(EPISODE, v, span.start(), span.start(),
-                "", Priority.DEFAULT, Set.of(RANGE_FILL), false));
+                    "", Priority.DEFAULT, Set.of(RANGE_FILL), false));
         }
     }
 
-    /** Extract the integer + span from whichever capture group matched. */
-    private static RangeNumber extractRangeNumber(java.util.regex.Matcher matcher) {
-        String numStr = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+    /** Extract the integer + span from the strictly named capture group. */
+    private static RangeNumber extractRangeNumber(Matcher matcher) {
+        String numStr = matcher.group(GROUP_NUM);
+        if (numStr == null) return null;
+
         int vb;
         try { vb = Integer.parseInt(numStr); }
         catch (NumberFormatException _) { return null; }
-        int numStart = matcher.group(1) != null ? matcher.start(1) : matcher.start(2);
-        int numEnd   = matcher.group(1) != null ? matcher.end(1)   : matcher.end(2);
+
+        int numStart = matcher.start(GROUP_NUM);
+        int numEnd   = matcher.end(GROUP_NUM);
+
         return new RangeNumber(vb, numStart, numEnd);
     }
 
     /** True when vb is already an episode match at that position —
-     *  RangeFiller already handled it (or will). */
+     * RangeFiller already handled it (or will). */
     private static boolean vbAlreadyPresent(ParseContext ctx, RangeNumber span) {
         return ctx.matches.named(EPISODE)
-            .anyMatch(m -> m.value() instanceof Integer iv && iv == span.value()
-                && m.start() >= span.start() && m.end() <= span.end());
+                .anyMatch(m -> m.value() instanceof Integer iv && iv == span.value()
+                        && m.start() >= span.start() && m.end() <= span.end());
     }
 
     /** True when an existing episode range-fill already covers the gap. */
     private static boolean alreadyFilled(ParseContext ctx, Match a, int numEnd) {
         return ctx.matches.named(EPISODE)
-            .anyMatch(m -> m.tags().contains(RANGE_FILL)
-                && m.start() >= a.end() && m.end() <= numEnd);
+                .anyMatch(m -> m.tags().contains(RANGE_FILL)
+                        && m.start() >= a.end() && m.end() <= numEnd);
     }
 }

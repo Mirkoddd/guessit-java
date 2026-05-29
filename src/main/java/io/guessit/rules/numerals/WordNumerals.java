@@ -1,9 +1,8 @@
 package io.guessit.rules.numerals;
 
-import com.mirkoddd.sift.core.Sift;
-import com.mirkoddd.sift.core.SiftPatterns;
 import com.mirkoddd.sift.core.dsl.Fragment;
 import com.mirkoddd.sift.core.dsl.SiftPattern;
+import io.guessit.core.text.patterns.WordNumeralPatterns;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -11,9 +10,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-
-import static com.mirkoddd.sift.core.Sift.oneOrMore;
-import static com.mirkoddd.sift.core.SiftPatterns.anyOf;
 
 /**
  * Handles validation and parsing of localized number words.
@@ -25,7 +21,7 @@ final class WordNumerals implements TokenNumeralParser {
 
     private static final Map<String, Integer> WORD_VALUES = buildWordMap();
 
-    static final SiftPattern<Fragment> PATTERN = buildPattern();
+    static final SiftPattern<Fragment> PATTERN = WordNumeralPatterns.buildPattern(WORD_VALUES);
 
     private static Map<String, Integer> buildWordMap() {
         Map<String, Integer> map = new HashMap<>();
@@ -37,20 +33,11 @@ final class WordNumerals implements TokenNumeralParser {
         return Collections.unmodifiableMap(map);
     }
 
-    private static SiftPattern<Fragment> buildPattern() {
-        var wordLiterals = WORD_VALUES.keySet().stream()
-                .map(SiftPatterns::literal)
-                .toList();
-
-        return Sift.fromAnywhere()
-                .mustBeFollowedBy(oneOrMore().wordCharacters())
-                .then().of(anyOf(wordLiterals));
-    }
-
     @Override
     public Integer tryParse(List<String> words) {
         return words.stream()
-                .map(word -> WORD_VALUES.get(word.toLowerCase(Locale.ROOT)))
+                .map(word -> word.toLowerCase(Locale.ROOT))
+                .map(WORD_VALUES::get)
                 .filter(Objects::nonNull)
                 .findFirst()
                 .orElse(null);

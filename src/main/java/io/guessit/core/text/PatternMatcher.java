@@ -15,17 +15,15 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.mirkoddd.sift.core.SiftPatterns.literal;
-
 /**
  * Match-producing helpers used by most {@link Extractor}s.
  *
  * <p>Two scanners:
  * <ul>
- *   <li>{@link #regex} — runs a single {@link Pattern} over the input, with
- *       per-match value extraction, value formatting, and validation.</li>
- *   <li>{@link #string} — scans for a fixed set of literal needles, with
- *       case and whole-word handling.</li>
+ * <li>{@link #regex} — runs a single {@link Pattern} over the input, with
+ * per-match value extraction, value formatting, and validation.</li>
+ * <li>{@link #string} — scans for a fixed set of literal needles, with
+ * case and whole-word handling.</li>
  * </ul>
  *
  * <p>Both return ordered {@link Match} lists ready for {@link MatchSet#add}.
@@ -33,6 +31,8 @@ import static com.mirkoddd.sift.core.SiftPatterns.literal;
 public final class PatternMatcher {
 
     private PatternMatcher() {}
+
+    private static final ConcurrentMap<String, Boolean> HAS_VALUE_GROUP = new ConcurrentHashMap<>();
 
     public static List<Match> regex(String input, Pattern pattern, MatchName name, RegexOpts opts) {
         return regex(input, pattern, name, opts, Trace.NOOP);
@@ -46,7 +46,11 @@ public final class PatternMatcher {
         trace.subStep("Trying regex " + pattern.pattern());
         var out = new ArrayList<Match>();
         var m = pattern.matcher(input);
-        boolean hasValueGroup = HAS_VALUE_GROUP.computeIfAbsent(pattern, PatternMatcher::detectValueGroup);
+
+        boolean hasValueGroup = HAS_VALUE_GROUP.computeIfAbsent(
+                pattern.pattern(),
+                pStr -> pStr.contains("(?<value>")
+        );
 
         while (m.find()) {
             String raw = m.group();
@@ -124,15 +128,6 @@ public final class PatternMatcher {
         return needles.size() <= 6
                 ? sortedNeedles
                 : sortedNeedles + ", … (" + needles.size() + " total)";
-    }
-
-    private static final ConcurrentMap<Pattern, Boolean> HAS_VALUE_GROUP = new ConcurrentHashMap<>();
-    private static final Pattern VALUE_GROUP_DECL = Pattern.compile(
-            literal("(?<value>").shake()
-    );
-
-    private static boolean detectValueGroup(Pattern p) {
-        return VALUE_GROUP_DECL.matcher(p.pattern()).find();
     }
 
     private static boolean isWordBoundary(String s, int start, int end) {

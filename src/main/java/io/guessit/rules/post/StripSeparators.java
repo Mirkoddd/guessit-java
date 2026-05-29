@@ -2,7 +2,6 @@ package io.guessit.rules.post;
 
 import io.guessit.core.pipeline.contracts.PostProcessor;
 import io.guessit.core.pipeline.state.ParseContext;
-import io.guessit.core.pipeline.phases.PostPhase;
 import io.guessit.core.text.Seps;
 
 import java.util.ArrayList;

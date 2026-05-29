@@ -1,25 +1,18 @@
 package io.guessit.rules.extractors;
 
-import com.mirkoddd.sift.core.dsl.Fragment;
-import com.mirkoddd.sift.core.dsl.SiftPattern;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Validators;
 import io.guessit.api.models.BitRate;
-import com.mirkoddd.sift.core.SiftGlobalFlag;
+import io.guessit.core.text.patterns.BitRatePatterns;
 
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.anyOf;
-import static com.mirkoddd.sift.core.SiftPatterns.capture;
-import static com.mirkoddd.sift.core.SiftPatterns.literal;
 
 /**
  * Extracts bit rate values from filenames.
@@ -34,39 +27,7 @@ public final class BitRateExtractor implements Extractor {
     private static final String TAG_WEAK_AUDIO_CHANNELS = "weak-audio_channels";
     private static final String TAG_RELEASE_GROUP_PREFIX = "release-group-prefix";
 
-    private static final Pattern[] PATTERNS = buildPatterns();
-
-    private static Pattern[] buildPatterns() {
-        var sep = anyOf(literal(" "), literal("."), literal("_"), literal("-"));
-        var optSep = optional().of(sep);
-
-        var multiplier = anyOf(literal("k"), literal("m"), literal("g"));
-
-        var bpsWords = anyOf(literal("ps"), literal("its"), literal("it"));
-        var baseUnit = exactly(1).character('b').followedBy(bpsWords);
-
-        var suffix = fromAnywhere()
-                .of(optSep)
-                .followedBy(List.of(multiplier, baseUnit));
-
-        var intPattern = oneOrMore().digits().followedBy(suffix);
-
-        var decPattern = oneOrMore().digits()
-                .followedBy('.')
-                .then().oneOrMore().digits()
-                .followedBy(suffix);
-
-        var pInt = patternFromFragment(intPattern);
-        var pDec = patternFromFragment(decPattern);
-
-        return new Pattern[]{ pInt, pDec };
-    }
-
-    private static Pattern patternFromFragment(SiftPattern<Fragment> fragment) {
-        var pattern = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere().namedCapture(capture(GRP_RAW, fragment));
-        return Pattern.compile(pattern.shake());
-    }
+    private static final List<Pattern> PATTERNS = BitRatePatterns.buildPatterns(GRP_RAW);
 
     @Override
     public String name() {

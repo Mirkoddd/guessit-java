@@ -1,21 +1,16 @@
 package io.guessit.rules.post;
 
-import com.mirkoddd.sift.core.Sift;
-import com.mirkoddd.sift.core.SiftGlobalFlag;
 import com.mirkoddd.sift.core.engine.SiftCompiledPattern;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.contracts.PostProcessor;
 import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.text.patterns.RangeFillerPatterns;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Set;
-
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.anyOf;
-import static com.mirkoddd.sift.core.SiftPatterns.literal;
 
 /**
  * Expand range pairs of {@code season} or {@code episode} matches into the full
@@ -28,34 +23,8 @@ public final class RangeFiller implements PostProcessor {
 
     private static final String TAG_RANGE_FILL = "range-fill";
 
-    private static final SiftCompiledPattern GAP_PATTERN = buildGapPattern();
-
-    private static SiftCompiledPattern buildGapPattern() {
-        var keywords = anyOf(literal("-"), literal("~"), literal("to"), literal("a"));
-
-        var sep = anyOf(literal(" "), literal("."), literal("_"));
-        var optSeps = zeroOrMore().of(sep);
-
-        var optSuffix = optional().of(
-                fromAnywhere().of(optSeps).then().exactly(1).of(anyOf(literal("s"), literal("e")))
-        );
-
-        var standardGap = fromAnywhere().of(keywords).then().of(optSuffix);
-
-        var seGap = fromAnywhere()
-                .of(anyOf(literal("-"), literal("~")))
-                .followedBy('s')
-                .then().between(1, 3).digits()
-                .then().optional().character('e');
-
-        return Sift.filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromStart()
-                .of(optSeps)
-                .then().exactly(1).of(anyOf(standardGap, seGap))
-                .then().of(optSeps)
-                .andNothingElse()
-                .sieve();
-    }
+    // Inizializzazione delegata alla Factory
+    private static final SiftCompiledPattern GAP_PATTERN = RangeFillerPatterns.buildGapPattern();
 
     @Override
     public String description() {

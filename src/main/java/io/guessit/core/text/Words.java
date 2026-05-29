@@ -1,6 +1,7 @@
 package io.guessit.core.text;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -18,9 +19,14 @@ public final class Words {
 
     /** Iterates words; separators (punctuation/whitespace) are skipped, never reported. */
     public static List<Word> iter(String input) {
-        var out = new ArrayList<Word>();
+        if (input == null || input.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        var out = new ArrayList<Word>(input.length() / 5 + 1);
         int n = input.length();
         int i = 0;
+
         while (i < n) {
             if (isWordChar(input.charAt(i))) {
                 int s = i;

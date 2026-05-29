@@ -1,10 +1,6 @@
 package io.guessit.core.text;
 
-import com.mirkoddd.sift.core.dsl.Fragment;
-import com.mirkoddd.sift.core.dsl.SiftPattern;
-
-import static com.mirkoddd.sift.core.Sift.exactly;
-import static com.mirkoddd.sift.core.SiftPatterns.anyOf;
+import io.guessit.core.text.patterns.AbbreviationsPatterns;
 
 /**
  * Mirrors Python rebulk's pattern-source rewriting helpers.
@@ -20,26 +16,14 @@ public final class Abbreviations {
 
     private Abbreviations() {}
 
-    /** Python `seps_no_fs` (seps with '/' and '\\' removed) escaped for a regex char class. */
-    public static final SiftPattern<Fragment> SEPS_NO_FS_PATTERN = buildSepsPattern();
-
-    private static SiftPattern<Fragment> buildSepsPattern() {
-        var chars = Seps.CHARS.chars()
-                .filter(c -> c != '/' && c != '\\')
-                .mapToObj(c -> exactly(1).character((char) c))
-                .toList();
-
-        return anyOf(chars);
-    }
-
     /** Replace every unescaped, non-class `-` in the source with `[<seps_no_fs>]`.
      * Mirrors Python rebulk's dash abbreviation: a single separator character (not zero-or-more). */
     public static String dash(String src) {
-        return rewriteLiteral(src, SEPS_NO_FS_PATTERN.shake());
+        return rewriteLiteral(src);
     }
 
-    private static String rewriteLiteral(String src, String replacement) {
-        var sb = new StringBuilder(src.length() + 16);
+    private static String rewriteLiteral(String src) {
+        var sb = new StringBuilder(src.length() + AbbreviationsPatterns.SEPS_REPLACEMENT.length() * 2);
         boolean escaped = false;
         int classDepth = 0;
 
@@ -59,7 +43,7 @@ public final class Abbreviations {
                 sb.append(c);
                 classDepth--;
             } else if (c == '-' && classDepth == 0) {
-                sb.append(replacement);
+                sb.append(AbbreviationsPatterns.SEPS_REPLACEMENT);
             } else {
                 sb.append(c);
             }

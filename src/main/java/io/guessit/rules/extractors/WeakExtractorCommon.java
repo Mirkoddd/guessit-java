@@ -1,18 +1,13 @@
 package io.guessit.rules.extractors;
 
-import com.mirkoddd.sift.core.dsl.Connector;
-import com.mirkoddd.sift.core.dsl.Fragment;
-import com.mirkoddd.sift.core.dsl.SiftPattern;
 import io.guessit.core.pipeline.state.Marker;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.patterns.WeakCommonPatterns;
 
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.anyOf;
 
 /**
  * Shared utilities, constants, and Sift patterns for weak extractors
@@ -33,16 +28,7 @@ final class WeakExtractorCommon {
     static final String MARKER_PATH = "path";
     static final String MARKER_GROUP = "group";
 
-    static SiftPattern<Fragment> anyOfTheseChars(String chars) {
-        return anyOf(chars.chars().mapToObj(c -> exactly(1).character((char) c)).toList());
-    }
-
-    static final Connector<Fragment> SPACING = zeroOrMore().of(anyOfTheseChars(" ._"));
-    static final SiftPattern<Fragment> RANGE_DELIMITER = anyOfTheseChars("-~");
-
-    static final Pattern RANGE_SEP = Pattern.compile(
-            SPACING.followedBy(RANGE_DELIMITER, SPACING).shake()
-    );
+    static final Pattern RANGE_SEP = WeakCommonPatterns.buildRangePattern();
 
     static boolean isInside(Match target, int start, int end) {
         return target.start() >= start && target.end() <= end;

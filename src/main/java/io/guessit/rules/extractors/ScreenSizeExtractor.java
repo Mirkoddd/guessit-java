@@ -1,23 +1,17 @@
 package io.guessit.rules.extractors;
 
-import com.mirkoddd.sift.core.SiftGlobalFlag;
-import com.mirkoddd.sift.core.SiftPatterns;
-import com.mirkoddd.sift.core.dsl.Fragment;
-import com.mirkoddd.sift.core.dsl.SiftPattern;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.*;
+import io.guessit.core.text.patterns.ScreenSizePatterns;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
-
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.*;
 
 public final class ScreenSizeExtractor implements Extractor {
 
@@ -28,70 +22,43 @@ public final class ScreenSizeExtractor implements Extractor {
     private static final String GRP_HEIGHT = "height";
     private static final String GRP_WIDTH = "width";
     private static final String GRP_SCAN = "scan";
-
-    private static final Pattern WH_P = buildWhPattern();
-    private static final Pattern WIDTH_HEIGHT_NORM = buildWidthHeightNorm();
-    private static final Pattern HEIGHT_SCAN_NORM = buildHeightScanNorm();
-
     private static final String GRP_FRAME_RATE = "fr";
-    private static final Pattern FRAME_RATE_PATTERN = buildFrameRatePattern();
     private static final String GRP_VALUE = "value";
 
-    private final ConcurrentMap<String, Pattern> patternCache = new ConcurrentHashMap<>();
+    private static final String CONF_INTERLACED = "interlaced";
+    private static final String CONF_PROGRESSIVE = "progressive";
+    private static final String CONF_FRAME_RATES = "frame_rates";
+    private static final String CONF_MIN_AR = "min_ar";
+    private static final String CONF_MAX_AR = "max_ar";
 
-    private static Pattern buildWhPattern() {
-        var spaces = zeroOrMore().whitespace();
+    private static final String CACHE_TYPE_INTERLACED = "interlaced";
+    private static final String CACHE_TYPE_PROGRESSIVE = "progressive";
+    private static final String CACHE_TYPE_PROGRESSIVE_HD = "progressive_hd";
+    private static final String CACHE_TYPE_PROGRESSIVE_X = "progressive_x";
+    private static final String CACHE_TYPE_PROGRESSIVE_WEAK = "progressive_weak";
+    private static final String CACHE_TYPE_STANDALONE_FR = "standalone_fr";
 
-        var pattern = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .namedCapture(capture(GRP_WIDTH, between(3, 4).digits()))
-                .then().optional().character('-')
-                .then().of(spaces)
-                .then().exactly(1).of(anyOf(literal("x"), literal("*")))
-                .then().of(spaces)
-                .then().optional().character('-')
-                .then().namedCapture(capture(GRP_HEIGHT, between(3, 4).digits()));
+    private static final String SCAN_INTERLACED = "i";
+    private static final String SCAN_PROGRESSIVE = "p";
+    private static final String SUFFIX_HD = "hd";
+    private static final String SUFFIX_X = "x";
+    private static final String VALUE_4K_LITERAL = "4k";
+    private static final String VALUE_2160P_NORMALIZED = "2160p";
 
-        return Pattern.compile(pattern.shake());
-    }
+    private static final String TAG_DERIVED_SCREEN_SIZE = "derivedFrom:screen_size";
+    private static final String TAG_COEXIST = "coexist";
+    private static final String TAG_WEAK_EPISODE = "weak-episode";
+    private static final String TYPE_MOVIE = "movie";
 
-    private static Pattern buildWidthHeightNorm() {
-        var spaces = zeroOrMore().whitespace();
+    private static final String MARKER_PATH = "path";
+    private static final String MARKER_WHOLE = "whole";
 
-        var pattern = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .namedCapture(capture(GRP_WIDTH, between(3, 4).digits()))
-                .then().of(spaces)
-                .then().exactly(1).of(anyOf(literal("x"), literal("*"), literal("-")))
-                .then().of(spaces)
-                .then().namedCapture(capture(GRP_HEIGHT, between(3, 4).digits()))
-                .then().optional().of(fromAnywhere().namedCapture(capture(GRP_SCAN, anyOf(literal("i"), literal("p")))));
+    private static final Pattern WH_P = ScreenSizePatterns.buildWhPattern(GRP_WIDTH, GRP_HEIGHT);
+    private static final Pattern WIDTH_HEIGHT_NORM = ScreenSizePatterns.buildWidthHeightNorm(GRP_WIDTH, GRP_HEIGHT, GRP_SCAN);
+    private static final Pattern HEIGHT_SCAN_NORM = ScreenSizePatterns.buildHeightScanNorm(GRP_HEIGHT, GRP_SCAN);
+    private static final Pattern FRAME_RATE_PATTERN = ScreenSizePatterns.buildFrameRatePattern(GRP_FRAME_RATE);
 
-        return Pattern.compile(pattern.shake());
-    }
-
-    private static Pattern buildHeightScanNorm() {
-        var pattern = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .namedCapture(capture(GRP_HEIGHT, between(3, 4).digits()))
-                .then().optional().of(fromAnywhere().namedCapture(capture(GRP_SCAN, anyOf(literal("i"), literal("p")))));
-
-        return Pattern.compile(pattern.shake());
-    }
-
-    private static Pattern buildFrameRatePattern() {
-        var frDecimals = exactly(1).character('.').then().between(1, 3).digits();
-        var frNum = exactly(2).digits().followedBy(optional().of(frDecimals));
-
-        var pattern = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .between(3, 4).digits()
-                .then().exactly(1).of(anyOf(literal("i"), literal("p")))
-                .then().of(fromAnywhere().namedCapture(capture(GRP_FRAME_RATE, frNum)))
-                .andNothingElse();
-
-        return Pattern.compile(pattern.shake());
-    }
+    private final ConcurrentMap<PatternCacheKey, Pattern> patternCache = new ConcurrentHashMap<>();
 
     @Override
     public String name() {
@@ -122,71 +89,49 @@ public final class ScreenSizeExtractor implements Extractor {
     }
 
     private void extractDynamicPatterns(ParseContext ctx, Map<String, Object> section, RegexOpts opts, java.util.function.Predicate<Match> validator) {
-        var interlaced = stringList(section.get("interlaced"));
-        var progressive = stringList(section.get("progressive"));
-        var frameRates = stringList(section.get("frame_rates"));
-
-        var siftResPrefixInner = fromAnywhere().namedCapture(capture(GRP_WIDTH, between(3, 4).digits()))
-                .followedBy(anyOf(literal("x"), literal("*")));
-        var siftResPrefix = optional().of(siftResPrefixInner);
+        var interlaced = stringList(section.get(CONF_INTERLACED));
+        var progressive = stringList(section.get(CONF_PROGRESSIVE));
+        var frameRates = stringList(section.get(CONF_FRAME_RATES));
 
         if (!interlaced.isEmpty()) {
-            var basePatternI = exactly(1).of(siftResPrefix)
-                    .then().namedCapture(capture(GRP_HEIGHT, anyOfList(interlaced)))
-                    .then().namedCapture(capture(GRP_SCAN, literal("i")));
-
-            var finalPatternI = frameRates.isEmpty()
-                    ? basePatternI
-                    : basePatternI.then().optional().of(anyOfFrameRates(frameRates));
-
-            addSiftPattern(ctx, finalPatternI, opts, MatchName.SCREEN_SIZE);
+            Pattern p = patternCache.computeIfAbsent(new PatternCacheKey(CACHE_TYPE_INTERLACED, interlaced, frameRates),
+                    k -> ScreenSizePatterns.buildScanPattern(SCAN_INTERLACED, k.list1(), k.list2(), GRP_WIDTH, GRP_HEIGHT, GRP_SCAN));
+            addMatches(ctx, p, opts, MatchName.SCREEN_SIZE);
         }
 
         if (!progressive.isEmpty()) {
-            var basePatternP = exactly(1).of(siftResPrefix)
-                    .then().namedCapture(capture(GRP_HEIGHT, anyOfList(progressive)))
-                    .then().namedCapture(capture(GRP_SCAN, literal("p")));
+            Pattern pBase = patternCache.computeIfAbsent(new PatternCacheKey(CACHE_TYPE_PROGRESSIVE, progressive, frameRates),
+                    k -> ScreenSizePatterns.buildScanPattern(SCAN_PROGRESSIVE, k.list1(), k.list2(), GRP_WIDTH, GRP_HEIGHT, GRP_SCAN));
+            addMatches(ctx, pBase, opts, MatchName.SCREEN_SIZE);
 
-            var finalPatternP = frameRates.isEmpty()
-                    ? basePatternP
-                    : basePatternP.then().optional().of(anyOfFrameRates(frameRates));
+            Pattern pHd = patternCache.computeIfAbsent(new PatternCacheKey(CACHE_TYPE_PROGRESSIVE_HD, progressive, List.of()),
+                    k -> ScreenSizePatterns.buildProgressiveSuffixPattern(SUFFIX_HD, k.list1(), GRP_WIDTH, GRP_HEIGHT, GRP_SCAN));
+            addMatches(ctx, pHd, opts, MatchName.SCREEN_SIZE);
 
-            addSiftPattern(ctx, finalPatternP, opts, MatchName.SCREEN_SIZE);
-
-            var siftHeightP = fromAnywhere().namedCapture(capture(GRP_HEIGHT, anyOfList(progressive)));
-            var optScanP = optional().of(fromAnywhere().namedCapture(capture(GRP_SCAN, literal("p"))));
-
-            var patternPHd = exactly(1).of(siftResPrefix)
-                    .then().of(siftHeightP)
-                    .then().of(optScanP)
-                    .followedBy(literal("hd"));
-            addSiftPattern(ctx, patternPHd, opts, MatchName.SCREEN_SIZE);
-
-            var patternPX = exactly(1).of(siftResPrefix)
-                    .then().of(siftHeightP)
-                    .then().of(optScanP)
-                    .followedBy(literal("x"));
-            addSiftPattern(ctx, patternPX, opts, MatchName.SCREEN_SIZE);
+            Pattern pX = patternCache.computeIfAbsent(new PatternCacheKey(CACHE_TYPE_PROGRESSIVE_X, progressive, List.of()),
+                    k -> ScreenSizePatterns.buildProgressiveSuffixPattern(SUFFIX_X, k.list1(), GRP_WIDTH, GRP_HEIGHT, GRP_SCAN));
+            addMatches(ctx, pX, opts, MatchName.SCREEN_SIZE);
 
             var weakOpts = RegexOpts.defaults()
                     .withValidator(validator)
                     .withTags(Set.of(WEAK_SCREEN_SIZE));
-            var patternPWeak = exactly(1).of(siftResPrefix)
-                    .then().of(siftHeightP);
-            addSiftPattern(ctx, patternPWeak, weakOpts, MatchName.SCREEN_SIZE);
+
+            Pattern pWeak = patternCache.computeIfAbsent(new PatternCacheKey(CACHE_TYPE_PROGRESSIVE_WEAK, progressive, List.of()),
+                    k -> ScreenSizePatterns.buildProgressiveWeakPattern(k.list1(), GRP_WIDTH, GRP_HEIGHT));
+            addMatches(ctx, pWeak, weakOpts, MatchName.SCREEN_SIZE);
         }
     }
 
     private void extract4kLiteral(ParseContext ctx, java.util.function.Predicate<Match> validator) {
         var fourK = StringOpts.defaults().withValidator(validator);
-        for (var m : PatternMatcher.string(ctx.input, Set.of("4k"), MatchName.SCREEN_SIZE, fourK, ctx.trace)) {
-            ctx.matches.add(new Match(MatchName.SCREEN_SIZE, "2160p", m.start(), m.end(), m.raw(),
+        for (var m : PatternMatcher.string(ctx.input, Set.of(VALUE_4K_LITERAL), MatchName.SCREEN_SIZE, fourK, ctx.trace)) {
+            ctx.matches.add(new Match(MatchName.SCREEN_SIZE, VALUE_2160P_NORMALIZED, m.start(), m.end(), m.raw(),
                     m.priority(), Set.of(NORMALIZED), false));
         }
     }
 
     private void extractStandaloneFrameRate(ParseContext ctx, Map<String, Object> section, java.util.function.Predicate<Match> validator) {
-        var frameRates = stringList(section.get("frame_rates"));
+        var frameRates = stringList(section.get(CONF_FRAME_RATES));
         if (frameRates.isEmpty()) return;
 
         var frOpts = RegexOpts.defaults()
@@ -194,49 +139,17 @@ public final class ScreenSizeExtractor implements Extractor {
                     int dotIdx = s.indexOf('.');
                     return Integer.valueOf(dotIdx == -1 ? s : s.substring(0, dotIdx));
                 })
-                .withTags(Set.of("coexist"))
+                .withTags(Set.of(TAG_COEXIST))
                 .withValidator(validator);
 
-        var frStandalone = fromAnywhere().namedCapture(capture(GRP_VALUE, anyOfFrameRates(frameRates)))
-                .followedBy(optional().character('-'))
-                .then().exactly(1).of(anyOf(literal("p"), literal("fps")));
+        Pattern p = patternCache.computeIfAbsent(new PatternCacheKey(CACHE_TYPE_STANDALONE_FR, frameRates, List.of()),
+                k -> ScreenSizePatterns.buildStandaloneFrameRatePattern(k.list1(), GRP_VALUE));
 
-        addSiftPattern(ctx, frStandalone, frOpts, MatchName.FRAME_RATE);
+        addMatches(ctx, p, frOpts, MatchName.FRAME_RATE);
     }
 
-    private SiftPattern<Fragment> anyOfFrameRates(List<String> items) {
-        if (items.size() == 1) {
-            return parseFrameRate(items.getFirst());
-        }
-        return anyOf(items.stream().map(this::parseFrameRate).toList());
-    }
-
-    private SiftPattern<Fragment> parseFrameRate(String frConfig) {
-        String optZeros = "(?:\\.0{1,3})?";
-
-        if (frConfig.endsWith(optZeros)) {
-            String base = frConfig.replace(optZeros, "");
-            var zerosBlock = exactly(1).character('.').then().between(1, 3).character('0');
-            return exactly(1).of(literal(base)).followedBy(optional().of(zerosBlock));
-        }
-
-        return literal(frConfig.replace("\\.", "."));
-    }
-
-    private SiftPattern<Fragment> anyOfList(List<String> items) {
-        if (items.size() == 1) {
-            return literal(items.getFirst());
-        }
-        return anyOf(items.stream().map(SiftPatterns::literal).toList());
-    }
-
-    private void addSiftPattern(ParseContext ctx, SiftPattern<Fragment> fragment, RegexOpts opts, MatchName matchName) {
-        var sift = fromAnywhere().of(fragment);
-        String rawRegex = sift.shake();
-
-        Pattern p = patternCache.computeIfAbsent(rawRegex, s -> Pattern.compile(s, Pattern.CASE_INSENSITIVE));
-
-        for (var m : PatternMatcher.regex(ctx.input, p, matchName, opts, ctx.trace)) {
+    private void addMatches(ParseContext ctx, Pattern pattern, RegexOpts opts, MatchName matchName) {
+        for (var m : PatternMatcher.regex(ctx.input, pattern, matchName, opts, ctx.trace)) {
             ctx.matches.add(m);
         }
     }
@@ -244,9 +157,9 @@ public final class ScreenSizeExtractor implements Extractor {
     @Override
     public void postProcess(ParseContext ctx) {
         var section = ctx.config.section(SCREEN_SIZE);
-        var standardHeights = new HashSet<>(stringList(section.get("progressive")));
-        double minAr = ((Number) section.getOrDefault("min_ar", 1.333)).doubleValue();
-        double maxAr = ((Number) section.getOrDefault("max_ar", 1.898)).doubleValue();
+        var standardHeights = new HashSet<>(stringList(section.get(CONF_PROGRESSIVE)));
+        double minAr = ((Number) section.getOrDefault(CONF_MIN_AR, 1.333)).doubleValue();
+        double maxAr = ((Number) section.getOrDefault(CONF_MAX_AR, 1.898)).doubleValue();
 
         normalizeScreenSizeMatches(ctx, standardHeights, minAr, maxAr);
         resolveWeakScreenSizeConflicts(ctx);
@@ -274,11 +187,11 @@ public final class ScreenSizeExtractor implements Extractor {
                                            Set<String> standardHeights, double minAr, double maxAr) {
         int w = Integer.parseInt(wh.group(GRP_WIDTH));
         int h = Integer.parseInt(wh.group(GRP_HEIGHT));
-        String scan = wh.group(GRP_SCAN) == null ? "p" : wh.group(GRP_SCAN).toLowerCase(Locale.ROOT);
+        String scan = wh.group(GRP_SCAN) == null ? SCAN_PROGRESSIVE : wh.group(GRP_SCAN).toLowerCase(Locale.ROOT);
         double ar = (double) w / h;
 
         ctx.matches.add(new Match(MatchName.ASPECT_RATIO, Math.round(ar * 1000.0) / 1000.0,
-                m.start(), m.end(), m.raw(), m.priority(), Set.of("derivedFrom:screen_size"), false));
+                m.start(), m.end(), m.raw(), m.priority(), Set.of(TAG_DERIVED_SCREEN_SIZE), false));
 
         String value = (standardHeights.contains(String.valueOf(h)) && minAr < ar && ar < maxAr)
                 ? h + scan : w + "x" + h;
@@ -291,7 +204,7 @@ public final class ScreenSizeExtractor implements Extractor {
 
     private void normalizeHeightScanMatch(ParseContext ctx, Match m, java.util.regex.Matcher hs) {
         String h = hs.group(GRP_HEIGHT);
-        String scan = hs.group(GRP_SCAN) == null ? "p" : hs.group(GRP_SCAN).toLowerCase(Locale.ROOT);
+        String scan = hs.group(GRP_SCAN) == null ? SCAN_PROGRESSIVE : hs.group(GRP_SCAN).toLowerCase(Locale.ROOT);
         Set<String> tags = m.tags().contains(WEAK_SCREEN_SIZE)
                 ? Set.of(NORMALIZED, WEAK_SCREEN_SIZE) : Set.of(NORMALIZED);
 
@@ -336,7 +249,7 @@ public final class ScreenSizeExtractor implements Extractor {
         boolean hasEpHere = ctx.matches.named(MatchName.EPISODE)
                 .anyMatch(e -> e.start() == ws.start() && e.end() == ws.end());
 
-        if (!hasEpHere && !"movie".equals(ctx.options.type())) {
+        if (!hasEpHere && !TYPE_MOVIE.equals(ctx.options.type())) {
             String raw = ws.raw();
 
             if (!raw.isEmpty() && raw.chars().allMatch(Character::isDigit)) {
@@ -344,7 +257,7 @@ public final class ScreenSizeExtractor implements Extractor {
                 if (v >= 100 || io.guessit.rules.extractors.WeakEpisodeExtractor.EPISODE.equals(ctx.options.type())
                         || ctx.options.episodePreferNumber() != null) {
                     ctx.matches.add(new Match(MatchName.EPISODE, v, ws.start(), ws.end(),
-                            raw, Priority.PROBABLE, Set.of("weak-episode"), false));
+                            raw, Priority.PROBABLE, Set.of(TAG_WEAK_EPISODE), false));
                 }
             }
         }
@@ -364,14 +277,14 @@ public final class ScreenSizeExtractor implements Extractor {
 
                 ctx.matches.add(new Match(MatchName.FRAME_RATE, val,
                         m.start() + fr.start(GRP_FRAME_RATE), m.start() + fr.end(GRP_FRAME_RATE),
-                        rawFr, m.priority(), Set.of("coexist", "derivedFrom:screen_size"), false));
+                        rawFr, m.priority(), Set.of(TAG_COEXIST, TAG_DERIVED_SCREEN_SIZE), false));
             }
         }
     }
 
     private void keepOnlyLastDistinctScreenSize(ParseContext ctx) {
         for (var filePart : ctx.markers) {
-            if (!"path".equals(filePart.name()) && !"whole".equals(filePart.name())) continue;
+            if (!MARKER_PATH.equals(filePart.name()) && !MARKER_WHOLE.equals(filePart.name())) continue;
 
             var inPart = ctx.matches.named(MatchName.SCREEN_SIZE)
                     .filter(m -> filePart.covers(m.start(), m.end()))
@@ -398,4 +311,6 @@ public final class ScreenSizeExtractor implements Extractor {
         }
         return List.of();
     }
+
+    private record PatternCacheKey(String type, List<String> list1, List<String> list2) {}
 }

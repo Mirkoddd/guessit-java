@@ -1,8 +1,5 @@
 package io.guessit.rules.extractors;
 
-import com.mirkoddd.sift.core.SiftGlobalFlag;
-import com.mirkoddd.sift.core.dsl.Fragment;
-import com.mirkoddd.sift.core.dsl.SiftPattern;
 import io.guessit.core.pipeline.phases.Chain;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
@@ -10,14 +7,13 @@ import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Validators;
+import io.guessit.core.text.patterns.SeasonEpisodePatterns;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.*;
 import static io.guessit.core.pipeline.state.MatchName.*;
 
 /**
@@ -66,163 +62,16 @@ public final class SeasonEpisodeExtractor implements Extractor {
     private static final int MAX_RANGE_GAP = 1;
     private static final int MAX_EXPAND_JUMP = 50;
 
-    private static final SiftPattern<Fragment> SEP_CHARS = anyOf(
-            literal(" "), literal("["), literal("]"), literal("("), literal(")"),
-            literal("{"), literal("}"), literal("+"), literal("*"), literal("|"),
-            literal("="), literal("_"), literal("~"), literal("#"), literal("."),
-            literal(","), literal(";"), literal(":"), literal("-")
-    );
-
-    private static final SiftPattern<Fragment> SEP_OPT = fromAnywhere().optional().of(SEP_CHARS);
-
-    private static final Pattern HEAD_S_E = buildHeadSePattern();
-    private static final Pattern TAIL_E = buildTailEPattern();
-    private static final Pattern HEAD_NUM_X = buildHeadNumXPattern();
-    private static final Pattern HEAD_E = buildHeadEPattern();
-    private static final Pattern TAIL_E_ONLY = buildTailEOnlyPattern();
-    private static final Pattern HEAD_S = buildHeadSPattern();
-    private static final Pattern TAIL_S = buildTailSPattern();
-    private static final Pattern HEAD_CAP = buildHeadCapPattern();
-    private static final Pattern S_EXTRAS = buildSExtrasPattern();
-    private static final Pattern SXX_ALL = buildSxxAllPattern();
-
-    private static Pattern buildHeadSePattern() {
-        var markers = anyOf(literal("e"), literal("ex"), literal("xe"), literal("ep"), literal("x"), literal("d"));
-
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .exactly(1).character('s')
-                .then().namedCapture(capture(SEASON_GROUP, oneOrMore().digits()))
-                .then().of(SEP_OPT)
-                .then().namedCapture(capture(EPISODE_MARKER_GROUP, markers))
-                .then().of(SEP_OPT)
-                .then().namedCapture(capture(EPISODE_GROUP, oneOrMore().digits()));
-
-        return Pattern.compile(sift.shake());
-    }
-
-    private static Pattern buildTailEPattern() {
-        var separators = anyOf(
-                literal("ex"), literal("xe"), literal("ep"), literal("and"), literal("et"),
-                literal("to"), literal("e"), literal("x"), literal("d"), literal("."),
-                literal("_"), literal(" "), literal("-"), literal("+"), literal("&"),
-                literal("a"), literal("~")
-        );
-
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .namedCapture(capture(EPISODE_SEP_GROUP, separators))
-                .then().optional().character('@')
-                .then().namedCapture(capture(EPISODE_GROUP, between(1, 4).digits()));
-
-        return Pattern.compile(sift.shake());
-    }
-
-    private static Pattern buildHeadNumXPattern() {
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .namedCapture(capture(SEASON_GROUP, oneOrMore().digits()))
-                .then().optional().character(' ')
-                .then().namedCapture(capture(EPISODE_MARKER_GROUP, literal("x")))
-                .then().optional().character(' ')
-                .then().namedCapture(capture(EPISODE_GROUP, oneOrMore().digits()));
-
-        return Pattern.compile(sift.shake());
-    }
-
-    private static Pattern buildHeadEPattern() {
-        var optSeason = fromAnywhere().namedCapture(capture(SEASON_GROUP, between(1, 2).digits()));
-
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .optional().of(optSeason)
-                .then().namedCapture(capture(EPISODE_MARKER_GROUP, literal("e")))
-                .then().namedCapture(capture(EPISODE_GROUP, between(1, 4).digits()));
-
-        return Pattern.compile(sift.shake());
-    }
-
-    private static Pattern buildTailEOnlyPattern() {
-        var separators = anyOf(literal("e"), literal("x"), literal("-"));
-
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .namedCapture(capture(EPISODE_SEP_GROUP, separators))
-                .then().namedCapture(capture(EPISODE_GROUP, between(1, 4).digits()));
-
-        return Pattern.compile(sift.shake());
-    }
-
-    private static Pattern buildHeadSPattern() {
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .exactly(1).character('s')
-                .then().namedCapture(capture(SEASON_GROUP, oneOrMore().digits()));
-
-        return Pattern.compile(sift.shake());
-    }
-
-    private static Pattern buildTailSPattern() {
-        var separators = anyOf(
-                literal("and"), literal("et"), literal("to"), literal("s"), literal("a"),
-                literal("-"), literal("+"), literal("&"), literal("~"), literal("."),
-                literal(" "), literal("_")
-        );
-
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .namedCapture(capture(SEASON_SEP_GROUP, separators))
-                .then().namedCapture(capture(SEASON_GROUP, oneOrMore().digits()));
-
-        return Pattern.compile(sift.shake());
-    }
-
-    private static Pattern buildHeadCapPattern() {
-        var gap = anyOf(literal(" "), literal("."), literal("_"), literal("-"));
-        var dashUnderscore = anyOf(literal("_"), literal("-"));
-
-        var sift2 = fromAnywhere()
-                .exactly(1).of(dashUnderscore)
-                .then().namedCapture(capture(SEASON2_GROUP, between(1, 2).digits()))
-                .then().namedCapture(capture(EPISODE2_GROUP, exactly(2).digits()));
-
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .namedCapture(capture(SEASON_MARKER_GROUP, literal("cap")))
-                .then().optional().of(gap)
-                .then().namedCapture(capture(SEASON_GROUP, between(1, 2).digits()))
-                .then().namedCapture(capture(EPISODE_GROUP, exactly(2).digits()))
-                .then().optional().of(sift2);
-
-        return Pattern.compile(sift.shake());
-    }
-
-    private static Pattern buildSExtrasPattern() {
-        var extrasWord = fromAnywhere().of(literal("Extra")).then().optional().character('s');
-
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .exactly(1).character('s')
-                .then().namedCapture(capture(SEASON_GROUP, oneOrMore().digits()))
-                .then().namedCapture(capture(EXTRAS_GROUP, extrasWord));
-
-        return Pattern.compile(sift.shake());
-    }
-
-    private static Pattern buildSxxAllPattern() {
-        var markers = anyOf(literal("xE"), literal("Ex"), literal("E"), literal("x"));
-
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .optional().character('S')
-                .then().namedCapture(capture(SEASON_GROUP, oneOrMore().digits()))
-                .then().optional().character('-')
-                .then().of(markers)
-                .then().optional().character('-')
-                .then().namedCapture(capture(ALL_GROUP, literal("All")));
-
-        return Pattern.compile(sift.shake());
-    }
+    private static final Pattern HEAD_S_E = SeasonEpisodePatterns.buildHeadSePattern(SEASON_GROUP, EPISODE_MARKER_GROUP, EPISODE_GROUP);
+    private static final Pattern TAIL_E = SeasonEpisodePatterns.buildTailEPattern(EPISODE_SEP_GROUP, EPISODE_GROUP);
+    private static final Pattern HEAD_NUM_X = SeasonEpisodePatterns.buildHeadNumXPattern(SEASON_GROUP, EPISODE_MARKER_GROUP, EPISODE_GROUP);
+    private static final Pattern HEAD_E = SeasonEpisodePatterns.buildHeadEPattern(SEASON_GROUP, EPISODE_MARKER_GROUP, EPISODE_GROUP);
+    private static final Pattern TAIL_E_ONLY = SeasonEpisodePatterns.buildTailEOnlyPattern(EPISODE_SEP_GROUP, EPISODE_GROUP);
+    private static final Pattern HEAD_S = SeasonEpisodePatterns.buildHeadSPattern(SEASON_GROUP);
+    private static final Pattern TAIL_S = SeasonEpisodePatterns.buildTailSPattern(SEASON_SEP_GROUP, SEASON_GROUP);
+    private static final Pattern HEAD_CAP = SeasonEpisodePatterns.buildHeadCapPattern(SEASON_MARKER_GROUP, SEASON_GROUP, EPISODE_GROUP, SEASON2_GROUP, EPISODE2_GROUP);
+    private static final Pattern S_EXTRAS = SeasonEpisodePatterns.buildSExtrasPattern(SEASON_GROUP, EXTRAS_GROUP);
+    private static final Pattern SXX_ALL = SeasonEpisodePatterns.buildSxxAllPattern(SEASON_GROUP, ALL_GROUP);
 
     @Override
     public String name() {

@@ -1,9 +1,5 @@
 package io.guessit.rules.extractors;
 
-import com.mirkoddd.sift.core.SiftGlobalFlag;
-import com.mirkoddd.sift.core.SiftPatterns;
-import com.mirkoddd.sift.core.dsl.Fragment;
-import com.mirkoddd.sift.core.dsl.SiftPattern;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
@@ -11,14 +7,12 @@ import io.guessit.core.text.PatternMatcher;
 import io.guessit.core.text.RegexOpts;
 import io.guessit.core.text.StringOpts;
 import io.guessit.core.text.Validators;
+import io.guessit.core.text.patterns.ContainerPatterns;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
-
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.*;
 
 /**
  * Extracts {@code container} (mkv, mp4, srt, …).
@@ -46,7 +40,7 @@ public final class ContainerExtractor implements Extractor {
 
     private static final String GRP_EXT = "ext";
 
-    private final ConcurrentMap<String, Pattern> patternCache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<List<String>, Pattern> patternCache = new ConcurrentHashMap<>();
 
     @Override
     public String name() {
@@ -108,14 +102,8 @@ public final class ContainerExtractor implements Extractor {
     private void extractExtensions(ParseContext ctx, String input, List<String> extensions, String kindTag) {
         if (extensions.isEmpty()) return;
 
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .exactly(1).character('.')
-                .then().namedCapture(capture(GRP_EXT, anyOfList(extensions)))
-                .andNothingElse();
-
-        String rawRegex = sift.shake();
-        Pattern p = patternCache.computeIfAbsent(rawRegex, s -> Pattern.compile(s, Pattern.CASE_INSENSITIVE));
+        Pattern p = patternCache.computeIfAbsent(extensions, extList ->
+                ContainerPatterns.buildExtensionPattern(GRP_EXT, extList));
 
         var opts = RegexOpts.defaults()
                 .withValue(s -> s.startsWith(".") ? s.substring(1).toLowerCase(Locale.ROOT) : s.toLowerCase(Locale.ROOT))
@@ -124,13 +112,6 @@ public final class ContainerExtractor implements Extractor {
         for (var m : PatternMatcher.regex(input, p, MatchName.CONTAINER, opts, ctx.trace)) {
             ctx.matches.add(m);
         }
-    }
-
-    private SiftPattern<Fragment> anyOfList(List<String> items) {
-        if (items.size() == 1) {
-            return literal(items.getFirst());
-        }
-        return anyOf(items.stream().map(SiftPatterns::literal).toList());
     }
 
     private static List<String> stringList(Object o) {

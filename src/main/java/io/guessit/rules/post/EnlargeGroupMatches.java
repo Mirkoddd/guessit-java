@@ -4,7 +4,6 @@ import io.guessit.core.pipeline.contracts.PostProcessor;
 import io.guessit.core.pipeline.state.Marker;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.ParseContext;
-import io.guessit.core.pipeline.phases.PostPhase;
 
 import java.util.ArrayList;
 

@@ -1,9 +1,5 @@
 package io.guessit.rules.extractors;
 
-import com.mirkoddd.sift.core.SiftPatterns;
-import com.mirkoddd.sift.core.dsl.Connector;
-import com.mirkoddd.sift.core.dsl.Fragment;
-import com.mirkoddd.sift.core.dsl.SiftPattern;
 import io.guessit.api.Options;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
@@ -12,15 +8,13 @@ import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Validators;
+import io.guessit.core.text.patterns.WebsitePatterns;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.*;
 
 /**
  * Extracts {@code website} (domain-shaped substrings).
@@ -61,47 +55,10 @@ public final class WebsiteExtractor implements Extractor {
 
         var tlds = loadTlds();
 
-        var tldOr = buildOrPattern(tlds);
-        var safeTldOr = buildOrPattern(safeTlds);
-        var safePrefixOr = buildOrPattern(safePrefixes);
-        var safePrefixPart = fromAnywhere().of(safePrefixOr);
-
-        var alphanumeric = exactly(1).alphanumeric();
-        var dash = exactly(1).character('-');
-        var domainPart = oneOrMore().of(anyOf(alphanumeric, dash));
-        var dot = exactly(1).character('.');
-        var domainPartWithTrailingDot = domainPart.followedBy(dot);
-        var wwwDot = literal("www.");
-
-        this.pattern1 = compileIsolatedUrl(
-                oneOrMore().of(wwwDot)
-                        .followedBy(oneOrMore().of(domainPartWithTrailingDot))
-                        .followedBy(tldOr)
-        );
-
-        this.pattern2 = compileIsolatedUrl(
-                zeroOrMore().of(wwwDot)
-                        .followedBy(domainPartWithTrailingDot)
-                        .followedBy(safeTldOr)
-        );
-
-        this.pattern3 = compileIsolatedUrl(
-                zeroOrMore().of(wwwDot)
-                        .followedBy(domainPartWithTrailingDot)
-                        .followedBy(oneOrMore().of(safePrefixPart.followedBy(dot)))
-                        .followedBy(tldOr)
-        );
-    }
-
-    private static Pattern compileIsolatedUrl(Connector<Fragment> urlCore) {
-        var alphanumeric = exactly(1).alphanumeric();
-        return safeCompile(
-                fromAnywhere()
-                        .namedCapture(capture(GRP_URL, urlCore))
-                        .notPrecededBy(alphanumeric)
-                        .notFollowedBy(alphanumeric)
-                        .shake()
-        );
+        var regexes = WebsitePatterns.buildPatterns(GRP_URL, tlds, safeTlds, safePrefixes);
+        this.pattern1 = regexes.safeSubdomainPattern();
+        this.pattern2 = regexes.safeTldPattern();
+        this.pattern3 = regexes.safePrefixPattern();
     }
 
     @Override
@@ -196,19 +153,6 @@ public final class WebsiteExtractor implements Extractor {
 
         return ctx.input.substring(m.end(), websiteMatch.start()).chars()
                 .anyMatch(c -> !Seps.isSep((char) c));
-    }
-
-    private static SiftPattern<Fragment> buildOrPattern(List<String> items) {
-        if (items.isEmpty()) return literal("(?!)");
-        return anyOf(items.stream().map(SiftPatterns::literal).toList());
-    }
-
-    private static Pattern safeCompile(String src) {
-        try {
-            return Pattern.compile(src, Pattern.CASE_INSENSITIVE);
-        } catch (Exception e) {
-            throw new IllegalStateException("Bad pattern: " + src, e);
-        }
     }
 
     private static List<String> loadTlds() {

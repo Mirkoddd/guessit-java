@@ -6,6 +6,7 @@ import io.guessit.rules.lang.LanguageRegistry;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashSet;
 import java.util.Locale;
@@ -20,19 +21,22 @@ import java.util.Set;
  * to the same key.
  */
 public final class Canonical {
+
+    private static final ZoneId UTC_ZONE = ZoneOffset.UTC;
+
     private Canonical() {}
 
     /**
      * Resolve {@code o} to a canonical form for equality comparison:
-     *  <ul>
-     *      <li>{@code null} → {@code "null"}</li>
-     *      <li>{@link Language} / {@link Country} → their {@link Object#toString()} (alpha code)</li>
-     *      <li>{@link String} → looked up in the language/country registries and rendered
-     *          as the matching alpha code; ambiguous 2-letter codes prefer country (e.g. "au"
-     *          → country Australia, not language Awadhi)</li>
-     *      <li>anything else → {@link Object#toString()}</li>
-     *  </ul>
-     *  The returned key is lowercased so case differences in YAML scalars don't break parity.
+     * <ul>
+     * <li>{@code null} → {@code "null"}</li>
+     * <li>{@link Language} / {@link Country} → their {@link Object#toString()} (alpha code)</li>
+     * <li>{@link String} → looked up in the language/country registries and rendered
+     * as the matching alpha code; ambiguous 2-letter codes prefer country (e.g. "au"
+     * → country Australia, not language Awadhi)</li>
+     * <li>anything else → {@link Object#toString()}</li>
+     * </ul>
+     * The returned key is lowercased so case differences in YAML scalars don't break parity.
      */
     public static String key(Object o) {
         return rawKey(o).toLowerCase(Locale.ROOT);
@@ -63,19 +67,23 @@ public final class Canonical {
                 return ld.format(DateTimeFormatter.ISO_LOCAL_DATE);
             }
             case java.util.Date d -> {
-                return d.toInstant().atZone(ZoneId.of("UTC")).format(DateTimeFormatter.ISO_LOCAL_DATE);
+                return d.toInstant().atZone(UTC_ZONE).format(DateTimeFormatter.ISO_LOCAL_DATE);
             }
             case String s -> {
                 var lower = s.toLowerCase(Locale.ROOT);
+                var registry = LanguageRegistry.instance(); // Dependency Injection locale
+
                 // Prefer country resolution for 2-letter codes that overlap with obscure language
                 // alpha-3 codes (e.g. "au" is country Australia, not language Awadhi).
                 if (lower.length() == 2) {
-                    var country = LanguageRegistry.instance().findCountry(lower).orElse(null);
+                    var country = registry.findCountry(lower).orElse(null);
                     if (country != null) return country.toString();
                 }
-                var lang = LanguageRegistry.instance().find(lower).orElse(null);
+
+                var lang = registry.find(lower).orElse(null);
                 if (lang != null) return lang.toString();
-                var country = LanguageRegistry.instance().findCountry(lower).orElse(null);
+
+                var country = registry.findCountry(lower).orElse(null);
                 if (country != null) return country.toString();
             }
             default -> {

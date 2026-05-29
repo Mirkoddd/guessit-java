@@ -1,7 +1,7 @@
 package io.guessit.rules.extractors;
 
 import io.guessit.core.pipeline.state.Priority;
-import io.guessit.rules.date.DatePatterns;
+import io.guessit.rules.date.DateOrchestrator;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
@@ -10,7 +10,7 @@ import io.guessit.core.pipeline.state.ParseContext;
 import java.util.Set;
 
 /**
- * Extracts {@code date} via {@link DatePatterns#search}.
+ * Extracts {@code date} via {@link DateOrchestrator#search}.
  *
  * <p>Priority 1100 (above the default 1000) so the date wins overlap against
  * the year/season/episode digits embedded inside it. The post-pass
@@ -43,7 +43,7 @@ public final class DateExtractor implements Extractor {
 
         var input = ctx.input;
 
-        DatePatterns.search(input, ctx.options.dateYearFirst(), ctx.options.dateDayFirst())
+        DateOrchestrator.search(input, ctx.options.dateYearFirst(), ctx.options.dateDayFirst())
                 .ifPresent(r -> ctx.matches.add(new Match(
                         MatchName.DATE, r.date(), r.start(), r.end(),
                         input.substring(r.start(), r.end()), priority(), Set.of(), false)

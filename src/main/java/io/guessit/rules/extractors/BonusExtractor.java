@@ -8,6 +8,7 @@ import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Formatters;
 import io.guessit.core.text.Validators;
+import io.guessit.core.text.patterns.BonusPatterns;
 
 import java.util.Optional;
 import java.util.Set;
@@ -31,16 +32,7 @@ public final class BonusExtractor implements Extractor {
     public static final String WEAK_EPISODE = "weak-episode";
     private static final String GRP_NAME = "name";
     private static final String MARKER_PATH = "path";
-    private static final Pattern P = buildPattern();
-
-    private static Pattern buildPattern() {
-        var sift = filteringWith(SiftGlobalFlag.CASE_INSENSITIVE)
-                .fromAnywhere()
-                .exactly(1).character('x')
-                .then().namedCapture(capture(GRP_NAME, oneOrMore().digits()));
-
-        return Pattern.compile(sift.shake());
-    }
+    private static final Pattern P = BonusPatterns.buildPattern(GRP_NAME);
 
     @Override
     public String name() {

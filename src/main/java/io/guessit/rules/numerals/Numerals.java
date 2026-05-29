@@ -3,6 +3,8 @@ package io.guessit.rules.numerals;
 import com.mirkoddd.sift.core.dsl.Fragment;
 import com.mirkoddd.sift.core.dsl.SiftPattern;
 import com.mirkoddd.sift.core.engine.SiftCompiledPattern;
+import io.guessit.core.text.patterns.DigitNumeralPatterns;
+import io.guessit.core.text.patterns.RomanNumeralPatterns;
 
 import java.util.EnumSet;
 import java.util.Objects;
@@ -34,8 +36,8 @@ public final class Numerals {
     private static final WordNumerals WORD_PARSER = new WordNumerals();
 
     public static final SiftPattern<Fragment> NUMERAL_PATTERN = anyOf(
-            DigitNumerals.PATTERN,
-            RomanNumerals.PATTERN,
+            DigitNumeralPatterns.buildBasePattern(),
+            RomanNumeralPatterns.buildBasePattern(),
             WordNumerals.PATTERN
     );
 

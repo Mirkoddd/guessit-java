@@ -9,6 +9,7 @@ import io.guessit.core.text.PatternMatcher;
 import io.guessit.core.text.RegexOpts;
 import io.guessit.core.text.StringOpts;
 import io.guessit.core.text.Validators;
+import io.guessit.core.text.patterns.VideoCodecPatterns;
 
 import java.util.Set;
 import java.util.function.Predicate;
@@ -59,7 +60,7 @@ public final class VideoCodecExtractor implements Extractor {
         var optsBase = RegexOpts.defaults().withValidator(validator);
         var tags = Set.of("source-suffix", "streaming_service.suffix");
 
-        for (var rule : VideoCodecRules.CODEC_RULES) {
+        for (var rule : VideoCodecPatterns.CODEC_RULES) {
             var opts = optsBase.withValue(_ -> rule.value());
             for (var m : PatternMatcher.regex(ctx.input, rule.pattern(), VIDEO_CODEC_NAME, opts, ctx.trace)) {
                 ctx.matches.add(new Match(VIDEO_CODEC_NAME, m.value(), m.start(), m.end(), m.raw(), m.priority(), tags, false));
@@ -68,14 +69,14 @@ public final class VideoCodecExtractor implements Extractor {
     }
 
     private void extractHevc10(ParseContext ctx) {
-        var m = VideoCodecRules.P_HEVC10.matcher(ctx.input);
+        var m = VideoCodecPatterns.P_HEVC10.matcher(ctx.input);
         while (m.find()) {
-            int cStart = m.start(VideoCodecRules.GRP_C);
-            int cEnd = m.end(VideoCodecRules.GRP_C);
-            int dStart = m.start(VideoCodecRules.GRP_D);
-            int dEnd = m.end(VideoCodecRules.GRP_D);
-            String cRaw = m.group(VideoCodecRules.GRP_C);
-            String dRaw = m.group(VideoCodecRules.GRP_D);
+            int cStart = m.start(VideoCodecPatterns.GRP_C);
+            int cEnd = m.end(VideoCodecPatterns.GRP_C);
+            int dStart = m.start(VideoCodecPatterns.GRP_D);
+            int dEnd = m.end(VideoCodecPatterns.GRP_D);
+            String cRaw = m.group(VideoCodecPatterns.GRP_C);
+            String dRaw = m.group(VideoCodecPatterns.GRP_D);
 
             var dummy = new Match(MatchName.DUMMY, "", cStart, cEnd, cRaw, Priority.NONE, Set.of(), false);
             if (Validators.sepsBefore(ctx.input).test(dummy)) {
@@ -97,14 +98,14 @@ public final class VideoCodecExtractor implements Extractor {
         var strOptsBase = StringOpts.defaults().withValidator(validator);
         var tagsTagged = Set.of(VIDEO_PROFILE_RULE_TAG);
 
-        for (var rule : VideoCodecRules.PROFILE_STR_RULES) {
+        for (var rule : VideoCodecPatterns.PROFILE_STR_RULES) {
             for (var m : PatternMatcher.string(ctx.input, rule.aliases(), VIDEO_PROFILE_NAME, strOptsBase, ctx.trace)) {
                 ctx.matches.add(new Match(VIDEO_PROFILE_NAME, rule.value(), m.start(), m.end(), m.raw(), m.priority(), tagsTagged, false));
             }
         }
 
         var regexOptsBase = RegexOpts.defaults().withValidator(validator);
-        for (var rule : VideoCodecRules.PROFILE_REGEX_RULES) {
+        for (var rule : VideoCodecPatterns.PROFILE_REGEX_RULES) {
             var opts = regexOptsBase.withValue(_ -> rule.value());
             for (var m : PatternMatcher.regex(ctx.input, rule.pattern(), VIDEO_PROFILE_NAME, opts, ctx.trace)) {
                 var tags = rule.isTagged() ? tagsTagged : Set.<String>of();
@@ -115,7 +116,7 @@ public final class VideoCodecExtractor implements Extractor {
 
     private void extractColorDepths(ParseContext ctx, Predicate<Match> validator) {
         var optsBase = RegexOpts.defaults().withValidator(validator);
-        for (var rule : VideoCodecRules.COLOR_DEPTH_RULES) {
+        for (var rule : VideoCodecPatterns.COLOR_DEPTH_RULES) {
             var opts = optsBase.withValue(_ -> rule.value());
             for (var m : PatternMatcher.regex(ctx.input, rule.pattern(), COLOR_DEPTH_NAME, opts, ctx.trace)) {
                 ctx.matches.add(m);

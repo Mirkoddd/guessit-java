@@ -19,6 +19,7 @@ import java.util.stream.IntStream;
 import static com.mirkoddd.sift.core.Sift.*;
 import static com.mirkoddd.sift.core.Sift.between;
 import static com.mirkoddd.sift.core.SiftPatterns.*;
+import static io.guessit.core.text.patterns.WeakEpisodePatterns.*;
 
 /**
  * Extracts weak {@code episode} candidates from bare numerics. Priority 800
@@ -58,24 +59,13 @@ public final class WeakEpisodeExtractor implements Extractor {
             MatchName.AUDIO_CODEC, MatchName.SCREEN_SIZE, MatchName.STREAMING_SERVICE,
             MatchName.SOURCE, MatchName.VIDEO_PROFILE, MatchName.AUDIO_CHANNELS, MatchName.AUDIO_PROFILE);
 
-    private static final SiftPattern<Fragment> OPT_VERSION = optional().of(
-            exactly(1).character('v').then().oneOrMore().digits()
-    );
 
-    private static Pattern buildPattern(Connector<Fragment> digits) {
-        return Pattern.compile(
-                fromAnywhere()
-                        .namedCapture(capture(GRP_EP, digits))
-                        .notPrecededBy(exactly(1).digits())
-                        .followedBy(OPT_VERSION)
-                        .notFollowedBy(exactly(1).digits())
-                        .shake()
-        );
-    }
 
-    private static final Pattern TWO_DIGIT = buildPattern(exactly(2).digits());
-    private static final Pattern THREE_OR_FOUR = buildPattern(between(3, 4).digits());
-    private static final Pattern SINGLE = buildPattern(exactly(1).digits());
+
+
+    private static final Pattern TWO_DIGIT = buildPatternTwoDigits(GRP_EP);
+    private static final Pattern THREE_OR_FOUR = buildPatternThreeOrFourDigits(GRP_EP);
+    private static final Pattern SINGLE = buildPatternSingleDigit(GRP_EP);
 
     @Override
     public String name() {

@@ -4,22 +4,37 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Validators;
+import io.guessit.core.text.patterns.SourcePatterns;
+import io.guessit.core.text.patterns.SourcePatterns.SourceRule;
 
 import java.util.Comparator;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 
-import static com.mirkoddd.sift.core.Sift.fromAnywhere;
-import static com.mirkoddd.sift.core.Sift.optional;
-import static com.mirkoddd.sift.core.SiftPatterns.capture;
-import static com.mirkoddd.sift.core.SiftPatterns.literal;
-
 public final class SourceExtractor implements Extractor {
 
-    private static final String SOURCE = "source";
-    private static final String OTHER = "other";
-    public static final String BLU_RAY = "Blu-ray";
+    public static final String SOURCE = "source";
+
+    private static final String GRP_OTHER = "other";
+    private static final String GRP_ANOTHER = "another";
+
+    private static final String CONF_RIP_PREFIX = "rip_prefix";
+    private static final String CONF_RIP_SUFFIX = "rip_suffix";
+
+    private static final String TAG_COEXIST = "coexist";
+    private static final String TAG_DERIVED_FROM_SOURCE = "derivedFrom:source";
+    private static final String TAG_EXTENSION = "extension";
+    private static final String TAG_SOURCE_PREFIX = "source-prefix";
+    private static final String TAG_SOURCE_SUFFIX = "source-suffix";
+    private static final String TAG_WEAK_SOURCE = "weak.source";
+    private static final String TAG_UHD_BLURAY_NEIGHBOR = "uhdbluray-neighbor";
+
+    private static final String VAL_ULTRA_HD_BLURAY = "Ultra HD Blu-ray";
+    private static final String VAL_ULTRA_HD = "Ultra HD";
+    private static final String VAL_2160P = "2160p";
+    private static final String VAL_BLU_RAY = "Blu-ray";
+    private static final String MARKER_PATH = "path";
 
     @Override
     public String name() {
@@ -35,23 +50,18 @@ public final class SourceExtractor implements Extractor {
     public void extract(ParseContext ctx) {
         var section = ctx.config.section(SOURCE);
 
-        var otherCapture = capture(OTHER, literal("Rip"));
-        var optionalDash = optional().character('-');
-        var s1 = fromAnywhere().namedCapture(otherCapture).followedBy(optionalDash);
-        var s2 = fromAnywhere().of(optionalDash).then().namedCapture(otherCapture);
+        Object rawPrefix = section.getOrDefault(CONF_RIP_PREFIX, null);
+        Object rawSuffix = section.getOrDefault(CONF_RIP_SUFFIX, null);
 
-        var ripPrefix = String.valueOf(section.getOrDefault("rip_prefix", s1.shake()));
-        var ripSuffix = String.valueOf(section.getOrDefault("rip_suffix", s2.shake()));
-        var optRipSuffix = "(?:" + ripSuffix + ")?";
+        String customPrefix = rawPrefix != null ? String.valueOf(rawPrefix) : null;
+        String customSuffix = rawSuffix != null ? String.valueOf(rawSuffix) : null;
 
-        var rules = SourceRuleRegistry.buildRules(ripPrefix, ripSuffix, optRipSuffix);
+        var rules = SourcePatterns.buildRules(customPrefix, customSuffix);
 
-        for (var rule : rules) {
-            apply(ctx, rule);
-        }
+        rules.forEach(rule -> apply(ctx, rule));
     }
 
-    private static void apply(ParseContext ctx, SourceRuleRegistry.Rule rule) {
+    private static void apply(ParseContext ctx, SourceRule rule) {
         var input = ctx.input;
         var validator = Validators.sepsBefore(input).or(Validators.sepsAfter(input));
         var matcher = rule.compiledPattern().matcher(input);
@@ -61,7 +71,7 @@ public final class SourceExtractor implements Extractor {
         }
     }
 
-    private static void applyOneMatch(ParseContext ctx, String input, SourceRuleRegistry.Rule rule,
+    private static void applyOneMatch(ParseContext ctx, String input, SourceRule rule,
                                       Predicate<Match> validator, Matcher matcher) {
         int s = matcher.start();
         int e = matcher.end();
@@ -79,8 +89,8 @@ public final class SourceExtractor implements Extractor {
         }
 
         ctx.matches.add(sourceMatch);
-        addDerivedOther(ctx, input, matcher, OTHER, rule.otherValue());
-        addDerivedOther(ctx, input, matcher, "another", rule.anotherValue());
+        addDerivedOther(ctx, input, matcher, GRP_OTHER, rule.otherValue());
+        addDerivedOther(ctx, input, matcher, GRP_ANOTHER, rule.anotherValue());
     }
 
     private static void addDerivedOther(ParseContext ctx, String input, Matcher matcher,
@@ -90,13 +100,13 @@ public final class SourceExtractor implements Extractor {
         int ge = groupEnd(matcher, groupName);
         if (gs >= 0 && ge > gs) {
             ctx.matches.add(new Match(MatchName.OTHER, value, gs, ge,
-                    input.substring(gs, ge), Priority.DEFAULT, Set.of("coexist", "derivedFrom:source"), false));
+                    input.substring(gs, ge), Priority.DEFAULT, Set.of(TAG_COEXIST, TAG_DERIVED_FROM_SOURCE), false));
         }
     }
 
     private static boolean overlapsExtension(ParseContext ctx, int s, int e) {
         return ctx.matches.named(MatchName.CONTAINER)
-                .anyMatch(m -> m.tags().contains("extension") && m.start() < e && s < m.end());
+                .anyMatch(m -> m.tags().contains(TAG_EXTENSION) && m.start() < e && s < m.end());
     }
 
     private static int groupStart(Matcher m, String name) {
@@ -121,19 +131,19 @@ public final class SourceExtractor implements Extractor {
         var sepsAfter = Validators.sepsAfter(ctx.input);
 
         ctx.matches.named(MatchName.SOURCE)
-                .filter(s -> (!sepsBefore.test(s) && noNeighborTag(ctx, s.start() - 1, "source-prefix")) ||
-                        (!sepsAfter.test(s) && noNeighborTag(ctx, s.end(), "source-suffix")))
+                .filter(s -> (!sepsBefore.test(s) && noNeighborTag(ctx, s.start() - 1, TAG_SOURCE_PREFIX)) ||
+                        (!sepsAfter.test(s) && noNeighborTag(ctx, s.end(), TAG_SOURCE_SUFFIX)))
                 .toList()
                 .forEach(ctx.matches::remove);
     }
 
     private void validateWeakSource(ParseContext ctx) {
         var pathMarkers = ctx.markers.stream()
-                .filter(m -> "path".equals(m.name()))
+                .filter(m -> MARKER_PATH.equals(m.name()))
                 .toList();
 
         ctx.matches.named(MatchName.SOURCE)
-                .filter(m -> m.tags().contains("weak.source"))
+                .filter(m -> m.tags().contains(TAG_WEAK_SOURCE))
                 .filter(weak -> pathMarkers.stream().anyMatch(fp -> shouldRemoveWeakSource(ctx, fp, weak)))
                 .toList()
                 .forEach(ctx.matches::remove);
@@ -151,11 +161,11 @@ public final class SourceExtractor implements Extractor {
 
     private void upgradeUltraHdBluray(ParseContext ctx) {
         var pathMarkers = ctx.markers.stream()
-                .filter(m -> "path".equals(m.name()))
+                .filter(m -> MARKER_PATH.equals(m.name()))
                 .toList();
 
         ctx.matches.named(MatchName.SOURCE)
-                .filter(m -> BLU_RAY.equals(m.value()))
+                .filter(m -> VAL_BLU_RAY.equals(m.value()))
                 .toList()
                 .forEach(bd -> pathMarkers.stream()
                         .filter(fp -> fp.covers(bd.start(), bd.end()))
@@ -179,13 +189,13 @@ public final class SourceExtractor implements Extractor {
 
         if (uhdOther != null) ctx.matches.remove(uhdOther);
 
-        ctx.matches.replace(bd, new Match(MatchName.SOURCE, "Ultra HD Blu-ray",
+        ctx.matches.replace(bd, new Match(MatchName.SOURCE, VAL_ULTRA_HD_BLURAY,
                 bd.start(), bd.end(), bd.raw(), bd.priority(), bd.tags(), bd.isPrivate()));
     }
 
     private static boolean has2160p(ParseContext ctx, Marker filePart) {
         return ctx.matches.named(MatchName.SCREEN_SIZE)
-                .anyMatch(m -> "2160p".equals(m.value()) && filePart.covers(m.start(), m.end()));
+                .anyMatch(m -> VAL_2160P.equals(m.value()) && filePart.covers(m.start(), m.end()));
     }
 
     private static Match findUltraHd(ParseContext ctx, int start, int end, boolean preferLast) {
@@ -198,7 +208,7 @@ public final class SourceExtractor implements Extractor {
     }
 
     private static boolean isUltraHdCandidateInRange(Match m, int start, int end) {
-        return !m.isPrivate() && "Ultra HD".equals(m.value()) && m.start() >= start && m.end() <= end;
+        return !m.isPrivate() && VAL_ULTRA_HD.equals(m.value()) && m.start() >= start && m.end() <= end;
     }
 
     private static boolean validRange(ParseContext ctx, int s, int e) {
@@ -214,7 +224,7 @@ public final class SourceExtractor implements Extractor {
     private static boolean isAllowedMatch(Match m) {
         return m.name() == MatchName.SCREEN_SIZE
                 || m.name() == MatchName.COLOR_DEPTH
-                || (m.name() == MatchName.OTHER && m.tags().contains("uhdbluray-neighbor"));
+                || (m.name() == MatchName.OTHER && m.tags().contains(TAG_UHD_BLURAY_NEIGHBOR));
     }
 
     private static boolean hasNonSeparatorHoles(ParseContext ctx, int s, int e) {
