@@ -19,7 +19,7 @@ public final class PrintTrace implements Trace {
 
     public static String formatMatch(Match m) {
         var sb = new StringBuilder();
-        sb.append(m.raw()).append(':').append('(').append(m.start()).append(',').append(m.end()).append(')');
+        sb.append(m.span().raw()).append(':').append('(').append(m.span().start()).append(',').append(m.span().end()).append(')');
         if (m.isPrivate()) sb.append("+private");
         sb.append("+name=").append(m.name().name().toLowerCase(java.util.Locale.ROOT));
         if (m.priority() != Priority.DEFAULT) sb.append("+priority=").append(m.priority().getScore());

@@ -4,6 +4,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 import io.guessit.api.models.BitRate;
 import io.guessit.core.text.patterns.BitRatePatterns;
@@ -57,20 +58,18 @@ public final class BitRateExtractor implements Extractor {
     }
 
     private void tryAddBitRate(ParseContext ctx, Matcher matcher, Predicate<Match> seps, List<Match> channels) {
-        int start = matcher.start(GRP_RAW);
-        int end = matcher.end(GRP_RAW);
-        String raw = matcher.group(GRP_RAW);
+        var span = new Span(matcher.start(GRP_RAW), matcher.end(GRP_RAW), matcher.group(GRP_RAW));
 
-        var head = new Match(MatchName.AUDIO_BIT_RATE, null, start, end, raw, priority(), Set.of(), false);
+        var head = new Match(MatchName.AUDIO_BIT_RATE, null, span, priority(), Set.of(), false);
         if (!seps.test(head)) return;
 
-        if (overlapsAny(start, end, channels)) return;
+        if (overlapsAny(span.start(), span.end(), channels)) return;
 
-        ctx.matches.add(new Match(MatchName.AUDIO_BIT_RATE, BitRate.fromString(raw), start, end, raw,
+        ctx.matches.add(new Match(MatchName.AUDIO_BIT_RATE, BitRate.fromString(span.raw()), span,
                 priority(), Set.of(TAG_RELEASE_GROUP_PREFIX), false));
     }
 
     private static boolean overlapsAny(int start, int end, List<Match> spans) {
-        return spans.stream().anyMatch(sp -> start < sp.end() && sp.start() < end);
+        return spans.stream().anyMatch(sp -> start < sp.span().end() && sp.span().start() < end);
     }
 }

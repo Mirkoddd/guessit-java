@@ -3,6 +3,7 @@ package io.guessit.engine;
 import io.guessit.api.GuessResultBuilder;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.text.Span;
 import io.guessit.core.trace.DebugTrace;
 import org.junit.jupiter.api.Test;
 
@@ -11,6 +12,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class DebugTraceTest {
+
+    private static final Match YEAR_MATCH = Match.of(MatchName.YEAR, 2020, new Span(4, 8, "2020"));
 
     @Test
     void inputHeader() {
@@ -89,7 +92,7 @@ class DebugTraceTest {
     void spansNotRenderedWhenToggleDisabled() {
         var sb = new StringBuilder();
         var t = new DebugTrace(sb);
-        t.spans("XxX.2020.mkv", List.of(Match.of(MatchName.YEAR, 2020, 4, 8, "2020")), List.of());
+        t.spans("XxX.2020.mkv", List.of(YEAR_MATCH), List.of());
         assertThat(sb.toString()).isEmpty();
     }
 
@@ -97,7 +100,7 @@ class DebugTraceTest {
     void spansRenderedWhenToggleEnabled() {
         var sb = new StringBuilder();
         var t = new DebugTrace(sb, true);
-        t.spans("XxX.2020.mkv", List.of(Match.of(MatchName.YEAR, 2020, 4, 8, "2020")), List.of());
+        t.spans("XxX.2020.mkv", List.of(YEAR_MATCH), List.of());
         assertThat(sb.toString()).contains("XxX.2020.mkv");
         assertThat(sb.toString()).contains("year");
     }

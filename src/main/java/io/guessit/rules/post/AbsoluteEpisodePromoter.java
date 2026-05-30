@@ -3,6 +3,7 @@ package io.guessit.rules.post;
 import io.guessit.core.pipeline.contracts.PostProcessor;
 import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Seps;
+import io.guessit.core.text.Span;
 
 import java.util.*;
 
@@ -42,7 +43,7 @@ public final class AbsoluteEpisodePromoter implements PostProcessor {
     private static void absoluteRangeFill(ParseContext ctx) {
         var absEps = ctx.matches.named(MatchName.ABSOLUTE_EPISODE)
                 .filter(m -> m.value() instanceof Integer)
-                .sorted(Comparator.comparingInt(Match::start))
+                .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
 
         var fills = new ArrayList<Match>();
@@ -68,9 +69,9 @@ public final class AbsoluteEpisodePromoter implements PostProcessor {
     private static boolean isFillableGap(String input, Match a, Match b, int va, int vb) {
         if (vb <= va + 1) return false;
         if (vb - va - 1 > MAX_ABS_RANGE) return false;
-        if (b.start() <= a.end()) return false;
+        if (b.span().start() <= a.span().end()) return false;
 
-        var gapText = input.substring(a.end(), b.start());
+        var gapText = input.substring(a.span().end(), b.span().start());
         return isSepRange(gapText);
     }
 
@@ -80,9 +81,7 @@ public final class AbsoluteEpisodePromoter implements PostProcessor {
             fills.add(new Match(
                     MatchName.ABSOLUTE_EPISODE,
                     v,
-                    b.start(),
-                    b.start(),
-                    "",
+                    new Span(b.span().start(), b.span().start(), ""),
                     a.priority(),
                     Set.of(TAG_RANGE_FILL),
                     false
@@ -119,14 +118,14 @@ public final class AbsoluteEpisodePromoter implements PostProcessor {
 
     private static boolean hasSxxExxEpisode(ParseContext ctx, Marker fp) {
         return ctx.matches.named(MatchName.EPISODE)
-                .anyMatch(m -> m.tags().contains(TAG_SXX_EXX) && m.start() >= fp.start() && m.end() <= fp.end());
+                .anyMatch(m -> m.tags().contains(TAG_SXX_EXX) && fp.covers(m.span()));
     }
 
     private static List<Match> collectEpisodesInFilePart(ParseContext ctx, Marker fp) {
         return ctx.matches.snapshot().stream()
                 .filter(m -> m.name() == MatchName.EPISODE && !m.isPrivate())
-                .filter(m -> m.start() >= fp.start() && m.end() <= fp.end())
-                .sorted(Comparator.comparingInt(Match::start))
+                .filter(m -> fp.covers(m.span()))
+                .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
     }
 
@@ -155,36 +154,36 @@ public final class AbsoluteEpisodePromoter implements PostProcessor {
 
         return clusters.values().stream()
                 .filter(g -> g.size() >= 2)
-                .sorted(Comparator.comparingInt(g -> g.stream().mapToInt(Match::end).max().orElse(0)))
+                .sorted(Comparator.comparingInt(g -> g.stream().mapToInt(m -> m.span().end()).max().orElse(0)))
                 .toList();
     }
 
     private static Marker enclosingGroupMarker(ParseContext ctx, Match m) {
         return ctx.markers.stream()
-                .filter(g -> "group".equals(g.name()) && g.start() <= m.start() && g.end() >= m.end())
+                .filter(g -> "group".equals(g.name()) && g.covers(m.span()))
                 .findFirst()
                 .orElse(null);
     }
 
     private static Object resolveNonEncKey(ParseContext ctx, Match e, Map<Object, List<Match>> clusters, Object lastNonEncKey) {
-        Object newKey = NOENC_PREFIX + e.start();
+        Object newKey = NOENC_PREFIX + e.span().start();
         if (lastNonEncKey == null) return newKey;
 
         var prevGroup = clusters.get(lastNonEncKey);
         if (prevGroup == null || prevGroup.isEmpty()) return newKey;
 
-        int prevEnd = prevGroup.stream().mapToInt(Match::end).max().orElse(0);
-        if (prevEnd > e.start()) return newKey;
+        int prevEnd = prevGroup.stream().mapToInt(m -> m.span().end()).max().orElse(0);
+        if (prevEnd > e.span().start()) return newKey;
 
-        var gap = ctx.input.substring(prevEnd, e.start());
+        var gap = ctx.input.substring(prevEnd, e.span().start());
         if (gap.length() > MAX_NON_ENC_GAP || !isSepOnly(gap)) return newKey;
 
         return lastNonEncKey;
     }
 
     private static boolean gapBetweenGroupsIsSepOnly(ParseContext ctx, List<Match> lower, List<Match> higher) {
-        int gapStart = lower.stream().mapToInt(Match::end).max().orElse(0);
-        int gapEnd = higher.stream().mapToInt(Match::start).min().orElse(ctx.input.length());
+        int gapStart = lower.stream().mapToInt(m -> m.span().end()).max().orElse(0);
+        int gapEnd = higher.stream().mapToInt(m -> m.span().start()).min().orElse(ctx.input.length());
 
         return gapEnd >= gapStart && isSepOnly(ctx.input.substring(gapStart, gapEnd));
     }

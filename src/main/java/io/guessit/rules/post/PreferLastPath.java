@@ -23,7 +23,7 @@ import java.util.Set;
  */
 public final class PreferLastPath implements PostProcessor {
     private static final java.util.Set<MatchName> TITLE_FAMILY =
-        java.util.Set.of(MatchName.TITLE, MatchName.ALTERNATIVE_TITLE, MatchName.EPISODE_TITLE);
+            java.util.Set.of(MatchName.TITLE, MatchName.ALTERNATIVE_TITLE, MatchName.EPISODE_TITLE);
 
     @Override
     public String description() {
@@ -33,41 +33,40 @@ public final class PreferLastPath implements PostProcessor {
     @Override
     public void process(ParseContext ctx) {
         var paths = ctx.markers.stream()
-            .filter(m -> "path".equals(m.name()))
-            .sorted(Comparator.comparingInt(Marker::start))
-            .toList();
+                .filter(m -> "path".equals(m.name()))
+                .sorted(Comparator.comparingInt(m -> m.span().start()))
+                .toList();
         if (paths.size() < 2) return;
         var last = paths.getLast();
         var inLastValues = collectLastFilepartValues(ctx, last);
         if (inLastValues.isEmpty()) return;
         var toDrop = ctx.matches.all()
-            .filter(m -> !m.isPrivate())
-            .filter(m -> m.end() <= last.start())
-            .filter(m -> inLastValues.containsKey(m.name()))
-            // Only drop when the inner filepart's same-named match has a
-            // DIFFERENT value. When values match, keep the outer match so
-            // marker_sorted still credits the outer filepart for that name.
-            .filter(m -> !inLastValues.get(m.name()).contains(m.value()))
-            .filter(m -> shouldDropTitleFamilyDup(m, inLastValues))
-            // Preserve titles that survived preferTitleWithYear.
-            .filter(m -> !(m.name() == MatchName.TITLE && m.tags().contains("equivalent-ignore")))
-            .filter(m -> shouldDropSeasonEpisodeOuter(m, ctx, last))
-            .toList();
+                .filter(m -> !m.isPrivate())
+                .filter(m -> m.span().end() <= last.span().start())
+                .filter(m -> inLastValues.containsKey(m.name()))
+                // Only drop when the inner filepart's same-named match has a
+                // DIFFERENT value. When values match, keep the outer match so
+                // marker_sorted still credits the outer filepart for that name.
+                .filter(m -> !inLastValues.get(m.name()).contains(m.value()))
+                .filter(m -> shouldDropTitleFamilyDup(m, inLastValues))
+                // Preserve titles that survived preferTitleWithYear.
+                .filter(m -> !(m.name() == MatchName.TITLE && m.tags().contains("equivalent-ignore")))
+                .filter(m -> shouldDropSeasonEpisodeOuter(m, ctx, last))
+                .toList();
         for (var m : toDrop) ctx.matches.remove(m);
     }
 
     /** Map name -> set of values present in the last filepart. */
     private static Map<MatchName, Set<Object>> collectLastFilepartValues(ParseContext ctx, Marker last) {
         var values = new EnumMap<MatchName, Set<Object>>(MatchName.class);
-        ctx.matches.all()
-            .filter(m -> !m.isPrivate())
-            .filter(m -> m.start() >= last.start() && m.end() <= last.end())
-            .forEach(m -> values.computeIfAbsent(m.name(), _ -> new HashSet<>()).add(m.value()));
+        ctx.matches.inMarker(last)
+                .filter(m -> !m.isPrivate())
+                .forEach(m -> values.computeIfAbsent(m.name(), _ -> new HashSet<>()).add(m.value()));
         return values;
     }
 
     /** For title-family names: treat case-insensitively-equal values as duplicates
-     *  so the outer's titlecase variant survives over the inner's lowercase. */
+     * so the outer's titlecase variant survives over the inner's lowercase. */
     private static boolean shouldDropTitleFamilyDup(Match m, Map<MatchName, Set<Object>> inLastValues) {
         if (!TITLE_FAMILY.contains(m.name())) return true;
         if (!(m.value() instanceof String mv)) return true;
@@ -79,14 +78,13 @@ public final class PreferLastPath implements PostProcessor {
     }
 
     /** Preserve outer SxxExx-tagged season/episode when last filepart has only
-     *  non-SxxExx matches for that name (palindrome-tail safety). */
+     * non-SxxExx matches for that name (palindrome-tail safety). */
     private static boolean shouldDropSeasonEpisodeOuter(Match m, ParseContext ctx, Marker last) {
         if (m.name() != MatchName.SEASON && m.name() != MatchName.EPISODE) return true;
         if (!m.tags().contains("SxxExx")) return true;
-        return ctx.matches.snapshot().stream()
-            .filter(s -> !s.isPrivate())
-            .filter(s -> m.name().equals(s.name()))
-            .filter(s -> s.start() >= last.start() && s.end() <= last.end())
-            .anyMatch(s -> s.tags().contains("SxxExx"));
+        return ctx.matches.inMarker(last)
+                .filter(s -> !s.isPrivate())
+                .filter(s -> m.name().equals(s.name()))
+                .anyMatch(s -> s.tags().contains("SxxExx"));
     }
 }

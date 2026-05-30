@@ -61,7 +61,8 @@ public final class PatternMatcher {
             Object extracted = opts.valueExtractor().apply(valueText);
             Object formatted = opts.valueFormatter().apply(extracted);
 
-            var match = new Match(name, formatted, start, end, raw, opts.priority(), opts.tags(), opts.isPrivate());
+            var span = new Span(start, end, raw);
+            var match = new Match(name, formatted, span, opts.priority(), opts.tags(), opts.isPrivate());
 
             if (opts.validator().test(match)) {
                 out.add(match);
@@ -82,7 +83,7 @@ public final class PatternMatcher {
                     var n = opts.caseSensitive() ? raw : raw.toLowerCase(java.util.Locale.ROOT);
                     return scanNeedle(input, hay, raw, n, name, opts, trace).stream();
                 })
-                .sorted(Comparator.comparingInt(Match::start))
+                .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
     }
 
@@ -97,8 +98,9 @@ public final class PatternMatcher {
             boolean wordOk = !opts.wholeWord() || isWordBoundary(hay, idx, end);
 
             if (wordOk) {
-                var match = new Match(name, raw, idx, end, input.substring(idx, end),
-                        opts.priority(), opts.tags(), opts.isPrivate());
+                var rawInput = input.substring(idx, end);
+                var span = new Span(idx, end, rawInput);
+                var match = new Match(name, raw, span, opts.priority(), opts.tags(), opts.isPrivate());
 
                 if (opts.validator().test(match)) {
                     matches.add(match);

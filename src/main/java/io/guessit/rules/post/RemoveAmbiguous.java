@@ -41,19 +41,18 @@ public class RemoveAmbiguous implements PostProcessor {
         // valuable filepart first), so its values win when later fileparts
         // have differently-valued same-named matches.
         var pathsSorted = ctx.markers.stream()
-            .filter(m -> "path".equals(m.name()))
-            .toList();
+                .filter(m -> "path".equals(m.name()))
+                .toList();
         var sorted = Markers.markerSorted(pathsSorted, ctx.matches);
         var paths = reverseFileparts ? sorted.reversed() : sorted;
 
         var perFilepart = new ArrayList<List<Match>>();
         for (var fp : paths) {
-            var inFp = ctx.matches.snapshot().stream()
-                .filter(m -> !m.isPrivate())
-                .filter(predicate)
-                .filter(m -> m.start() >= fp.start() && m.end() <= fp.end())
-                .sorted(tieBreak)
-                .toList();
+            var inFp = ctx.matches.inMarker(fp)
+                    .filter(m -> !m.isPrivate())
+                    .filter(predicate)
+                    .sorted(tieBreak)
+                    .toList();
             perFilepart.add(inFp);
         }
         applyBucketDedup(ctx, perFilepart);

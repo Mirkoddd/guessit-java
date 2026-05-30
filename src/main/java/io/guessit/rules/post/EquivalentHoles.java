@@ -28,7 +28,7 @@ public final class EquivalentHoles implements PostProcessor {
         var sorted = Markers.markerSorted(paths, ctx.matches);
         for (var fp : sorted) {
             var snapshot = ctx.matches.snapshot();
-            var holes = Holes.compute(ctx.input, fp.start(), fp.end(),
+            var holes = Holes.compute(ctx.input, fp.span().start(), fp.span().end(),
                     snapshot, Match::isPrivate, null, Formatters::cleanup);
             // Limited to title-family names: python applies this to all names,
             // but our extractors miss some matches (e.g. lowercase release_group)
@@ -53,9 +53,7 @@ public final class EquivalentHoles implements PostProcessor {
                                                         new Match(
                                                                 m.name(),
                                                                 preferred,
-                                                                m.start(),
-                                                                m.end(),
-                                                                m.raw(),
+                                                                m.span(),
                                                                 m.priority(),
                                                                 m.tags(),
                                                                 m.isPrivate())

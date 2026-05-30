@@ -1,21 +1,18 @@
 package io.guessit.rules.extractors;
 
-import com.mirkoddd.sift.core.SiftGlobalFlag;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Holes;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Formatters;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 import io.guessit.core.text.patterns.BonusPatterns;
 
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
-
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.*;
 
 /**
  * Detects bonus feature numbers from {@code x\d+} patterns, e.g. {@code x05}.
@@ -56,14 +53,16 @@ public final class BonusExtractor implements Extractor {
                 .toList();
 
         while (m.find()) {
-            var head = new Match(MatchName.BONUS, null, m.start(), m.end(), m.group(), priority(), Set.of(), false);
+            var span = new Span(m.start(), m.end(), m.group());
+
+            var head = new Match(MatchName.BONUS, null, span, priority(), Set.of(), false);
 
             boolean hasConflict = potentialConflicts.stream()
-                    .anyMatch(x -> x.start() < m.end() && x.end() > m.start());
+                    .anyMatch(x -> x.span().start() < span.end() && x.span().end() > span.start());
 
             if (seps.test(head) && !hasConflict) {
                 ctx.matches.add(new Match(MatchName.BONUS, Integer.parseInt(m.group(GRP_NAME)),
-                        m.start(), m.end(), m.group(), priority(), Set.of(), false));
+                        span, priority(), Set.of(), false));
             }
         }
     }
@@ -86,13 +85,13 @@ public final class BonusExtractor implements Extractor {
 
     private Optional<Match> extractBonusTitle(ParseContext ctx, Match bonus) {
         return ctx.markers.stream()
-                .filter(mk -> mk.name().equals(MARKER_PATH) && mk.covers(bonus.start(), bonus.end()))
+                .filter(mk -> mk.name().equals(MARKER_PATH) && mk.covers(bonus.span()))
                 .findFirst()
                 .flatMap(fp -> {
                     var holes = Holes.compute(
                             ctx.input,
-                            bonus.end(),
-                            fp.end(),
+                            bonus.span().end(),
+                            fp.span().end(),
                             ctx.matches.snapshot(),
                             m -> m.isPrivate() || m.tags().contains(WEAK_EPISODE),
                             null,
@@ -111,7 +110,7 @@ public final class BonusExtractor implements Extractor {
                     }
 
                     return Optional.of(new Match(MatchName.BONUS_TITLE, title,
-                            hole.start, hole.end, hole.raw(), priority(), Set.of(), false));
+                            hole.span(), priority(), Set.of(), false));
                 });
     }
 }

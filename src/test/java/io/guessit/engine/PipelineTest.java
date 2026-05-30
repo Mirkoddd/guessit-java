@@ -5,6 +5,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.phases.*;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Span;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -30,7 +31,7 @@ class PipelineTest {
 
                     public void extract(ParseContext c) {
                         trace.add("extract");
-                        c.matches.add(Match.of(EDITION, "x", 0, 1, "x"));
+                        c.matches.add(Match.of(EDITION, "x", new Span(0, 1, "x")));
                     }
                 })),
                 new ConflictPhase(),

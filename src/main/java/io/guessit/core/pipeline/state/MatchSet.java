@@ -56,32 +56,32 @@ public final class MatchSet {
 
     /** All matches whose span overlaps the half-open range {@code [start, end)}. */
     public Stream<Match> overlapping(int start, int end) {
-        return matches.stream().filter(m -> m.start() < end && start < m.end());
+        return matches.stream().filter(m -> m.span().start() < end && start < m.span().end());
     }
 
     /** All matches whose span lies entirely inside {@code marker}. */
     public Stream<Match> inMarker(Marker marker) {
-        return matches.stream().filter(m -> marker.covers(m.start(), m.end()));
+        return matches.stream().filter(m -> marker.covers(m.span()));
     }
 
     public Stream<Match> range(int start, int end, Predicate<Match> p) {
         return matches.stream()
-            .filter(m -> m.start() >= start && m.end() <= end)
-            .filter(p);
+                .filter(m -> m.span().start() >= start && m.span().end() <= end)
+                .filter(p);
     }
 
     public Optional<Match> previous(Match m, Predicate<Match> p) {
         return matches.stream()
-            .filter(o -> o.end() <= m.start())
-            .filter(p)
-            .max(Comparator.comparingInt(Match::end));
+                .filter(o -> o.span().end() <= m.span().start())
+                .filter(p)
+                .max(Comparator.comparingInt(o -> o.span().end()));
     }
 
     public Optional<Match> next(Match m, Predicate<Match> p) {
         return matches.stream()
-            .filter(o -> o.start() >= m.end())
-            .filter(p)
-            .min(Comparator.comparingInt(Match::start));
+                .filter(o -> o.span().start() >= m.span().end())
+                .filter(p)
+                .min(Comparator.comparingInt(o -> o.span().start()));
     }
 
     public Optional<Match> chainBefore(int pos, String input, String seps, Predicate<Match> p) {
@@ -101,9 +101,9 @@ public final class MatchSet {
         while (i != end) {
             final int idx = i;
             var matchesAtIdx = matches.stream()
-                .filter(m -> m.start() <= idx && idx < m.end())
-                .filter(p)
-                .findFirst();
+                    .filter(m -> m.span().start() <= idx && idx < m.span().end())
+                    .filter(p)
+                    .findFirst();
             if (matchesAtIdx.isPresent()) {
                 if (found == null) found = matchesAtIdx.get();
                 i += step;

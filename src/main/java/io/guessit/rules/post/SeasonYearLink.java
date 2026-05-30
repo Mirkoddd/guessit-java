@@ -51,9 +51,7 @@ public final class SeasonYearLink implements PostProcessor {
         ctx.matches.add(new Match(
                 MatchName.YEAR,
                 s.value(),
-                s.start(),
-                s.end(),
-                s.raw(),
+                s.span(),
                 s.priority(),
                 Set.of(TAG_SEASON_DERIVED),
                 false

@@ -5,6 +5,7 @@ import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.patterns.ProperCountPatterns;
 
 import java.util.LinkedHashMap;
@@ -35,17 +36,16 @@ public final class ProperCountRule implements PostProcessor {
         if (distinct.isEmpty()) return;
 
         int total = distinct.values().stream().mapToInt(ProperCountRule::calculateWeight).sum();
-        int start = distinct.values().stream().mapToInt(Match::start).min().orElse(Integer.MAX_VALUE);
-        int end = distinct.values().stream().mapToInt(Match::end).max().orElse(Integer.MIN_VALUE);
+
+        int start = distinct.values().stream().mapToInt(m -> m.span().start()).min().orElse(Integer.MAX_VALUE);
+        int end = distinct.values().stream().mapToInt(m -> m.span().end()).max().orElse(Integer.MIN_VALUE);
 
         var rawInput = ctx.input.substring(start, end);
 
         ctx.matches.add(new Match(
                 MatchName.PROPER_COUNT,
                 total,
-                start,
-                end,
-                rawInput,
+                new Span(start, end, rawInput),
                 Priority.DEFAULT,
                 Set.of(),
                 false
@@ -57,13 +57,13 @@ public final class ProperCountRule implements PostProcessor {
 
         ctx.matches.named(MatchName.OTHER)
                 .filter(m -> "Proper".equals(m.value()))
-                .forEach(m -> distinct.putIfAbsent(rawCleanup(m.raw()), m));
+                .forEach(m -> distinct.putIfAbsent(rawCleanup(m.span().raw()), m));
 
         return distinct;
     }
 
     private static int calculateWeight(Match m) {
-        int trailing = trailingDigits(m.raw());
+        int trailing = trailingDigits(m.span().raw());
         if (trailing > 0) {
             return trailing;
         }

@@ -5,6 +5,7 @@ import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Words;
 import io.guessit.api.models.Country;
 import io.guessit.rules.lang.LanguageRegistry;
@@ -56,10 +57,10 @@ public final class CountryExtractor implements Extractor {
 
             registry.findCountry(lower)
                     .filter(country -> isCountryAllowed(country, allowedLc))
-                    .ifPresent(country -> ctx.matches.add(
-                            new Match(MatchName.COUNTRY, country, word.start(), word.end(),
-                                    input.substring(word.start(), word.end()), Priority.DEFAULT, Set.of(), false)
-                    ));
+                    .ifPresent(country -> {
+                        var span = new Span(word.start(), word.end(), input.substring(word.start(), word.end()));
+                        ctx.matches.add(new Match(MatchName.COUNTRY, country, span, Priority.DEFAULT, Set.of(), false));
+                    });
         }
     }
 
@@ -82,7 +83,8 @@ public final class CountryExtractor implements Extractor {
 
         for (var countryMatch : countries) {
             languages.stream()
-                    .filter(langMatch -> countryMatch.start() == langMatch.start() && countryMatch.end() == langMatch.end())
+                    .filter(langMatch -> countryMatch.span().start() == langMatch.span().start()
+                            && countryMatch.span().end() == langMatch.span().end())
                     .forEach(langMatch -> resolveConflict(countryMatch, langMatch, toRemove));
         }
 

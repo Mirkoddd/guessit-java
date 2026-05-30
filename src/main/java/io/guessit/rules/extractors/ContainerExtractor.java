@@ -91,7 +91,7 @@ public final class ContainerExtractor implements Extractor {
 
         for (var m : PatternMatcher.string(input, body, MatchName.CONTAINER, opts, ctx.trace)) {
             boolean hasConflict = potentialConflicts.stream()
-                    .anyMatch(x -> x.start() < m.end() && x.end() > m.start());
+                    .anyMatch(x -> x.span().start() < m.span().end() && x.span().end() > m.span().start());
 
             if (!hasConflict) {
                 ctx.matches.add(m);

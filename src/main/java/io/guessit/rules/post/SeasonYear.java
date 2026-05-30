@@ -31,8 +31,8 @@ public final class SeasonYear implements PostProcessor {
         ctx.matches.named(MatchName.SEASON).toList().forEach(season -> {
             if (!(season.value() instanceof Integer v)) return;
             if (v < MIN_YEAR || v > CUR + 1) return;
-            ctx.matches.add(new Match(MatchName.YEAR, v, season.start(), season.end(),
-                season.raw(), season.priority(), Set.copyOf(season.tags()), false));
+            ctx.matches.add(new Match(MatchName.YEAR, v, season.span(),
+                    season.priority(), Set.copyOf(season.tags()), false));
         });
     }
 }

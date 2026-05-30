@@ -35,24 +35,23 @@ public final class RemoveLessSpecificSeasonEpisode implements PostProcessor {
     @Override
     public void process(ParseContext ctx) {
         var paths = ctx.markers.stream()
-            .filter(m -> "path".equals(m.name()))
-            .toList();
+                .filter(m -> "path".equals(m.name()))
+                .toList();
         if (paths.isEmpty()) return;
 
         var reversed = new ArrayList<>(paths);
         Collections.reverse(reversed);
         var sorted = Markers.markerSorted(reversed, ctx.matches,
-            m -> m.name() == targetName && m.tags().contains("SxxExx"));
+                m -> m.name() == targetName && m.tags().contains("SxxExx"));
 
         var sxxTie = Comparator.comparing((Match m) -> m.tags().contains("SxxExx") ? 0 : 1);
         var perFilepart = new ArrayList<List<Match>>();
         for (var fp : sorted) {
-            var inFp = ctx.matches.snapshot().stream()
-                .filter(m -> !m.isPrivate())
-                .filter(m -> m.name() == targetName)
-                .filter(m -> m.start() >= fp.start() && m.end() <= fp.end())
-                .sorted(sxxTie)
-                .toList();
+            var inFp = ctx.matches.inMarker(fp)
+                    .filter(m -> !m.isPrivate())
+                    .filter(m -> m.name() == targetName)
+                    .sorted(sxxTie)
+                    .toList();
             perFilepart.add(inFp);
         }
         RemoveAmbiguous.applyBucketDedup(ctx, perFilepart);

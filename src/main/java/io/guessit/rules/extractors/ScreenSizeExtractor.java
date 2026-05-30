@@ -125,7 +125,7 @@ public final class ScreenSizeExtractor implements Extractor {
     private void extract4kLiteral(ParseContext ctx, java.util.function.Predicate<Match> validator) {
         var fourK = StringOpts.defaults().withValidator(validator);
         for (var m : PatternMatcher.string(ctx.input, Set.of(VALUE_4K_LITERAL), MatchName.SCREEN_SIZE, fourK, ctx.trace)) {
-            ctx.matches.add(new Match(MatchName.SCREEN_SIZE, VALUE_2160P_NORMALIZED, m.start(), m.end(), m.raw(),
+            ctx.matches.add(new Match(MatchName.SCREEN_SIZE, VALUE_2160P_NORMALIZED, m.span(),
                     m.priority(), Set.of(NORMALIZED), false));
         }
     }
@@ -171,11 +171,11 @@ public final class ScreenSizeExtractor implements Extractor {
         for (var m : ctx.matches.named(MatchName.SCREEN_SIZE).toList()) {
             if (m.tags().contains(NORMALIZED)) continue;
 
-            var wh = WIDTH_HEIGHT_NORM.matcher(m.raw());
+            var wh = WIDTH_HEIGHT_NORM.matcher(m.span().raw());
             if (wh.find()) {
                 normalizeWidthHeightMatch(ctx, m, wh, standardHeights, minAr, maxAr);
             } else {
-                var hs = HEIGHT_SCAN_NORM.matcher(m.raw());
+                var hs = HEIGHT_SCAN_NORM.matcher(m.span().raw());
                 if (hs.find()) {
                     normalizeHeightScanMatch(ctx, m, hs);
                 }
@@ -191,14 +191,14 @@ public final class ScreenSizeExtractor implements Extractor {
         double ar = (double) w / h;
 
         ctx.matches.add(new Match(MatchName.ASPECT_RATIO, Math.round(ar * 1000.0) / 1000.0,
-                m.start(), m.end(), m.raw(), m.priority(), Set.of(TAG_DERIVED_SCREEN_SIZE), false));
+                m.span(), m.priority(), Set.of(TAG_DERIVED_SCREEN_SIZE), false));
 
         String value = (standardHeights.contains(String.valueOf(h)) && minAr < ar && ar < maxAr)
                 ? h + scan : w + "x" + h;
         Set<String> tags = m.tags().contains(WEAK_SCREEN_SIZE)
                 ? Set.of(NORMALIZED, WEAK_SCREEN_SIZE) : Set.of(NORMALIZED);
 
-        ctx.matches.replace(m, new Match(MatchName.SCREEN_SIZE, value, m.start(), m.end(), m.raw(),
+        ctx.matches.replace(m, new Match(MatchName.SCREEN_SIZE, value, m.span(),
                 m.priority(), tags, false));
     }
 
@@ -208,7 +208,7 @@ public final class ScreenSizeExtractor implements Extractor {
         Set<String> tags = m.tags().contains(WEAK_SCREEN_SIZE)
                 ? Set.of(NORMALIZED, WEAK_SCREEN_SIZE) : Set.of(NORMALIZED);
 
-        ctx.matches.replace(m, new Match(MatchName.SCREEN_SIZE, h + scan, m.start(), m.end(), m.raw(),
+        ctx.matches.replace(m, new Match(MatchName.SCREEN_SIZE, h + scan, m.span(),
                 m.priority(), tags, false));
     }
 
@@ -235,8 +235,8 @@ public final class ScreenSizeExtractor implements Extractor {
         for (var n : allMatches) {
             if (n == ws || !strongNames.contains(n.name())) continue;
 
-            if (n.end() <= ws.start() && isGapOnlySeparators(input, n.end(), ws.start())) return true;
-            if (n.start() >= ws.end() && isGapOnlySeparators(input, ws.end(), n.start())) return true;
+            if (n.span().end() <= ws.span().start() && isGapOnlySeparators(input, n.span().end(), ws.span().start())) return true;
+            if (n.span().start() >= ws.span().end() && isGapOnlySeparators(input, ws.span().end(), n.span().start())) return true;
         }
         return false;
     }
@@ -247,17 +247,17 @@ public final class ScreenSizeExtractor implements Extractor {
 
     private void restoreWeakEpisodeIfNeeded(ParseContext ctx, Match ws) {
         boolean hasEpHere = ctx.matches.named(MatchName.EPISODE)
-                .anyMatch(e -> e.start() == ws.start() && e.end() == ws.end());
+                .anyMatch(e -> e.span().start() == ws.span().start() && e.span().end() == ws.span().end());
 
         if (!hasEpHere && !TYPE_MOVIE.equals(ctx.options.type())) {
-            String raw = ws.raw();
+            String raw = ws.span().raw();
 
             if (!raw.isEmpty() && raw.chars().allMatch(Character::isDigit)) {
                 int v = Integer.parseInt(raw);
                 if (v >= 100 || io.guessit.rules.extractors.WeakEpisodeExtractor.EPISODE.equals(ctx.options.type())
                         || ctx.options.episodePreferNumber() != null) {
-                    ctx.matches.add(new Match(MatchName.EPISODE, v, ws.start(), ws.end(),
-                            raw, Priority.PROBABLE, Set.of(TAG_WEAK_EPISODE), false));
+                    ctx.matches.add(new Match(MatchName.EPISODE, v, ws.span(),
+                            Priority.PROBABLE, Set.of(TAG_WEAK_EPISODE), false));
                 }
             }
         }
@@ -268,16 +268,21 @@ public final class ScreenSizeExtractor implements Extractor {
         if (hasFrameRate) return;
 
         for (var m : ctx.matches.named(MatchName.SCREEN_SIZE).toList()) {
-            var fr = FRAME_RATE_PATTERN.matcher(m.raw());
+            var fr = FRAME_RATE_PATTERN.matcher(m.span().raw());
             if (fr.find()) {
                 var rawFr = fr.group(GRP_FRAME_RATE);
 
                 int dotIdx = rawFr.indexOf('.');
                 int val = Integer.parseInt(dotIdx == -1 ? rawFr : rawFr.substring(0, dotIdx));
 
-                ctx.matches.add(new Match(MatchName.FRAME_RATE, val,
-                        m.start() + fr.start(GRP_FRAME_RATE), m.start() + fr.end(GRP_FRAME_RATE),
-                        rawFr, m.priority(), Set.of(TAG_COEXIST, TAG_DERIVED_SCREEN_SIZE), false));
+                var frSpan = new Span(
+                        m.span().start() + fr.start(GRP_FRAME_RATE),
+                        m.span().start() + fr.end(GRP_FRAME_RATE),
+                        rawFr
+                );
+
+                ctx.matches.add(new Match(MatchName.FRAME_RATE, val, frSpan,
+                        m.priority(), Set.of(TAG_COEXIST, TAG_DERIVED_SCREEN_SIZE), false));
             }
         }
     }
@@ -287,10 +292,10 @@ public final class ScreenSizeExtractor implements Extractor {
             if (!MARKER_PATH.equals(filePart.name()) && !MARKER_WHOLE.equals(filePart.name())) continue;
 
             var inPart = ctx.matches.named(MatchName.SCREEN_SIZE)
-                    .filter(m -> filePart.covers(m.start(), m.end()))
-                    .sorted((a, b) -> a.start() != b.start()
-                            ? Integer.compare(b.start(), a.start())
-                            : Integer.compare(b.end(), a.end()))
+                    .filter(m -> filePart.covers(m.span()))
+                    .sorted((a, b) -> a.span().start() != b.span().start()
+                            ? Integer.compare(b.span().start(), a.span().start())
+                            : Integer.compare(b.span().end(), a.span().end()))
                     .toList();
 
             if (inPart.size() > 1) {

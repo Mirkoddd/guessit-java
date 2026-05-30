@@ -5,6 +5,7 @@ import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 import io.guessit.core.text.patterns.WeekPatterns;
 import io.guessit.rules.date.DateOrchestrator;
@@ -40,14 +41,15 @@ public final class WeekExtractor implements Extractor {
         var m = PATTERN.matcher(input);
 
         while (m.find()) {
-            var head = new Match(MatchName.WEEK, null, m.start(), m.end(), m.group(), Priority.DEFAULT, Set.of(), false);
+            var headSpan = new Span(m.start(), m.end(), m.group());
+            var head = new Match(MatchName.WEEK, null, headSpan, Priority.DEFAULT, Set.of(), false);
 
             if (seps.test(head)) {
                 int v = Integer.parseInt(m.group(GRP_WEEK));
 
                 if (DateOrchestrator.validWeek(v)) {
-                    ctx.matches.add(new Match(MatchName.WEEK, v, m.start(GRP_WEEK), m.end(GRP_WEEK),
-                            m.group(GRP_WEEK), Priority.DEFAULT, Set.of(), false));
+                    var weekSpan = new Span(m.start(GRP_WEEK), m.end(GRP_WEEK), m.group(GRP_WEEK));
+                    ctx.matches.add(new Match(MatchName.WEEK, v, weekSpan, Priority.DEFAULT, Set.of(), false));
                 }
             }
         }

@@ -36,13 +36,13 @@ public final class BitRateTypeRule implements PostProcessor {
     @Override
     public void process(ParseContext ctx) {
         var bitRates = ctx.matches.named(MatchName.AUDIO_BIT_RATE)
-                .sorted(Comparator.comparingInt(Match::start))
+                .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
         if (bitRates.isEmpty()) return;
 
         var allMatches = ctx.matches.snapshot().stream()
                 .filter(m -> !m.isPrivate())
-                .sorted(Comparator.comparingInt(Match::start))
+                .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
 
         var toRename = new ArrayList<Match>();
@@ -55,11 +55,11 @@ public final class BitRateTypeRule implements PostProcessor {
     }
 
     /** True iff {@code br} sits in a video context (preceded by source/screen_size/codec
-     *  with sep-only gap) AND the trailing audio_codec exception doesn't keep it as audio. */
+     * with sep-only gap) AND the trailing audio_codec exception doesn't keep it as audio. */
     private static boolean shouldRenameToVideo(ParseContext ctx, Match br, List<Match> allMatches) {
         var prev = nearestPrecedingVideoContext(allMatches, br);
         if (prev == null) return false;
-        if (!allSeps(ctx.input.substring(prev.end(), br.start()))) return false;
+        if (!allSeps(ctx.input.substring(prev.span().end(), br.span().start()))) return false;
 
         var nextAudioCodec = adjacentTrailingAudioCodec(ctx, allMatches, br);
         return !shouldKeepAsAudio(br, nextAudioCodec);
@@ -68,19 +68,19 @@ public final class BitRateTypeRule implements PostProcessor {
     private static Match nearestPrecedingVideoContext(List<Match> allMatches, Match br) {
         Match prev = null;
         for (var m : allMatches) {
-            if (m.end() > br.start()) break;
+            if (m.span().end() > br.span().start()) break;
             if (VIDEO_CONTEXT.contains(m.name())) prev = m;
         }
         return prev;
     }
 
     /** First match starting at or after {@code br.end()}; returns it only if
-     *  it is an {@code audio_codec} reachable through a sep-only gap. */
+     * it is an {@code audio_codec} reachable through a sep-only gap. */
     private static Match adjacentTrailingAudioCodec(ParseContext ctx, List<Match> allMatches, Match br) {
         for (var m : allMatches) {
-            if (m.start() < br.end()) continue;
+            if (m.span().start() < br.span().end()) continue;
             if (m.name() != MatchName.AUDIO_CODEC) return null;
-            return allSeps(ctx.input.substring(br.end(), m.start())) ? m : null;
+            return allSeps(ctx.input.substring(br.span().end(), m.span().start())) ? m : null;
         }
         return null;
     }

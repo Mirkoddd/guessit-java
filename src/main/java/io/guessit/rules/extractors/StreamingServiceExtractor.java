@@ -7,6 +7,7 @@ import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Abbreviations;
 import io.guessit.core.text.Seps;
+import io.guessit.core.text.Span;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -110,8 +111,8 @@ public final class StreamingServiceExtractor implements Extractor {
         while ((i = hay.indexOf(n, from)) >= 0) {
             int e = i + n.length();
             if (boundsOk(ctx, input, i, e)) {
-                ctx.matches.add(new Match(MatchName.STREAMING_SERVICE, value, i, e,
-                        input.substring(i, e), Priority.DEFAULT, Set.of("source-prefix"), false));
+                var span = new Span(i, e, input.substring(i, e));
+                ctx.matches.add(new Match(MatchName.STREAMING_SERVICE, value, span, Priority.DEFAULT, Set.of("source-prefix"), false));
             }
             from = i + 1;
         }
@@ -129,8 +130,8 @@ public final class StreamingServiceExtractor implements Extractor {
             int s = matchResult.start();
             int e = matchResult.end();
             if (boundsOk(ctx, input, s, e)) {
-                ctx.matches.add(new Match(MatchName.STREAMING_SERVICE, value, s, e,
-                        input.substring(s, e), Priority.DEFAULT, Set.of("source-prefix"), false));
+                var span = new Span(s, e, input.substring(s, e));
+                ctx.matches.add(new Match(MatchName.STREAMING_SERVICE, value, span, Priority.DEFAULT, Set.of("source-prefix"), false));
             }
         });
     }
@@ -152,7 +153,7 @@ public final class StreamingServiceExtractor implements Extractor {
         var tag = prefixSide ? "streaming_service.prefix" : "streaming_service.suffix";
         return ctx.matches.named(MatchName.OTHER)
                 .filter(m -> m.tags().contains(tag))
-                .anyMatch(m -> prefixSide ? m.end() == pos : m.start() == pos);
+                .anyMatch(m -> prefixSide ? m.span().end() == pos : m.span().start() == pos);
     }
 
     /**
@@ -176,19 +177,19 @@ public final class StreamingServiceExtractor implements Extractor {
      * matches participate (e.g. private source "VOD" inside "MBCVOD").
      */
     private static boolean hasSuffixNeighbor(ParseContext ctx, String input, Match s) {
-        int sStart = s.start();
-        int sEnd = s.end();
+        int sStart = s.span().start();
+        int sEnd = s.span().end();
 
         int nextPos = ctx.matches.all()
                 .filter(m -> m != s)
-                .mapToInt(Match::start)
+                .mapToInt(m -> m.span().start())
                 .filter(p -> p > sStart)
                 .min().orElse(-1);
 
         if (nextPos < 0) return false;
 
         boolean atPosHasSuffix = ctx.matches.all()
-                .filter(m -> m != s && m.start() == nextPos)
+                .filter(m -> m != s && m.span().start() == nextPos)
                 .anyMatch(m -> m.tags().contains("streaming_service.suffix"));
 
         boolean cleanGap = nextPos <= sEnd || betweenIsSeps(input, sEnd, nextPos);
@@ -197,19 +198,19 @@ public final class StreamingServiceExtractor implements Extractor {
     }
 
     private static boolean hasPrefixNeighbor(ParseContext ctx, String input, Match s) {
-        int sStart = s.start();
-        int sEnd = s.end();
+        int sStart = s.span().start();
+        int sEnd = s.span().end();
 
         int prevPos = ctx.matches.all()
                 .filter(m -> m != s)
-                .mapToInt(Match::end)
+                .mapToInt(m -> m.span().end())
                 .filter(p -> p < sEnd)
                 .max().orElse(-1);
 
         if (prevPos < 0) return false;
 
         boolean atPosHasPrefix = ctx.matches.all()
-                .filter(m -> m != s && m.end() == prevPos)
+                .filter(m -> m != s && m.span().end() == prevPos)
                 .anyMatch(m -> m.tags().contains("streaming_service.prefix"));
 
         boolean cleanGap = prevPos >= sStart || betweenIsSeps(input, prevPos, sStart);

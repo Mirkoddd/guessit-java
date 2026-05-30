@@ -29,10 +29,10 @@ import java.util.stream.Collectors;
  * <p>The full pattern catalogue is loaded from the {@code other} config
  * section, not hardcoded. Each entry can be:
  * <ul>
- *   <li>a single string (literal or {@code re:}-prefixed regex),</li>
- *   <li>a list of strings,</li>
- *   <li>a map with {@code string}/{@code regex}/{@code tags}/{@code validator}/
- *       {@code value}/{@code private_parent} keys.</li>
+ * <li>a single string (literal or {@code re:}-prefixed regex),</li>
+ * <li>a list of strings,</li>
+ * <li>a map with {@code string}/{@code regex}/{@code tags}/{@code validator}/
+ * {@code value}/{@code private_parent} keys.</li>
  * </ul>
  * {@link #emitSpec} flattens this shape into match emission calls. Tags drive
  * the post-process validators ({@code has-neighbor}, {@code at-end},
@@ -246,8 +246,8 @@ public final class OtherExtractor implements Extractor {
     }
 
     private static boolean isAdjacentSubtitle(String input, Match hc, Match sl) {
-        return (sl.start() >= hc.end() && Seps.betweenIsSeps(input, hc.end(), sl.start())) ||
-                (sl.end() <= hc.start() && Seps.betweenIsSeps(input, sl.end(), hc.start()));
+        return (sl.span().start() >= hc.span().end() && Seps.betweenIsSeps(input, hc.span().end(), sl.span().start())) ||
+                (sl.span().end() <= hc.span().start() && Seps.betweenIsSeps(input, sl.span().end(), hc.span().start()));
     }
 
     private static void validateStreamingServiceNeighbor(ParseContext ctx) {
@@ -265,8 +265,8 @@ public final class OtherExtractor implements Extractor {
 
         if (!hasPrefix && !hasSuffix) return false;
 
-        boolean sepsAfter = m.end() >= input.length() || Seps.isSep(input.charAt(m.end()));
-        boolean sepsBefore = m.start() == 0 || Seps.isSep(input.charAt(m.start() - 1));
+        boolean sepsAfter = m.span().end() >= input.length() || Seps.isSep(input.charAt(m.span().end()));
+        boolean sepsBefore = m.span().start() == 0 || Seps.isSep(input.charAt(m.span().start() - 1));
 
         if (!sepsAfter && !isValidPrefixMatch(input, m, hasPrefix, ssMatches)) {
             return true;
@@ -279,22 +279,22 @@ public final class OtherExtractor implements Extractor {
         if (!hasPrefix) return false;
 
         var next = ssMatches.stream()
-                .filter(s -> s.start() >= m.end())
-                .min(Comparator.comparingInt(Match::start))
+                .filter(s -> s.span().start() >= m.span().end())
+                .min(Comparator.comparingInt(s -> s.span().start()))
                 .orElse(null);
 
-        return next != null && Seps.betweenIsSeps(input, m.end(), next.start());
+        return next != null && Seps.betweenIsSeps(input, m.span().end(), next.span().start());
     }
 
     private static boolean isValidSuffixMatch(String input, Match m, boolean hasSuffix, List<Match> ssMatches) {
         if (!hasSuffix) return false;
 
         var prev = ssMatches.stream()
-                .filter(s -> s.end() <= m.start())
-                .max(Comparator.comparingInt(Match::end))
+                .filter(s -> s.span().end() <= m.span().start())
+                .max(Comparator.comparingInt(s -> s.span().end()))
                 .orElse(null);
 
-        return prev != null && Seps.betweenIsSeps(input, prev.end(), m.start());
+        return prev != null && Seps.betweenIsSeps(input, prev.span().end(), m.span().start());
     }
 
     private static void validateScreener(ParseContext ctx) {
@@ -304,9 +304,9 @@ public final class OtherExtractor implements Extractor {
         ctx.matches.named(MatchName.OTHER)
                 .filter(m -> m.tags().contains("other.validate.screener"))
                 .filter(sc -> sources.stream()
-                        .filter(s -> s.end() <= sc.start())
-                        .max(Comparator.comparingInt(Match::end))
-                        .map(src -> !Seps.betweenIsSeps(input, src.end(), sc.start()))
+                        .filter(s -> s.span().end() <= sc.span().start())
+                        .max(Comparator.comparingInt(s -> s.span().end()))
+                        .map(src -> !Seps.betweenIsSeps(input, src.span().end(), sc.span().start()))
                         .orElse(true))
                 .toList()
                 .forEach(ctx.matches::remove);
@@ -317,7 +317,7 @@ public final class OtherExtractor implements Extractor {
 
         ctx.matches.named(MatchName.OTHER)
                 .filter(m -> m.tags().contains("other.validate.mux"))
-                .filter(mx -> sources.stream().noneMatch(s -> s.end() <= mx.start()))
+                .filter(mx -> sources.stream().noneMatch(s -> s.span().end() <= mx.span().start()))
                 .toList()
                 .forEach(ctx.matches::remove);
     }
@@ -330,7 +330,7 @@ public final class OtherExtractor implements Extractor {
         ctx.matches.named(MatchName.OTHER)
                 .filter(m -> m.tags().contains("at-end"))
                 .filter(m -> pathMarkers.stream()
-                        .filter(fp -> fp.covers(m.start(), m.end()))
+                        .filter(fp -> fp.covers(m.span()))
                         .anyMatch(fp -> shouldRemoveAtEnd(ctx, ctx.input, fp, m)))
                 .toList()
                 .forEach(ctx.matches::remove);
@@ -339,11 +339,11 @@ public final class OtherExtractor implements Extractor {
     private static boolean shouldRemoveAtEnd(ParseContext ctx, String input, Marker filePart, Match m) {
         boolean nonOtherAfter = ctx.matches.all()
                 .filter(x -> !x.isPrivate())
-                .filter(x -> x.start() >= m.end() && x.end() <= filePart.end())
+                .filter(x -> x.span().start() >= m.span().end() && x.span().end() <= filePart.span().end())
                 .anyMatch(x -> x.name() != MatchName.OTHER && x.name() != MatchName.CONTAINER);
 
         if (nonOtherAfter) return true;
-        return hasNonSepHole(ctx, input, m.end(), filePart.end());
+        return hasNonSepHole(ctx, input, m.span().end(), filePart.span().end());
     }
 
     private static boolean hasNonSepHole(ParseContext ctx, String input, int s, int e) {
@@ -352,10 +352,10 @@ public final class OtherExtractor implements Extractor {
 
         ctx.matches.all()
                 .filter(x -> !x.isPrivate())
-                .filter(x -> x.start() < e && x.end() > s)
+                .filter(x -> x.span().start() < e && x.span().end() > s)
                 .forEach(x -> {
-                    int from = Math.max(x.start(), s) - s;
-                    int to = Math.min(x.end(), e) - s;
+                    int from = Math.max(x.span().start(), s) - s;
+                    int to = Math.min(x.span().end(), e) - s;
                     for (int i = from; i < to; i++) covered[i] = true;
                 });
 
@@ -368,7 +368,7 @@ public final class OtherExtractor implements Extractor {
     private static void dedupSameSpan(ParseContext ctx) {
         var groups = ctx.matches.named(MatchName.OTHER)
                 .collect(Collectors.groupingBy(
-                        m -> m.start() + ":" + m.end() + ":" + m.value(),
+                        m -> m.span().start() + ":" + m.span().end() + ":" + m.value(),
                         LinkedHashMap::new,
                         Collectors.toList()
                 ));

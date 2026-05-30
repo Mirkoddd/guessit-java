@@ -1,6 +1,5 @@
 package io.guessit.engine;
 
-import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.text.PatternMatcher;
 import io.guessit.core.text.RegexOpts;
 import io.guessit.core.text.StringOpts;
@@ -28,7 +27,7 @@ class PatternMatcherTest {
         var p = compile("\\b(?<value>\\d{4})\\b");
         var matches = regex("Movie 1999 Sequel 2020", p, YEAR, defaults());
         Assertions.assertThat(matches).hasSize(2);
-        assertThat(matches.getFirst().raw()).isEqualTo("1999");
+        assertThat(matches.getFirst().span().raw()).isEqualTo("1999");
         assertThat(matches.getFirst().value()).isEqualTo("1999");
     }
 
@@ -46,7 +45,7 @@ class PatternMatcherTest {
         var p = compile("\\bBluRay\\b");
         var matches = regex("ALPHA.BluRay.x264", p, SOURCE, defaults());
         Assertions.assertThat(matches).hasSize(1);
-        assertThat(matches.getFirst().raw()).isEqualTo("BluRay");
+        assertThat(matches.getFirst().span().raw()).isEqualTo("BluRay");
         assertThat(matches.getFirst().value()).isEqualTo("BluRay");
     }
 
@@ -54,14 +53,14 @@ class PatternMatcherTest {
     void stringMatchesNeedles() {
         var matches = string("Foo.AAC.x264.AAC.mkv", of("AAC"), AUDIO_CODEC, StringOpts.defaults());
         Assertions.assertThat(matches).hasSize(2);
-        assertThat(matches.stream().map(Match::start).toList()).isEqualTo(List.of(4, 13));
+        assertThat(matches.stream().map(m -> m.span().start()).toList()).isEqualTo(List.of(4, 13));
     }
 
     @Test
     void stringWholeWord() {
         var matches = string("hauac.AAC.mkv", of("AAC"), OTHER, StringOpts.defaults());
         Assertions.assertThat(matches).hasSize(1);
-        assertThat(matches.getFirst().start()).isEqualTo(6);
+        assertThat(matches.getFirst().span().start()).isEqualTo(6);
     }
 
     @Test
@@ -69,7 +68,7 @@ class PatternMatcherTest {
         var matches = string("Foo.aac.AAC.mkv", of("AAC"), OTHER,
                 StringOpts.defaults().caseSensitive(true));
         Assertions.assertThat(matches).hasSize(1);
-        assertThat(matches.getFirst().start()).isEqualTo(8);
+        assertThat(matches.getFirst().span().start()).isEqualTo(8);
     }
 
     @Test void regex_validatorRejectsMatch() {
@@ -86,7 +85,7 @@ class PatternMatcherTest {
         var opts = defaults().withValidator(sepsSurround(input));
         var matches = regex(input, p, SCREEN_SIZE, opts);
         Assertions.assertThat(matches).hasSize(1);
-        assertThat(matches.getFirst().raw()).isEqualTo("1080");
+        assertThat(matches.getFirst().span().raw()).isEqualTo("1080");
     }
 
     @Test void string_validatorRejectsMatch() {

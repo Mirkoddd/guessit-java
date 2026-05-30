@@ -6,6 +6,7 @@ import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Formatters;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 import io.guessit.core.text.patterns.FilmPatterns;
 
@@ -47,12 +48,12 @@ public final class FilmExtractor implements Extractor {
         var m = PATTERN.matcher(input);
 
         while (m.find()) {
-            var head = new Match(MatchName.FILM, null, m.start(), m.end(), m.group(), priority(), Set.of(), false);
+            var span = new Span(m.start(), m.end(), m.group());
+            var head = new Match(MatchName.FILM, null, span, priority(), Set.of(), false);
 
             if (seps.test(head)) {
                 int v = Integer.parseInt(m.group(GRP_N));
-                ctx.matches.add(new Match(MatchName.FILM, v,
-                        m.start(), m.end(), m.group(), priority(), Set.of(), false));
+                ctx.matches.add(new Match(MatchName.FILM, v, span, priority(), Set.of(), false));
             }
         }
     }
@@ -72,13 +73,13 @@ public final class FilmExtractor implements Extractor {
 
     private Optional<Match> extractFilmTitle(ParseContext ctx, Match film) {
         return ctx.markers.stream()
-                .filter(mk -> mk.name().equals(MARKER_PATH) && mk.covers(film.start(), film.end()))
+                .filter(mk -> mk.name().equals(MARKER_PATH) && mk.covers(film.span()))
                 .findFirst()
                 .flatMap(fp -> {
                     var holes = Holes.compute(
                             ctx.input,
-                            fp.start(),
-                            film.start(),
+                            fp.span().start(),
+                            film.span().start(),
                             ctx.matches.snapshot(),
                             Match::isPrivate,
                             null,
@@ -97,7 +98,7 @@ public final class FilmExtractor implements Extractor {
                     }
 
                     return Optional.of(new Match(MatchName.FILM_TITLE, title,
-                            hole.start, hole.end, hole.raw(), priority(), Set.of(), false));
+                            hole.span(), priority(), Set.of(), false));
                 });
     }
 }

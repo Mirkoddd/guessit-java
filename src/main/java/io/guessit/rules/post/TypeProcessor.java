@@ -3,7 +3,11 @@ package io.guessit.rules.post;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.pipeline.contracts.PostProcessor;
+import io.guessit.core.text.Span;
+
+import java.util.Collections;
 
 /**
  * Decide {@code type} (movie|episode) from surviving matches and emit a
@@ -28,15 +32,18 @@ public final class TypeProcessor implements PostProcessor {
         ctx.trace.subStep("Stage 1: predict type from surviving matches and emit type match");
         var type = predictType(ctx);
         var len = ctx.input.length();
-        ctx.matches.add(Match.of(MatchName.TYPE, type, len, len, ""));
+
+        var zeroWidthSpan = new Span(len, len, "");
+        ctx.matches.add(new Match(MatchName.TYPE, type, zeroWidthSpan, Priority.DEFAULT, Collections.emptySet(), false));
+
         ctx.trace.subStep("Stage 2: demote episode_title to alternative_title when type is not episode");
         if (!EPISODE_TYPE.equals(type)) {
             var toRename = ctx.matches.named(MatchName.EPISODE_TITLE)
-                .filter(m -> !m.tags().contains("alternative-replaced"))
-                .toList();
+                    .filter(m -> !m.tags().contains("alternative-replaced"))
+                    .toList();
+
             for (var m : toRename) {
-                ctx.matches.replace(m, new Match(MatchName.ALTERNATIVE_TITLE, m.value(),
-                    m.start(), m.end(), m.raw(), m.priority(), m.tags(), m.isPrivate()));
+                ctx.matches.replace(m, m.withName(MatchName.ALTERNATIVE_TITLE));
             }
         }
     }
@@ -61,5 +68,4 @@ public final class TypeProcessor implements PostProcessor {
     private static boolean anyNamed(ParseContext ctx, MatchName name) {
         return ctx.matches.named(name).anyMatch(m -> !m.isPrivate());
     }
-
 }

@@ -4,6 +4,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Formatters;
 import io.guessit.core.text.Seps;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 
 import java.util.ArrayList;
@@ -21,15 +22,15 @@ import static io.guessit.core.pipeline.state.MatchName.EPISODE;
  *
  * <p>Three sub-rules:
  * <ul>
- *   <li><b>expected_title functional</b> in {@link #extract} — emits a {@code title}
- *       match for each {@code Options#expectedTitle} substring found in the input.</li>
- *   <li><b>TitleFromPosition</b> in {@link #postProcess} — for the highest-scoring path
- *       marker, takes the cleaned hole as a {@code title} match. Splits the hole on
- *       {@link Seps#TITLE_CHARS} to produce {@code alternative_title} matches. Routes
- *       inner-filepart titles to {@code episode_title} when an outer "Show/Season N"
- *       filepart shape is detected.</li>
- *   <li><b>PreferTitleWithYear</b> in {@link #postProcess} — prefers titles in the
- *       filepart containing a year; drops the others.</li>
+ * <li><b>expected_title functional</b> in {@link #extract} — emits a {@code title}
+ * match for each {@code Options#expectedTitle} substring found in the input.</li>
+ * <li><b>TitleFromPosition</b> in {@link #postProcess} — for the highest-scoring path
+ * marker, takes the cleaned hole as a {@code title} match. Splits the hole on
+ * {@link Seps#TITLE_CHARS} to produce {@code alternative_title} matches. Routes
+ * inner-filepart titles to {@code episode_title} when an outer "Show/Season N"
+ * filepart shape is detected.</li>
+ * <li><b>PreferTitleWithYear</b> in {@link #postProcess} — prefers titles in the
+ * filepart containing a year; drops the others.</li>
  * </ul>
  */
 public final class TitleExtractor implements Extractor {
@@ -78,8 +79,8 @@ public final class TitleExtractor implements Extractor {
         while ((idx = lcInput.indexOf(lcSearch, idx)) >= 0) {
             var raw = input.substring(idx, idx + search.length());
             var formatted = Formatters.titleText(raw);
-            var m = new Match(MatchName.TITLE, formatted, idx, idx + search.length(), raw,
-                Priority.DEFAULT, Set.of(EXPECTED_TAG, TITLE), false);
+            var span = new Span(idx, idx + search.length(), raw);
+            var m = new Match(MatchName.TITLE, formatted, span, Priority.DEFAULT, Set.of(EXPECTED_TAG, TITLE), false);
             if (sepsSurround.test(m)) ctx.matches.add(m);
             idx += search.length();
         }
@@ -91,8 +92,8 @@ public final class TitleExtractor implements Extractor {
         while (matcher.find()) {
             var raw = input.substring(matcher.start(), matcher.end());
             var formatted = Formatters.titleText(raw);
-            var m = new Match(MatchName.TITLE, formatted, matcher.start(), matcher.end(), raw,
-                Priority.DEFAULT, Set.of(EXPECTED_TAG, TITLE), false);
+            var span = new Span(matcher.start(), matcher.end(), raw);
+            var m = new Match(MatchName.TITLE, formatted, span, Priority.DEFAULT, Set.of(EXPECTED_TAG, TITLE), false);
             if (sepsSurround.test(m)) ctx.matches.add(m);
         }
     }
@@ -133,12 +134,12 @@ public final class TitleExtractor implements Extractor {
         var toRemove = new ArrayList<Match>();
 
         boolean filenameProvidesTitle = serieNameFilepart != null
-            && processSerieNameFilepart(ctx, serieNameFilepart, toAppend, toRemove);
+                && processSerieNameFilepart(ctx, serieNameFilepart, toAppend, toRemove);
 
         var consumedYearFileparts = new HashSet<Marker>();
         if (!filenameProvidesTitle) {
             selectFirstNonSerieFilepart(ctx, sorted, serieNameFilepart, consumedYearFileparts,
-                toAppend, toRemove);
+                    toAppend, toRemove);
         }
         appendYearFilepartTitles(ctx, paths, consumedYearFileparts, toAppend, toRemove);
 
@@ -165,12 +166,12 @@ public final class TitleExtractor implements Extractor {
     private boolean appendMultiHoleTitles(TitlesInFilepart titles, List<Match> toAppend, List<Match> toRemove) {
         if (titles.titles.isEmpty()) return false;
         var first = titles.titles.getFirst();
-        toAppend.add(new Match(MatchName.TITLE, first.value(), first.start(), first.end(),
-            first.raw(), first.priority(), Set.of(TITLE, "filepart-title"), false));
+        toAppend.add(new Match(MatchName.TITLE, first.value(), first.span(),
+                first.priority(), Set.of(TITLE, "filepart-title"), false));
         for (int i = 1; i < titles.titles.size(); i++) {
             var t = titles.titles.get(i);
-            toAppend.add(new Match(MatchName.EPISODE_TITLE, t.value(), t.start(), t.end(),
-                t.raw(), t.priority(), Set.of(TITLE), false));
+            toAppend.add(new Match(MatchName.EPISODE_TITLE, t.value(), t.span(),
+                    t.priority(), Set.of(TITLE), false));
         }
         toRemove.addAll(titles.toRemove);
         return true;
@@ -186,18 +187,17 @@ public final class TitleExtractor implements Extractor {
                                           TitlesInFilepart titles,
                                           List<Match> toAppend, List<Match> toRemove) {
         if (titles.titles.size() != 1) return false;
-        var ep = ctx.matches.range(serieNameFilepart.start(), serieNameFilepart.end(),
-                m -> m.name() == EPISODE).findFirst().orElse(null);
+        var ep = ctx.matches.inMarker(serieNameFilepart).filter(m -> m.name() == EPISODE).findFirst().orElse(null);
         var t = titles.titles.getFirst();
-        var holeBeforeEpisode = ep != null && t.end() <= ep.start();
+        var holeBeforeEpisode = ep != null && t.span().end() <= ep.span().start();
         toRemove.addAll(titles.toRemove);
         if (holeBeforeEpisode) {
-            toAppend.add(new Match(MatchName.TITLE, t.value(), t.start(), t.end(),
-                t.raw(), t.priority(), Set.of(TITLE, "filepart-title"), false));
+            toAppend.add(new Match(MatchName.TITLE, t.value(), t.span(),
+                    t.priority(), Set.of(TITLE, "filepart-title"), false));
             return true;
         }
-        toAppend.add(new Match(MatchName.EPISODE_TITLE, t.value(), t.start(), t.end(),
-            t.raw(), t.priority(), Set.of(TITLE), false));
+        toAppend.add(new Match(MatchName.EPISODE_TITLE, t.value(), t.span(),
+                t.priority(), Set.of(TITLE), false));
         return false;
     }
 
@@ -219,8 +219,8 @@ public final class TitleExtractor implements Extractor {
                                           Set<Marker> consumedYearFileparts,
                                           List<Match> toAppend, List<Match> toRemove) {
         var yearFileparts = paths.stream()
-            .filter(fp -> ctx.matches.range(fp.start(), fp.end(), m -> m.name() == MatchName.YEAR).findAny().isPresent())
-            .toList();
+                .filter(fp -> ctx.matches.inMarker(fp).anyMatch(m -> m.name() == MatchName.YEAR))
+                .toList();
         for (var fp : yearFileparts) {
             if (consumedYearFileparts.contains(fp)) continue;
             var titles = checkTitlesInFilepart(ctx, fp, _ -> false);
@@ -238,7 +238,7 @@ public final class TitleExtractor implements Extractor {
         for (var t : titles) {
             var fp = Markers.atMatch(ctx.markers, t, m -> "path".equals(m.name())).orElse(null);
             if (fp == null) continue;
-            var year = ctx.matches.range(fp.start(), fp.end(), m -> m.name() == MatchName.YEAR).findFirst().orElse(null);
+            var year = ctx.matches.inMarker(fp).filter(m -> m.name() == MatchName.YEAR).findFirst().orElse(null);
             if (year == null) continue;
             var inGroup = Markers.atMatch(ctx.markers, year, m -> "group".equals(m.name())).isPresent();
             (inGroup ? withYearInGroup : withYear).add(t);
@@ -258,18 +258,18 @@ public final class TitleExtractor implements Extractor {
                 // be replaced by "Comme Une Image" from inner "Comme.Une.Image").
                 var withTag = new HashSet<>(t.tags());
                 withTag.add("equivalent-ignore");
-                ctx.matches.replace(t, new Match(t.name(), t.value(),
-                    t.start(), t.end(), t.raw(), t.priority(), withTag, t.isPrivate()));
+                ctx.matches.replace(t, new Match(t.name(), t.value(), t.span(),
+                        t.priority(), withTag, t.isPrivate()));
             }
         }
     }
 
     private int countUsableHoles(ParseContext ctx, Marker filepart,
-                                  java.util.function.Predicate<Match> additionalIgnore) {
+                                 java.util.function.Predicate<Match> additionalIgnore) {
         java.util.function.Predicate<Match> ignore = m ->
-            isIgnored(m) || (additionalIgnore != null && additionalIgnore.test(m));
-        var holes = Holes.compute(ctx.input, filepart.start(), filepart.end(),
-            ctx.matches.snapshot(), ignore, null, Formatters::titleText);
+                isIgnored(m) || (additionalIgnore != null && additionalIgnore.test(m));
+        var holes = Holes.compute(ctx.input, filepart.span().start(), filepart.span().end(),
+                ctx.matches.snapshot(), ignore, null, Formatters::titleText);
         holes = holesProcess(ctx, holes);
         int n = 0;
         for (var h : holes) {
@@ -288,16 +288,16 @@ public final class TitleExtractor implements Extractor {
     private Marker serieNameFilepart(ParseContext ctx, List<Marker> fileparts) {
         for (var index = 1; index < fileparts.size() - 1; index++) {
             var fp = fileparts.get(index);
-            var inFp = ctx.matches.range(fp.start(), fp.end(), m -> !m.isPrivate()).toList();
+            var inFp = ctx.matches.inMarker(fp).filter(m -> !m.isPrivate()).toList();
             if (inFp.size() == 1 && inFp.getFirst().name() == MatchName.SEASON
                     && spansFilepartIgnoringSeps(inFp.getFirst(), fp, ctx.input)) {
                 return fileparts.get(index + 1);
             }
             // The season head match is now private; check ALL matches (including private)
             // for a full-span season head.
-            var allInFp = ctx.matches.range(fp.start(), fp.end(), _ -> true).toList();
+            var allInFp = ctx.matches.inMarker(fp).toList();
             var seasonHeads = allInFp.stream().filter(m -> m.name() == MatchName.SEASON && m.value() == null
-                && spansFilepartIgnoringSeps(m, fp, ctx.input)).toList();
+                    && spansFilepartIgnoringSeps(m, fp, ctx.input)).toList();
             if (seasonHeads.size() == 1) {
                 return fileparts.get(index + 1);
             }
@@ -306,11 +306,11 @@ public final class TitleExtractor implements Extractor {
     }
 
     /** True when {@code m} occupies {@code fp} except for separator padding —
-     *  mirrors python's parent.span match-or-equals tolerance. */
+     * mirrors python's parent.span match-or-equals tolerance. */
     private static boolean spansFilepartIgnoringSeps(Match m, Marker fp, String input) {
-        if (m.start() < fp.start() || m.end() > fp.end()) return false;
-        for (int i = fp.start(); i < m.start(); i++) if (!Seps.isSep(input.charAt(i))) return false;
-        for (int i = m.end(); i < fp.end(); i++) if (!Seps.isSep(input.charAt(i))) return false;
+        if (m.span().start() < fp.span().start() || m.span().end() > fp.span().end()) return false;
+        for (int i = fp.span().start(); i < m.span().start(); i++) if (!Seps.isSep(input.charAt(i))) return false;
+        for (int i = m.span().end(); i < fp.span().end(); i++) if (!Seps.isSep(input.charAt(i))) return false;
         return true;
     }
 
@@ -318,12 +318,12 @@ public final class TitleExtractor implements Extractor {
 
     /** Returns null when no usable hole was found. */
     TitlesInFilepart checkTitlesInFilepart(ParseContext ctx, Marker filepart,
-                                            java.util.function.Predicate<Match> additionalIgnore) {
+                                           java.util.function.Predicate<Match> additionalIgnore) {
         var ignore = (java.util.function.Predicate<Match>) m ->
-            isIgnored(m) || (additionalIgnore != null && additionalIgnore.test(m));
+                isIgnored(m) || (additionalIgnore != null && additionalIgnore.test(m));
         return checkTitlesInFilepart(ctx, filepart, ignore, MatchName.TITLE,
-                                     List.of(TITLE),
-                                     MatchName.ALTERNATIVE_TITLE, false);
+                List.of(TITLE),
+                MatchName.ALTERNATIVE_TITLE, false);
     }
 
     /**
@@ -342,7 +342,7 @@ public final class TitleExtractor implements Extractor {
             if (hole == null) continue;
 
             var adjustedHole = adjustHoleAndCollectMatches(ctx, filepart, hole, episodeTitleContext);
-            if (adjustedHole.hole().length() <= 0 || adjustedHole.hole().value().isEmpty()) continue;
+            if (adjustedHole.hole().span().length() <= 0 || adjustedHole.hole().value().isEmpty()) continue;
 
             var titles = createTitleMatches(ctx, adjustedHole.hole(), matchName, matchTags, alternativeMatchName);
             if (titles.isEmpty()) continue;
@@ -355,7 +355,7 @@ public final class TitleExtractor implements Extractor {
     private List<Holes.Hole> computeProcessedHoles(ParseContext ctx, Marker filepart,
                                                    java.util.function.Predicate<Match> ignore) {
         var allMatches = ctx.matches.snapshot();
-        var holes = Holes.compute(ctx.input, filepart.start(), filepart.end(),
+        var holes = Holes.compute(ctx.input, filepart.span().start(), filepart.span().end(),
                 allMatches, ignore, null, Formatters::titleText);
         return holesProcess(ctx, holes);
     }
@@ -367,37 +367,42 @@ public final class TitleExtractor implements Extractor {
                                                            Holes.Hole hole, boolean episodeTitleContext) {
         var toRemove = new ArrayList<Match>();
         var toKeep = new ArrayList<Match>();
-        var ignoredInHole = ctx.matches.range(hole.start, hole.end, TitleExtractor::isIgnored).toList();
+        var ignoredInHole = ctx.matches.range(hole.span().start(), hole.span().end(), TitleExtractor::isIgnored).toList();
 
+        var currentHole = hole;
         if (!ignoredInHole.isEmpty()) {
-            adjustHoleBoundaries(ctx, filepart, hole, ignoredInHole, toKeep);
-            collectMatchesToRemove(ctx, hole, ignoredInHole, toKeep, toRemove, episodeTitleContext);
+            currentHole = adjustHoleBoundaries(ctx, filepart, currentHole, ignoredInHole, toKeep);
+            collectMatchesToRemove(ctx, currentHole, ignoredInHole, toKeep, toRemove, episodeTitleContext);
         }
 
-        return new AdjustedHoleResult(hole, toRemove);
+        return new AdjustedHoleResult(currentHole, toRemove);
     }
 
-    private void adjustHoleBoundaries(ParseContext ctx, Marker filepart, Holes.Hole hole,
-                                      List<Match> ignoredInHole, List<Match> toKeep) {
+    private Holes.Hole adjustHoleBoundaries(ParseContext ctx, Marker filepart, Holes.Hole hole,
+                                            List<Match> ignoredInHole, List<Match> toKeep) {
+        var currentHole = hole;
+
         // Process trailing matches (reversed)
         var reversed = new ArrayList<>(ignoredInHole).reversed();
         for (var m : reversed) {
-            var trailing = ctx.matches.chainBefore(hole.end, ctx.input, Seps.CHARS, x -> x == m).orElse(null);
-            if (trailing != null && shouldKeep(m, toKeep, ctx, filepart, hole, false)) {
+            var trailing = ctx.matches.chainBefore(currentHole.span().end(), ctx.input, Seps.CHARS, x -> x == m).orElse(null);
+            if (trailing != null && shouldKeep(m, toKeep, ctx, filepart, currentHole, false)) {
                 toKeep.add(m);
-                hole.end = m.start();
+                currentHole = currentHole.withBounds(currentHole.span().start(), m.span().start());
             }
         }
 
         // Process starting matches
         for (var m : ignoredInHole) {
             if (toKeep.contains(m)) continue;
-            var starting = ctx.matches.chainAfter(hole.start, ctx.input, Seps.CHARS, x -> x == m).orElse(null);
-            if (starting != null && shouldKeep(m, toKeep, ctx, filepart, hole, true)) {
+            var starting = ctx.matches.chainAfter(currentHole.span().start(), ctx.input, Seps.CHARS, x -> x == m).orElse(null);
+            if (starting != null && shouldKeep(m, toKeep, ctx, filepart, currentHole, true)) {
                 toKeep.add(m);
-                hole.start = m.end();
+                currentHole = currentHole.withBounds(m.span().end(), currentHole.span().end());
             }
         }
+
+        return currentHole;
     }
 
     private void collectMatchesToRemove(ParseContext ctx, Holes.Hole hole, List<Match> ignoredInHole,
@@ -415,7 +420,7 @@ public final class TitleExtractor implements Extractor {
         if (isRedundantSeasonWord(hole.value(), ctx)) return List.of();
 
         var titles = new ArrayList<Match>();
-        titles.add(new Match(matchName, hole.value(), hole.start, hole.end, hole.raw(),
+        titles.add(new Match(matchName, hole.value(), hole.span(),
                 Priority.DEFAULT, Set.copyOf(matchTags), false));
 
         if (alternativeMatchName != null) {
@@ -438,7 +443,10 @@ public final class TitleExtractor implements Extractor {
             var cur = split.get(i);
 
             if (isHyphenatedCompound(prev, cur, input)) {
-                prev.end = cur.end;
+                merged.set(merged.size() - 1, new Holes.Hole(
+                        new Span(prev.span().start(), cur.span().end(), input.substring(prev.span().start(), cur.span().end())),
+                        prev.formatter()
+                ));
             } else {
                 merged.add(cur);
             }
@@ -447,7 +455,7 @@ public final class TitleExtractor implements Extractor {
     }
 
     private boolean isHyphenatedCompound(Holes.Hole prev, Holes.Hole cur, String input) {
-        var sep = input.substring(prev.end, cur.start);
+        var sep = input.substring(prev.span().end(), cur.span().start());
         var prevRaw = prev.raw();
         var curRaw = cur.raw();
 
@@ -473,22 +481,22 @@ public final class TitleExtractor implements Extractor {
                                                    ParseContext ctx) {
         var titles = new ArrayList<Match>();
         var first = split.getFirst();
-        titles.add(new Match(matchName, first.value(), first.start, first.end,
-                first.raw(), Priority.DEFAULT, Set.copyOf(matchTags), false));
+        titles.add(new Match(matchName, first.value(), first.span(),
+                Priority.DEFAULT, Set.copyOf(matchTags), false));
 
         for (var i = 1; i < split.size(); i++) {
             var s = split.get(i);
             if (isRedundantSeasonWord(s.value(), ctx)) continue;
-            titles.add(new Match(alternativeMatchName, s.value(), s.start, s.end, s.raw(),
-                Priority.DEFAULT, Set.of(TITLE), false));
+            titles.add(new Match(alternativeMatchName, s.value(), s.span(),
+                    Priority.DEFAULT, Set.of(TITLE), false));
         }
         return titles;
     }
-    
+
     private List<Match> createSingleAdjustedMatch(Holes.Hole hole, MatchName matchName, List<String> matchTags) {
         var titles = new ArrayList<Match>();
-        titles.add(new Match(matchName, hole.value(), hole.start, hole.end,
-            hole.raw(), Priority.DEFAULT, Set.copyOf(matchTags), false));
+        titles.add(new Match(matchName, hole.value(), hole.span(),
+                Priority.DEFAULT, Set.copyOf(matchTags), false));
         return titles;
     }
 
@@ -497,15 +505,12 @@ public final class TitleExtractor implements Extractor {
         var iter = groupMarkers.iterator();
         while (iter.hasNext()) {
             var g = iter.next();
-            var path = Markers.atMatch(ctx.markers, Match.of(MatchName.G, null, g.start(), g.end(), g.raw()),
-                m -> "path".equals(m.name())).orElse(null);
-            // Mirror python title.holes_process: skip groups whose span equals
-            // the enclosing filepart. Java's GroupMarker excludes the bracket
-            // chars (s+1, e-1) while PathMarker includes them, so also accept
-            // the "group + brackets == path" case.
+            var groupMatch = new Match(MatchName.G, null, g.span(), Priority.DEFAULT, Set.of(), false);
+            var path = Markers.atMatch(ctx.markers, groupMatch, m -> "path".equals(m.name())).orElse(null);
+
             if (path != null
-                && ((path.start() == g.start() && path.end() == g.end())
-                    || (path.start() == g.start() - 1 && path.end() == g.end() + 1))) {
+                    && ((path.span().start() == g.span().start() && path.span().end() == g.span().end())
+                    || (path.span().start() == g.span().start() - 1 && path.span().end() == g.span().end() + 1))) {
                 iter.remove();
             }
         }
@@ -515,15 +520,9 @@ public final class TitleExtractor implements Extractor {
     }
 
     private static final java.util.regex.Pattern SEASON_WORD_PATTERN = java.util.regex.Pattern.compile(
-        "(?i)^(?:season|seasons|saison|saisons|seizoen|serie|series|temp|temporada|temporadas|"
-        + "staffel|staffeln|stagione|stagioni)[ ._-]*(\\d+)$");
+            "(?i)^(?:season|seasons|saison|saisons|seizoen|serie|series|temp|temporada|temporadas|"
+                    + "staffel|staffeln|stagione|stagioni)[ ._-]*(\\d+)$");
 
-    /**
-     * True when {@code value} is a season-word followed by a number that already
-     * matches an existing season match. Used to drop dangling alt-title /
-     * episode-title splits that just restate the season (e.g. "Temporada 4"
-     * paired with a Cap.408 SxxExx match).
-     */
     private static boolean isRedundantSeasonWord(String value, ParseContext ctx) {
         if (value == null || value.isEmpty()) return false;
         var m = SEASON_WORD_PATTERN.matcher(value.trim());
@@ -531,27 +530,27 @@ public final class TitleExtractor implements Extractor {
         int n;
         try { n = Integer.parseInt(m.group(1)); } catch (NumberFormatException _) { return false; }
         return ctx.matches.named(MatchName.SEASON)
-            .anyMatch(s -> Integer.valueOf(n).equals(s.value()));
+                .anyMatch(s -> Integer.valueOf(n).equals(s.value()));
     }
 
     static boolean isIgnored(Match m) {
         if (!Set.of(MatchName.LANGUAGE, MatchName.COUNTRY, MatchName.EPISODE_DETAILS).contains(m.name())) return false;
-        var raw = m.raw();
+        var raw = m.span().raw();
         if (raw == null) return true;
         var upper = raw.equals(raw.toUpperCase(java.util.Locale.ROOT))
-            && raw.chars().anyMatch(Character::isLetter);
+                && raw.chars().anyMatch(Character::isLetter);
         return !(raw.length() > 3 && upper);
     }
 
     private boolean shouldKeep(Match m, List<Match> toKeep, ParseContext ctx, Marker filepart,
                                Holes.Hole hole, boolean starting) {
         if (Set.of(MatchName.LANGUAGE, MatchName.COUNTRY).contains(m.name())) {
-            if (hole.value().length() == m.raw().length()) return true;
-            var others = ctx.matches.range(filepart.start(), filepart.end(),
-                x -> x.name() == m.name() && !toKeep.contains(x)
-                    && !NON_SPECIFIC_LANGUAGES.contains(String.valueOf(x.value()))
-                    && (x.end() <= hole.start || x.start() >= hole.end));
-            return others.findAny().isEmpty() && (!starting || m.raw().length() <= 3);
+            if (hole.value().length() == m.span().raw().length()) return true;
+            var others = ctx.matches.inMarker(filepart).filter(
+                    x -> x.name() == m.name() && !toKeep.contains(x)
+                            && !NON_SPECIFIC_LANGUAGES.contains(String.valueOf(x.value()))
+                            && (x.span().end() <= hole.span().start() || x.span().start() >= hole.span().end()));
+            return others.findAny().isEmpty() && (!starting || m.span().raw().length() <= 3);
         }
         return false;
     }
@@ -560,12 +559,9 @@ public final class TitleExtractor implements Extractor {
         if (m.name() == MatchName.EPISODE_DETAILS) {
             if (episodeTitleContext) return false;
             if ("episode".equals(ctx.options.type())) {
-                return m.start() >= hole.start && m.end() <= hole.end;
+                return m.span().start() >= hole.span().start() && m.span().end() <= hole.span().end();
             }
         }
-        // In episode-title context (computing the trailing title), keep
-        // language/country matches: removing them produces an episode_title
-        // that swallows "ENG - sub" etc. and loses the language info entirely.
         return !episodeTitleContext || !Set.of(MatchName.LANGUAGE, MatchName.COUNTRY).contains(m.name());
     }
 }

@@ -4,6 +4,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 import io.guessit.api.models.Size;
 import io.guessit.core.text.patterns.SizePatterns;
@@ -40,10 +41,11 @@ public final class SizeExtractor implements Extractor {
 
         while (m.find()) {
             var raw = m.group(GRP_SIZE);
-            var head = new Match(MatchName.SIZE, null, m.start(GRP_SIZE), m.end(GRP_SIZE), raw, priority(), Set.of(), false);
+            var span = new Span(m.start(GRP_SIZE), m.end(GRP_SIZE), raw);
+            var head = new Match(MatchName.SIZE, null, span, priority(), Set.of(), false);
 
             if (seps.test(head)) {
-                ctx.matches.add(new Match(MatchName.SIZE, Size.fromString(raw), m.start(GRP_SIZE), m.end(GRP_SIZE), raw,
+                ctx.matches.add(new Match(MatchName.SIZE, Size.fromString(raw), span,
                         priority(), Set.of(TAG_RELEASE_GROUP_PREFIX), false));
             }
         }

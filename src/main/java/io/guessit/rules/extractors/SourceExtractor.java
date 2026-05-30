@@ -3,6 +3,7 @@ package io.guessit.rules.extractors;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Seps;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 import io.guessit.core.text.patterns.SourcePatterns;
 import io.guessit.core.text.patterns.SourcePatterns.SourceRule;
@@ -75,17 +76,20 @@ public final class SourceExtractor implements Extractor {
                                       Predicate<Match> validator, Matcher matcher) {
         int s = matcher.start();
         int e = matcher.end();
-        var sourceMatch = new Match(MatchName.SOURCE, rule.source(), s, e,
-                input.substring(s, e), Priority.DEFAULT, rule.tags(), false);
+
+        var span = new Span(s, e, input.substring(s, e));
+
+        var sourceMatch = new Match(MatchName.SOURCE, rule.source(), span,
+                Priority.DEFAULT, rule.tags(), false);
 
         if (!validator.test(sourceMatch) || overlapsExtension(ctx, s, e)) return;
 
         boolean insideStream = ctx.matches.named(MatchName.STREAMING_SERVICE)
-                .anyMatch(ss -> ss.start() <= s && e <= ss.end() && (ss.start() < s || e < ss.end()));
+                .anyMatch(ss -> ss.span().start() <= s && e <= ss.span().end() && (ss.span().start() < s || e < ss.span().end()));
 
         if (insideStream) {
-            sourceMatch = new Match(MatchName.SOURCE, rule.source(), s, e,
-                    input.substring(s, e), Priority.DEFAULT, rule.tags(), true);
+            sourceMatch = new Match(MatchName.SOURCE, rule.source(), span,
+                    Priority.DEFAULT, rule.tags(), true);
         }
 
         ctx.matches.add(sourceMatch);
@@ -99,14 +103,14 @@ public final class SourceExtractor implements Extractor {
         int gs = groupStart(matcher, groupName);
         int ge = groupEnd(matcher, groupName);
         if (gs >= 0 && ge > gs) {
-            ctx.matches.add(new Match(MatchName.OTHER, value, gs, ge,
-                    input.substring(gs, ge), Priority.DEFAULT, Set.of(TAG_COEXIST, TAG_DERIVED_FROM_SOURCE), false));
+            ctx.matches.add(new Match(MatchName.OTHER, value, new Span(gs, ge, input.substring(gs, ge)),
+                    Priority.DEFAULT, Set.of(TAG_COEXIST, TAG_DERIVED_FROM_SOURCE), false));
         }
     }
 
     private static boolean overlapsExtension(ParseContext ctx, int s, int e) {
         return ctx.matches.named(MatchName.CONTAINER)
-                .anyMatch(m -> m.tags().contains(TAG_EXTENSION) && m.start() < e && s < m.end());
+                .anyMatch(m -> m.tags().contains(TAG_EXTENSION) && m.span().start() < e && s < m.span().end());
     }
 
     private static int groupStart(Matcher m, String name) {
@@ -131,8 +135,8 @@ public final class SourceExtractor implements Extractor {
         var sepsAfter = Validators.sepsAfter(ctx.input);
 
         ctx.matches.named(MatchName.SOURCE)
-                .filter(s -> (!sepsBefore.test(s) && noNeighborTag(ctx, s.start() - 1, TAG_SOURCE_PREFIX)) ||
-                        (!sepsAfter.test(s) && noNeighborTag(ctx, s.end(), TAG_SOURCE_SUFFIX)))
+                .filter(s -> (!sepsBefore.test(s) && noNeighborTag(ctx, s.span().start() - 1, TAG_SOURCE_PREFIX)) ||
+                        (!sepsAfter.test(s) && noNeighborTag(ctx, s.span().end(), TAG_SOURCE_SUFFIX)))
                 .toList()
                 .forEach(ctx.matches::remove);
     }
@@ -150,13 +154,13 @@ public final class SourceExtractor implements Extractor {
     }
 
     private static boolean shouldRemoveWeakSource(ParseContext ctx, Marker filePart, Match weak) {
-        if (!filePart.covers(weak.start(), weak.end())) return false;
+        if (!filePart.covers(weak.span())) return false;
 
         boolean later = ctx.matches.named(MatchName.SOURCE)
-                .anyMatch(m -> m != weak && m.start() >= weak.end() && m.end() <= filePart.end());
+                .anyMatch(m -> m != weak && m.span().start() >= weak.span().end() && m.span().end() <= filePart.span().end());
 
         if (!later) return false;
-        return !ctx.input.substring(filePart.start(), weak.start()).isBlank();
+        return !ctx.input.substring(filePart.span().start(), weak.span().start()).isBlank();
     }
 
     private void upgradeUltraHdBluray(ParseContext ctx) {
@@ -168,18 +172,18 @@ public final class SourceExtractor implements Extractor {
                 .filter(m -> VAL_BLU_RAY.equals(m.value()))
                 .toList()
                 .forEach(bd -> pathMarkers.stream()
-                        .filter(fp -> fp.covers(bd.start(), bd.end()))
+                        .filter(fp -> fp.covers(bd.span()))
                         .findFirst()
                         .ifPresent(fp -> tryUpgradeBluray(ctx, fp, bd)));
     }
 
     private void tryUpgradeBluray(ParseContext ctx, Marker filePart, Match bd) {
-        var uhdOther = findUltraHd(ctx, filePart.start(), bd.start(), true);
-        boolean ok = uhdOther != null && validRange(ctx, uhdOther.end(), bd.start());
+        var uhdOther = findUltraHd(ctx, filePart.span().start(), bd.span().start(), true);
+        boolean ok = uhdOther != null && validRange(ctx, uhdOther.span().end(), bd.span().start());
 
         if (!ok) {
-            uhdOther = findUltraHd(ctx, bd.end(), filePart.end(), false);
-            ok = uhdOther != null && validRange(ctx, bd.end(), uhdOther.start());
+            uhdOther = findUltraHd(ctx, bd.span().end(), filePart.span().end(), false);
+            ok = uhdOther != null && validRange(ctx, bd.span().end(), uhdOther.span().start());
         }
 
         if (!ok) {
@@ -190,12 +194,12 @@ public final class SourceExtractor implements Extractor {
         if (uhdOther != null) ctx.matches.remove(uhdOther);
 
         ctx.matches.replace(bd, new Match(MatchName.SOURCE, VAL_ULTRA_HD_BLURAY,
-                bd.start(), bd.end(), bd.raw(), bd.priority(), bd.tags(), bd.isPrivate()));
+                bd.span(), bd.priority(), bd.tags(), bd.isPrivate()));
     }
 
     private static boolean has2160p(ParseContext ctx, Marker filePart) {
         return ctx.matches.named(MatchName.SCREEN_SIZE)
-                .anyMatch(m -> VAL_2160P.equals(m.value()) && filePart.covers(m.start(), m.end()));
+                .anyMatch(m -> VAL_2160P.equals(m.value()) && filePart.covers(m.span()));
     }
 
     private static Match findUltraHd(ParseContext ctx, int start, int end, boolean preferLast) {
@@ -203,12 +207,12 @@ public final class SourceExtractor implements Extractor {
                 .filter(m -> isUltraHdCandidateInRange(m, start, end));
 
         return preferLast
-                ? candidates.max(Comparator.comparingInt(Match::end)).orElse(null)
-                : candidates.min(Comparator.comparingInt(Match::start)).orElse(null);
+                ? candidates.max(Comparator.comparingInt(m -> m.span().end())).orElse(null)
+                : candidates.min(Comparator.comparingInt(m -> m.span().start())).orElse(null);
     }
 
     private static boolean isUltraHdCandidateInRange(Match m, int start, int end) {
-        return !m.isPrivate() && VAL_ULTRA_HD.equals(m.value()) && m.start() >= start && m.end() <= end;
+        return !m.isPrivate() && VAL_ULTRA_HD.equals(m.value()) && m.span().start() >= start && m.span().end() <= end;
     }
 
     private static boolean validRange(ParseContext ctx, int s, int e) {
@@ -217,7 +221,7 @@ public final class SourceExtractor implements Extractor {
 
     private static boolean allMatchesAreAllowed(ParseContext ctx, int s, int e) {
         return ctx.matches.all()
-                .filter(m -> !m.isPrivate() && m.start() >= s && m.end() <= e)
+                .filter(m -> !m.isPrivate() && m.span().start() >= s && m.span().end() <= e)
                 .allMatch(SourceExtractor::isAllowedMatch);
     }
 
@@ -233,10 +237,10 @@ public final class SourceExtractor implements Extractor {
         boolean[] covered = new boolean[e - s];
 
         ctx.matches.all()
-                .filter(m -> !m.isPrivate() && m.start() < e && m.end() > s)
+                .filter(m -> !m.isPrivate() && m.span().start() < e && m.span().end() > s)
                 .forEach(m -> {
-                    int from = Math.max(m.start(), s) - s;
-                    int to = Math.min(m.end(), e) - s;
+                    int from = Math.max(m.span().start(), s) - s;
+                    int to = Math.min(m.span().end(), e) - s;
                     for (int i = from; i < to; i++) covered[i] = true;
                 });
 
@@ -248,6 +252,6 @@ public final class SourceExtractor implements Extractor {
     }
 
     private static boolean noNeighborTag(ParseContext ctx, int pos, String tag) {
-        return ctx.matches.all().noneMatch(m -> m.tags().contains(tag) && m.start() <= pos && pos <= m.end());
+        return ctx.matches.all().noneMatch(m -> m.tags().contains(tag) && m.span().start() <= pos && pos <= m.span().end());
     }
 }

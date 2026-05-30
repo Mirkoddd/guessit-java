@@ -16,9 +16,9 @@ public final class Markers {
 
     public static Stream<Marker> coveringMatch(List<Marker> markers, Match m, Predicate<Marker> p) {
         return markers.stream()
-            .filter(mk -> mk.covers(m.start(), m.end()))
-            .filter(p)
-            .sorted(Comparator.comparingInt(Marker::start));
+                .filter(mk -> mk.covers(m.span()))
+                .filter(p)
+                .sorted(Comparator.comparingInt(mk -> mk.span().start()));
     }
 
     public static Optional<Marker> atMatch(List<Marker> markers, Match m, Predicate<Marker> p) {
@@ -28,15 +28,15 @@ public final class Markers {
     public static List<Marker> markerSorted(List<Marker> paths, MatchSet matches) {
         // exclusion predicate matching Python's marker_comparator_predicate
         return markerSorted(paths, matches, m ->
-            !m.isPrivate()
-            && m.name() != MatchName.PROPER_COUNT
-            && m.name() != MatchName.TITLE
-            && !(m.name() == MatchName.CONTAINER && m.tags().contains("extension"))
-            && !(m.name() == MatchName.OTHER && "Rip".equals(m.value())));
+                !m.isPrivate()
+                        && m.name() != MatchName.PROPER_COUNT
+                        && m.name() != MatchName.TITLE
+                        && !(m.name() == MatchName.CONTAINER && m.tags().contains("extension"))
+                        && !(m.name() == MatchName.OTHER && "Rip".equals(m.value())));
     }
 
     /** Like {@link #markerSorted(List, MatchSet)} but with a custom counting
-     *  predicate. Mirrors python's {@code marker_sorted(markers, matches, predicate)}.
+     * predicate. Mirrors python's {@code marker_sorted(markers, matches, predicate)}.
      */
     public static List<Marker> markerSorted(List<Marker> paths, MatchSet matches,
                                             java.util.function.Predicate<Match> predicate) {
@@ -46,14 +46,17 @@ public final class Markers {
         indexed.sort((a, b) -> {
             var pa = paths.get(a);
             var pb = paths.get(b);
-            var wa = (int) matches.range(pa.start(), pa.end(), predicate)
-                .map(Match::name).distinct().count();
-            var wb = (int) matches.range(pb.start(), pb.end(), predicate)
-                .map(Match::name).distinct().count();
+
+            var wa = (int) matches.inMarker(pa).filter(predicate)
+                    .map(Match::name).distinct().count();
+            var wb = (int) matches.inMarker(pb).filter(predicate)
+                    .map(Match::name).distinct().count();
+
             var byWeight = Integer.compare(wb, wa);
             if (byWeight != 0) return byWeight;
             return Integer.compare(b, a);
         });
+
         var ret = new ArrayList<Marker>();
         for (var entry : indexed) ret.add(paths.get(entry));
         return ret;

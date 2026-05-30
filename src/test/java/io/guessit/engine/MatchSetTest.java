@@ -4,13 +4,14 @@ import io.guessit.core.pipeline.state.Marker;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchSet;
 import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.text.Span;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Set;
 
-import static io.guessit.core.pipeline.state.Match.of;
 import static io.guessit.core.pipeline.state.MatchName.*;
+import static io.guessit.core.pipeline.state.Match.of;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class MatchSetTest {
@@ -18,16 +19,16 @@ class MatchSetTest {
     @Test
     void addAndAll() {
         var s = new MatchSet();
-        s.add(of(YEAR, 2020, 0, 4, "2020"));
-        s.add(of(SOURCE, "BluRay", 5, 11, "BluRay"));
+        s.add(of(YEAR, 2020, new Span(0, 4, "2020")));
+        s.add(of(SOURCE, "BluRay", new Span(5, 11, "BluRay")));
         assertThat(s.all().count()).isEqualTo(2);
     }
 
     @Test
     void namedFilter() {
         var s = new MatchSet();
-        s.add(of(YEAR, 2020, 0, 4, "2020"));
-        s.add(of(SOURCE, "BluRay", 5, 11, "BluRay"));
+        s.add(of(YEAR, 2020, new Span(0, 4, "2020")));
+        s.add(of(SOURCE, "BluRay", new Span(5, 11, "BluRay")));
         var years = s.named(YEAR).toList();
         assertThat(years).hasSize(1);
         assertThat(years.getFirst().value()).isEqualTo(2020);
@@ -36,8 +37,8 @@ class MatchSetTest {
     @Test
     void overlapping() {
         var s = new MatchSet();
-        var a = of(YEAR, 2020, 0, 4, "2020");
-        var b = of(SEASON, 20, 1, 3, "20");
+        var a = of(YEAR, 2020, new Span(0, 4, "2020"));
+        var b = of(SEASON, 20, new Span(1, 3, "20"));
         s.add(a);
         s.add(b);
         var overs = s.overlapping(0, 5).toList();
@@ -49,9 +50,9 @@ class MatchSetTest {
     @Test
     void inMarker() {
         var s = new MatchSet();
-        var marker = new Marker("path", 0, 10, "abcdefghij");
-        s.add(of(YEAR, 2020, 0, 4, "2020"));
-        s.add(of(YEAR, 1999, 12, 16, "1999"));
+        var marker = new Marker("path", new Span(0, 10, "abcdefghij"));
+        s.add(of(YEAR, 2020, new Span(0, 4, "2020")));
+        s.add(of(YEAR, 1999, new Span(12, 16, "1999")));
         var inside = s.inMarker(marker).toList();
         assertThat(inside).hasSize(1);
         assertThat(inside.getFirst().value()).isEqualTo(2020);
@@ -60,8 +61,8 @@ class MatchSetTest {
     @Test
     void removeAndReplace() {
         var s = new MatchSet();
-        var a = of(YEAR, 2020, 0, 4, "2020");
-        var b = of(YEAR, 1999, 0, 4, "1999");
+        var a = of(YEAR, 2020, new Span(0, 4, "2020"));
+        var b = of(YEAR, 1999, new Span(0, 4, "1999"));
         s.add(a);
         s.replace(a, b);
         assertThat(s.all().toList()).isEqualTo(List.of(b));
@@ -72,9 +73,9 @@ class MatchSetTest {
     @Test
     void rangeReturnsMatchesFullyInsideSpan() {
         var set = new MatchSet();
-        set.add(of(OTHER, 1, 0, 5, "00000"));
-        set.add(of(OTHER, 2, 6, 10, "1111"));
-        set.add(of(OTHER, 3, 11, 15, "2222"));
+        set.add(of(OTHER, 1, new Span(0, 5, "00000")));
+        set.add(of(OTHER, 2, new Span(6, 10, "1111")));
+        set.add(of(OTHER, 3, new Span(11, 15, "2222")));
         var inRange = set.range(0, 10, _ -> true).toList();
         assertThat(inRange).hasSize(2);
         assertThat(inRange.get(0).name()).isEqualTo(OTHER);
@@ -84,9 +85,9 @@ class MatchSetTest {
     @Test
     void previousAndNextRespectPredicate() {
         var set = new MatchSet();
-        var a = of(OTHER, 1, 0, 3, "aaa");
-        var b = of(OTHER, 2, 5, 8, "bbb");
-        var c = of(OTHER, 3, 10, 13, "ccc");
+        var a = of(OTHER, 1, new Span(0, 3, "aaa"));
+        var b = of(OTHER, 2, new Span(5, 8, "bbb"));
+        var c = of(OTHER, 3, new Span(10, 13, "ccc"));
         set.add(a);
         set.add(b);
         set.add(c);
@@ -99,8 +100,8 @@ class MatchSetTest {
     void chainBeforeWalksOnlyThroughSeps() {
         var input = "abc.def-ghi";
         var set = new MatchSet();
-        var a = of(OTHER, 1, 0, 3, "abc");
-        var b = of(OTHER, 2, 4, 7, "def");
+        var a = of(OTHER, 1, new Span(0, 3, "abc"));
+        var b = of(OTHER, 2, new Span(4, 7, "def"));
         set.add(a);
         set.add(b);
         assertThat(set.chainBefore(8, input, " ._-", m -> true).orElseThrow()).isEqualTo(b);
@@ -111,8 +112,8 @@ class MatchSetTest {
     void chainAfterWalksOnlyThroughSeps() {
         var input = "abc.def-ghi";
         var set = new MatchSet();
-        var b = of(OTHER, 2, 4, 7, "def");
-        var c = of(OTHER, 3, 8, 11, "ghi");
+        var b = of(OTHER, 2, new Span(4, 7, "def"));
+        var c = of(OTHER, 3, new Span(8, 11, "ghi"));
         set.add(b);
         set.add(c);
         assertThat(set.chainAfter(3, input, " ._-", m -> true).orElseThrow()).isEqualTo(b);
@@ -122,8 +123,8 @@ class MatchSetTest {
     @Test
     void taggedFiltersByTagSet() {
         var set = new MatchSet();
-        set.add(new Match(OTHER, null, 0, 1, "a", Priority.DEFAULT, Set.of("foo"), false));
-        set.add(of(OTHER, null, 2, 3, "b"));
+        set.add(new Match(OTHER, null, new Span(0, 1, "a"), Priority.DEFAULT, Set.of("foo"), false));
+        set.add(of(OTHER, null, new Span(2, 3, "b")));
         var tagged = set.tagged("foo").toList();
         assertThat(tagged).hasSize(1);
         assertThat(tagged.getFirst().name()).isEqualTo(OTHER);

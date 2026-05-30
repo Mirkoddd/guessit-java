@@ -5,6 +5,7 @@ import io.guessit.core.pipeline.state.Marker;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Span;
 import io.guessit.core.trace.Trace;
 import io.guessit.core.trace.TraceDiff;
 import org.junit.jupiter.api.Test;
@@ -20,13 +21,14 @@ class TraceDiffSpansTest {
     void firesSpansEventWhenSetChanged() {
         var fired = new ArrayList<String>();
         Trace tr = new Trace() {
-            @Override public void added(Match m)   { fired.add("+" + m.raw()); }
-            @Override public void removed(Match m) { fired.add("-" + m.raw()); }
+            @Override public void added(Match m)   { fired.add("+" + m.span().raw()); }
+            @Override public void removed(Match m) { fired.add("-" + m.span().raw()); }
             @Override public void noChanges()      { fired.add("nochg"); }
             @Override public void spans(String i, List<Match> ms, List<Marker> mk) { fired.add("spans:" + ms.size() + "/" + mk.size()); }
         };
         var ctx = new ParseContext("XxX.2020.mkv", Options.defaults(), null, tr);
-        var year = Match.of(MatchName.YEAR, 2020, 4, 8, "2020");
+
+        var year = Match.of(MatchName.YEAR, 2020, new Span(4, 8, "2020"));
         var before = ctx.matches.snapshot();
         ctx.matches.add(year);
         TraceDiff.emit(before, ctx.matches.snapshot(), ctx);
@@ -53,11 +55,12 @@ class TraceDiffSpansTest {
         // but no spans event.
         var fired = new ArrayList<String>();
         Trace tr = new Trace() {
-            @Override public void added(Match m)  { fired.add("+" + m.raw()); }
+            @Override public void added(Match m)  { fired.add("+" + m.span().raw()); }
             @Override public void noChanges()     { fired.add("nochg"); }
             @Override public void spans(String i, List<Match> ms, List<Marker> mk) { fired.add("spans"); }
         };
-        var year = Match.of(MatchName.YEAR, 2020, 0, 4, "2020");
+
+        var year = Match.of(MatchName.YEAR, 2020, new Span(0, 4, "2020"));
         TraceDiff.emit(List.of(), List.of(year), tr);
         assertThat(fired).containsExactly("+2020");
     }

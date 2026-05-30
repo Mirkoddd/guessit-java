@@ -3,9 +3,12 @@ package io.guessit.rules.post;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.pipeline.contracts.PostProcessor;
+import io.guessit.core.text.Span;
 
 import java.net.URLConnection;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 
@@ -24,15 +27,15 @@ public final class MimetypeProcessor implements PostProcessor {
     }
 
     private static final Map<String, String> OVERLAY = Map.of(
-        "mkv",  "video/x-matroska",
-        "flv",  "video/x-flv",
-        "mp4",  "video/mp4",
-        "srt",  "application/x-subrip",
-        "ass",  "text/x-ssa",
-        "ssa",  "text/x-ssa",
-        "idx",  "application/x-idx",
-        "sub",  "application/x-subrip",
-        "nfo",  "text/x-nfo"
+            "mkv",  "video/x-matroska",
+            "flv",  "video/x-flv",
+            "mp4",  "video/mp4",
+            "srt",  "application/x-subrip",
+            "ass",  "text/x-ssa",
+            "ssa",  "text/x-ssa",
+            "idx",  "application/x-idx",
+            "sub",  "application/x-subrip",
+            "nfo",  "text/x-nfo"
     );
 
     @Override
@@ -40,13 +43,19 @@ public final class MimetypeProcessor implements PostProcessor {
         var lower = ctx.input.toLowerCase(Locale.ROOT);
         var dot = lower.lastIndexOf('.');
         String mime = null;
+
         if (dot >= 0 && dot < lower.length() - 1) {
             var ext = lower.substring(dot + 1);
             mime = OVERLAY.get(ext);
         }
+
         if (mime == null) mime = URLConnection.guessContentTypeFromName(ctx.input);
         if (mime == null) return;
+
         var pos = ctx.input.length();
-        ctx.matches.add(Match.of(MatchName.MIMETYPE, mime, pos, pos, ""));
+
+        var zeroWidthSpan = new Span(pos, pos, "");
+
+        ctx.matches.add(new Match(MatchName.MIMETYPE, mime, zeroWidthSpan, Priority.DEFAULT, Collections.emptySet(), false));
     }
 }

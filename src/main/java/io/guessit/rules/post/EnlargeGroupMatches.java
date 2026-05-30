@@ -4,8 +4,7 @@ import io.guessit.core.pipeline.contracts.PostProcessor;
 import io.guessit.core.pipeline.state.Marker;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.ParseContext;
-
-import java.util.ArrayList;
+import io.guessit.core.text.Span;
 
 /**
  * Port of python {@code processors.EnlargeGroupMatches}: for each {@code group}
@@ -28,20 +27,33 @@ public final class EnlargeGroupMatches implements PostProcessor {
     }
 
     private static void enlargeForGroup(ParseContext ctx, Marker g) {
-        for (var m : new ArrayList<>(ctx.matches.snapshot())) {
-            var next = enlargedMatch(m, g);
+        for (var m : ctx.matches.inMarker(g).toList()) {
+            var next = enlargedMatch(m, g, ctx.input);
             if (next != null) ctx.matches.replace(m, next);
         }
     }
 
-    private static Match enlargedMatch(Match m, Marker g) {
-        Match next = null;
-        if (m.start() == g.start() + 1 && m.end() <= g.end()) {
-            next = m.withStart(g.start());
+    private static Match enlargedMatch(Match m, Marker g, String input) {
+        int newStart = m.span().start();
+        int newEnd = m.span().end();
+        boolean changed = false;
+
+        if (newStart == g.span().start() + 1 && newEnd <= g.span().end()) {
+            newStart = g.span().start();
+            changed = true;
         }
-        if (m.end() == g.end() - 1 && m.start() >= g.start()) {
-            next = (next != null ? next : m).withEnd(g.end());
+
+        if (newEnd == g.span().end() - 1 && newStart >= g.span().start()) {
+            newEnd = g.span().end();
+            changed = true;
         }
-        return next;
+
+        if (changed) {
+            String newRaw = input.substring(newStart, newEnd);
+            Span newSpan = new Span(newStart, newEnd, newRaw);
+            return m.withSpan(newSpan);
+        }
+
+        return null;
     }
 }

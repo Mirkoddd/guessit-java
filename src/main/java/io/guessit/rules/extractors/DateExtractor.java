@@ -6,6 +6,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Span;
 
 import java.util.Set;
 
@@ -44,10 +45,10 @@ public final class DateExtractor implements Extractor {
         var input = ctx.input;
 
         DateOrchestrator.search(input, ctx.options.dateYearFirst(), ctx.options.dateDayFirst())
-                .ifPresent(r -> ctx.matches.add(new Match(
-                        MatchName.DATE, r.date(), r.start(), r.end(),
-                        input.substring(r.start(), r.end()), priority(), Set.of(), false)
-                ));
+                .ifPresent(r -> {
+                    var span = new Span(r.start(), r.end(), input.substring(r.start(), r.end()));
+                    ctx.matches.add(new Match(MatchName.DATE, r.date(), span, priority(), Set.of(), false));
+                });
     }
 
     /**
@@ -84,7 +85,7 @@ public final class DateExtractor implements Extractor {
             return false;
         }
 
-        boolean isInsideDateSpan = m.start() >= dateMatch.start() && m.end() <= dateMatch.end();
+        boolean isInsideDateSpan = m.span().start() >= dateMatch.span().start() && m.span().end() <= dateMatch.span().end();
         boolean isTargetType = m.name() == MatchName.YEAR
                 || m.name() == MatchName.SEASON
                 || m.name() == MatchName.EPISODE

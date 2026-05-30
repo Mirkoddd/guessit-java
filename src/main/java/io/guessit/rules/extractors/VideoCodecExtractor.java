@@ -7,6 +7,7 @@ import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.PatternMatcher;
 import io.guessit.core.text.RegexOpts;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.StringOpts;
 import io.guessit.core.text.Validators;
 import io.guessit.core.text.patterns.VideoCodecPatterns;
@@ -52,7 +53,7 @@ public final class VideoCodecExtractor implements Extractor {
         // video_api
         var apiOpts = StringOpts.defaults().withValidator(sepsAround);
         for (var m : PatternMatcher.string(input, Set.of("DXVA"), VIDEO_API_NAME, apiOpts, ctx.trace)) {
-            ctx.matches.add(new Match(VIDEO_API_NAME, "DXVA", m.start(), m.end(), m.raw(), m.priority(), m.tags(), false));
+            ctx.matches.add(new Match(VIDEO_API_NAME, "DXVA", m.span(), m.priority(), m.tags(), false));
         }
     }
 
@@ -63,7 +64,7 @@ public final class VideoCodecExtractor implements Extractor {
         for (var rule : VideoCodecPatterns.CODEC_RULES) {
             var opts = optsBase.withValue(_ -> rule.value());
             for (var m : PatternMatcher.regex(ctx.input, rule.pattern(), VIDEO_CODEC_NAME, opts, ctx.trace)) {
-                ctx.matches.add(new Match(VIDEO_CODEC_NAME, m.value(), m.start(), m.end(), m.raw(), m.priority(), tags, false));
+                ctx.matches.add(new Match(VIDEO_CODEC_NAME, m.value(), m.span(), m.priority(), tags, false));
             }
         }
     }
@@ -71,24 +72,20 @@ public final class VideoCodecExtractor implements Extractor {
     private void extractHevc10(ParseContext ctx) {
         var m = VideoCodecPatterns.P_HEVC10.matcher(ctx.input);
         while (m.find()) {
-            int cStart = m.start(VideoCodecPatterns.GRP_C);
-            int cEnd = m.end(VideoCodecPatterns.GRP_C);
-            int dStart = m.start(VideoCodecPatterns.GRP_D);
-            int dEnd = m.end(VideoCodecPatterns.GRP_D);
-            String cRaw = m.group(VideoCodecPatterns.GRP_C);
-            String dRaw = m.group(VideoCodecPatterns.GRP_D);
+            var cSpan = new Span(m.start(VideoCodecPatterns.GRP_C), m.end(VideoCodecPatterns.GRP_C), m.group(VideoCodecPatterns.GRP_C));
+            var dSpan = new Span(m.start(VideoCodecPatterns.GRP_D), m.end(VideoCodecPatterns.GRP_D), m.group(VideoCodecPatterns.GRP_D));
 
-            var dummy = new Match(MatchName.DUMMY, "", cStart, cEnd, cRaw, Priority.NONE, Set.of(), false);
+            var dummy = new Match(MatchName.DUMMY, "", cSpan, Priority.NONE, Set.of(), false);
             if (Validators.sepsBefore(ctx.input).test(dummy)) {
                 ctx.matches.named(VIDEO_CODEC_NAME)
-                        .filter(e -> e.start() == cStart && e.end() < cEnd)
+                        .filter(e -> e.span().start() == cSpan.start() && e.span().end() < cSpan.end())
                         .toList()
                         .forEach(ctx.matches::remove);
 
-                ctx.matches.add(new Match(VIDEO_CODEC_NAME, "H.265", cStart, cEnd, cRaw, Priority.DEFAULT,
+                ctx.matches.add(new Match(VIDEO_CODEC_NAME, "H.265", cSpan, Priority.DEFAULT,
                         Set.of("source-suffix", "streaming_service.suffix"), false));
 
-                ctx.matches.add(new Match(COLOR_DEPTH_NAME, "10-bit", dStart, dEnd, dRaw, Priority.DEFAULT,
+                ctx.matches.add(new Match(COLOR_DEPTH_NAME, "10-bit", dSpan, Priority.DEFAULT,
                         Set.of("video-codec-suffix", "derivedFrom:video_codec"), false));
             }
         }
@@ -100,7 +97,7 @@ public final class VideoCodecExtractor implements Extractor {
 
         for (var rule : VideoCodecPatterns.PROFILE_STR_RULES) {
             for (var m : PatternMatcher.string(ctx.input, rule.aliases(), VIDEO_PROFILE_NAME, strOptsBase, ctx.trace)) {
-                ctx.matches.add(new Match(VIDEO_PROFILE_NAME, rule.value(), m.start(), m.end(), m.raw(), m.priority(), tagsTagged, false));
+                ctx.matches.add(new Match(VIDEO_PROFILE_NAME, rule.value(), m.span(), m.priority(), tagsTagged, false));
             }
         }
 
@@ -109,7 +106,7 @@ public final class VideoCodecExtractor implements Extractor {
             var opts = regexOptsBase.withValue(_ -> rule.value());
             for (var m : PatternMatcher.regex(ctx.input, rule.pattern(), VIDEO_PROFILE_NAME, opts, ctx.trace)) {
                 var tags = rule.isTagged() ? tagsTagged : Set.<String>of();
-                ctx.matches.add(new Match(VIDEO_PROFILE_NAME, rule.value(), m.start(), m.end(), m.raw(), m.priority(), tags, false));
+                ctx.matches.add(new Match(VIDEO_PROFILE_NAME, rule.value(), m.span(), m.priority(), tags, false));
             }
         }
     }
@@ -146,8 +143,8 @@ public final class VideoCodecExtractor implements Extractor {
 
         var toRemove = ctx.matches.named(VIDEO_CODEC_NAME)
                 .filter(codec -> {
-                    boolean before = sepsBefore.test(codec) || prefixSpans.stream().anyMatch(m -> m.end() == codec.start());
-                    boolean after = sepsAfter.test(codec) || suffixSpans.stream().anyMatch(m -> m.start() == codec.end());
+                    boolean before = sepsBefore.test(codec) || prefixSpans.stream().anyMatch(m -> m.span().end() == codec.span().start());
+                    boolean after = sepsAfter.test(codec) || suffixSpans.stream().anyMatch(m -> m.span().start() == codec.span().end());
                     return !(before && after);
                 }).toList();
 

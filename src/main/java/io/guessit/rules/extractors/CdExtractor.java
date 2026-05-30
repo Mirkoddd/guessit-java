@@ -5,6 +5,7 @@ import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Seps;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 import io.guessit.core.text.patterns.CdPatterns;
 
@@ -41,14 +42,15 @@ public final class CdExtractor implements Extractor {
     private void scanCdOf(ParseContext ctx, String input, java.util.function.Predicate<Match> seps) {
         var m = CD_OF.matcher(input);
         while (m.find()) {
-            var head = new Match(MatchName.CD, null, m.start(), m.end(), m.group(), priority(), Set.of(), false);
+            var headSpan = new Span(m.start(), m.end(), m.group());
+            var head = new Match(MatchName.CD, null, headSpan, priority(), Set.of(), false);
 
             if (seps.test(head)) {
                 int cd = Integer.parseInt(m.group(CD));
 
                 if (cd > 0 && cd < 100) {
-                    ctx.matches.add(new Match(MatchName.CD, cd,
-                            m.start(CD), m.end(CD), m.group(CD), priority(), Set.of(), false));
+                    var cdSpan = new Span(m.start(CD), m.end(CD), m.group(CD));
+                    ctx.matches.add(new Match(MatchName.CD, cd, cdSpan, priority(), Set.of(), false));
                     addCdCountIfPresent(ctx, m);
                 }
             }
@@ -62,8 +64,8 @@ public final class CdExtractor implements Extractor {
             int c = Integer.parseInt(countGroup);
 
             if (c > 0 && c < 100) {
-                ctx.matches.add(new Match(MatchName.CD_COUNT, c,
-                        m.start(COUNT), m.end(COUNT), countGroup,
+                var countSpan = new Span(m.start(COUNT), m.end(COUNT), countGroup);
+                ctx.matches.add(new Match(MatchName.CD_COUNT, c, countSpan,
                         priority(), Set.of(), false));
             }
         }
@@ -72,14 +74,15 @@ public final class CdExtractor implements Extractor {
     private void scanCdCount(ParseContext ctx, String input, java.util.function.Predicate<Match> seps) {
         var m = CD_COUNT.matcher(input);
         while (m.find()) {
-            var head = new Match(MatchName.CD_COUNT, null, m.start(), m.end(), m.group(), priority(), Set.of(), false);
+            var headSpan = new Span(m.start(), m.end(), m.group());
+            var head = new Match(MatchName.CD_COUNT, null, headSpan, priority(), Set.of(), false);
 
             if (seps.test(head)) {
                 int c = Integer.parseInt(m.group(COUNT));
 
                 if (c > 0 && c < 100) {
-                    ctx.matches.add(new Match(MatchName.CD_COUNT, c,
-                            m.start(COUNT), m.end(COUNT), m.group(COUNT),
+                    var countSpan = new Span(m.start(COUNT), m.end(COUNT), m.group(COUNT));
+                    ctx.matches.add(new Match(MatchName.CD_COUNT, c, countSpan,
                             priority(), Set.of(), false));
                     addCdLiteralMarker(ctx, input, m);
                 }
@@ -88,7 +91,7 @@ public final class CdExtractor implements Extractor {
     }
 
     /** Cover the trailing "cd"/"cds" literal with a private marker so
-     *  it doesn't leak into a title/alt-title hole. */
+     * it doesn't leak into a title/alt-title hole. */
     private void addCdLiteralMarker(ParseContext ctx, String input, java.util.regex.Matcher m) {
         int litStart = m.end(COUNT);
         int litEnd = m.end();
@@ -98,8 +101,8 @@ public final class CdExtractor implements Extractor {
         }
 
         if (litEnd > litStart) {
-            ctx.matches.add(new Match(MatchName.CD_MARKER, null, litStart, litEnd,
-                    input.substring(litStart, litEnd), priority(), Set.of(), true));
+            var markerSpan = new Span(litStart, litEnd, input.substring(litStart, litEnd));
+            ctx.matches.add(new Match(MatchName.CD_MARKER, null, markerSpan, priority(), Set.of(), true));
         }
     }
 }

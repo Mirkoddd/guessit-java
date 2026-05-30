@@ -7,6 +7,7 @@ import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Seps;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 import io.guessit.core.text.patterns.WebsitePatterns;
 
@@ -81,7 +82,8 @@ public final class WebsiteExtractor implements Extractor {
             var needle = prefix.toLowerCase(Locale.ROOT);
             for (int i = hay.indexOf(needle); i >= 0; i = hay.indexOf(needle, i + 1)) {
                 int end = i + needle.length();
-                var m = new Match(MatchName.WEBSITE, prefix, i, end, input.substring(i, end), Priority.NONE, Set.of(TAG_PREFIX), true);
+                var span = new Span(i, end, input.substring(i, end));
+                var m = new Match(MatchName.WEBSITE, prefix, span, Priority.NONE, Set.of(TAG_PREFIX), true);
                 if (validator.test(m)) ctx.matches.add(m);
             }
         }
@@ -100,7 +102,8 @@ public final class WebsiteExtractor implements Extractor {
             var raw = input.substring(s, e);
             if (!isValidDomainChars(raw)) continue;
 
-            ctx.matches.add(new Match(MatchName.WEBSITE, raw, s, e, raw, Priority.FALLBACK, Set.of(), false));
+            var span = new Span(s, e, raw);
+            ctx.matches.add(new Match(MatchName.WEBSITE, raw, span, Priority.FALLBACK, Set.of(), false));
         }
     }
 
@@ -140,18 +143,18 @@ public final class WebsiteExtractor implements Extractor {
         return ctx.matches.all().anyMatch(o ->
                 (o.name() == MatchName.SEASON || o.name() == MatchName.EPISODE
                         || o.name() == MatchName.YEAR || o.name() == MatchName.DATE)
-                        && o.start() >= w.end());
+                        && o.span().start() >= w.span().end());
     }
 
     private boolean shouldRemovePrefixMatch(Match m, ParseContext ctx, List<Match> toRemove) {
         var websiteMatch = ctx.matches.named(MatchName.WEBSITE)
-                .filter(w -> w.start() > m.end() && !toRemove.contains(w))
+                .filter(w -> w.span().start() > m.span().end() && !toRemove.contains(w))
                 .findFirst()
                 .orElse(null);
 
         if (websiteMatch == null) return true;
 
-        return ctx.input.substring(m.end(), websiteMatch.start()).chars()
+        return ctx.input.substring(m.span().end(), websiteMatch.span().start()).chars()
                 .anyMatch(c -> !Seps.isSep((char) c));
     }
 

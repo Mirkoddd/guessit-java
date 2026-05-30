@@ -138,17 +138,17 @@ public final class EditionExtractor implements Extractor {
     }
 
     private static boolean isExactOverlap(Match m1, Match m2) {
-        return m1.start() == m2.start() && m1.end() == m2.end();
+        return m1.span().start() == m2.span().start() && m1.span().end() == m2.span().end();
     }
 
     private static boolean streamingServiceWillSurvive(ParseContext ctx, String input, Match s) {
         return ctx.matches.all()
                 .filter(m -> !m.isPrivate())
                 .filter(m -> m.tags().contains("streaming_service.suffix"))
-                .filter(m -> m.start() >= s.end())
-                .min(Comparator.comparingInt(Match::start))
-                .map(n -> Seps.betweenIsSeps(input, s.end(), n.start())
-                        && (s.start() == 0 || Seps.isSep(input.charAt(s.start() - 1))))
+                .filter(m -> m.span().start() >= s.span().end())
+                .min(Comparator.comparingInt(m -> m.span().start()))
+                .map(n -> Seps.betweenIsSeps(input, s.span().end(), n.span().start())
+                        && (s.span().start() == 0 || Seps.isSep(input.charAt(s.span().start() - 1))))
                 .orElse(false);
     }
 }

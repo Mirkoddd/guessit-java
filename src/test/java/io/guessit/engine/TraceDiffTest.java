@@ -1,6 +1,7 @@
 package io.guessit.engine;
 
 import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.text.Span;
 import io.guessit.core.trace.PrintTrace;
 import io.guessit.core.trace.Trace;
 import io.guessit.core.trace.TraceDiff;
@@ -15,6 +16,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TraceDiffTest {
 
+    private static final Match YEAR_MATCH = Match.of(YEAR, 2020, new Span(11, 15, "2020"));
+    private static final Match SCREEN_MATCH = Match.of(SCREEN_SIZE, "1080p", new Span(16, 21, "1080p"));
+
     static class CapturingTrace implements Trace {
         final List<String> events = new ArrayList<>();
         @Override public void added(Match m)   { events.add("+ " + PrintTrace.formatMatch(m)); }
@@ -24,49 +28,42 @@ class TraceDiffTest {
 
     @Test
     void emitsAddedForMatchPresentOnlyInAfter() {
-        var year = Match.of(YEAR, 2020, 11, 15, "2020");
         var trace = new CapturingTrace();
-        TraceDiff.emit(List.of(), List.of(year), trace);
+        TraceDiff.emit(List.of(), List.of(YEAR_MATCH), trace);
         assertThat(trace.events).containsExactly("+ 2020:(11,15)+name=year");
     }
 
     @Test
     void emitsRemovedForMatchPresentOnlyInBefore() {
-        var year = Match.of(YEAR, 2020, 11, 15, "2020");
         var trace = new CapturingTrace();
-        TraceDiff.emit(List.of(year), List.of(), trace);
+        TraceDiff.emit(List.of(YEAR_MATCH), List.of(), trace);
         assertThat(trace.events).containsExactly("- 2020:(11,15)+name=year");
     }
 
     @Test
     void emitsNoChangesWhenIdentical() {
-        var year = Match.of(YEAR, 2020, 11, 15, "2020");
         var trace = new CapturingTrace();
-        TraceDiff.emit(List.of(year), List.of(year), trace);
+        TraceDiff.emit(List.of(YEAR_MATCH), List.of(YEAR_MATCH), trace);
         assertThat(trace.events).containsExactly("(no changes)");
     }
 
     @Test
     void emitsRemovesBeforeAdds() {
-        var year = Match.of(YEAR, 2020, 11, 15, "2020");
-        var screen = Match.of(SCREEN_SIZE, "1080p", 16, 21, "1080p");
         var trace = new CapturingTrace();
-        TraceDiff.emit(List.of(year), List.of(screen), trace);
+        TraceDiff.emit(List.of(YEAR_MATCH), List.of(SCREEN_MATCH), trace);
         assertThat(trace.events).containsExactly(
-            "- 2020:(11,15)+name=year",
-            "+ 1080p:(16,21)+name=screen_size"
+                "- 2020:(11,15)+name=year",
+                "+ 1080p:(16,21)+name=screen_size"
         );
     }
 
     @Test
     void preservesAfterOrderForAdds() {
-        var a = Match.of(YEAR, 2020, 11, 15, "2020");
-        var b = Match.of(SCREEN_SIZE, "1080p", 16, 21, "1080p");
         var trace = new CapturingTrace();
-        TraceDiff.emit(List.of(), List.of(a, b), trace);
+        TraceDiff.emit(List.of(), List.of(YEAR_MATCH, SCREEN_MATCH), trace);
         assertThat(trace.events).containsExactly(
-            "+ 2020:(11,15)+name=year",
-            "+ 1080p:(16,21)+name=screen_size"
+                "+ 2020:(11,15)+name=year",
+                "+ 1080p:(16,21)+name=screen_size"
         );
     }
 }

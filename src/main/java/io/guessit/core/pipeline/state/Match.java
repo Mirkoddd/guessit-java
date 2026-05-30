@@ -1,87 +1,70 @@
 package io.guessit.core.pipeline.state;
 
-import io.guessit.core.pipeline.phases.ConflictPhase;
-
+import io.guessit.core.text.Span;
 import java.util.Set;
 
 /**
- * One extracted property occurrence.
+ * Represents a single extracted property (a "match") found within the input text.
  *
- * <p>Carries both the parsed value (an {@code Integer} for {@code year}, a
- * {@code Language} for {@code language}, and so on) and the raw substring
- * span it came from. The span is half-open: {@code [start, end)}.
+ * <p>A match ties a strongly-typed or semantic value to a specific spatial region
+ * ({@link Span}) of the original filename or release string. Matches are produced
+ * by Extractors and refined by Post-Processors before final output generation.
  *
- * <p>Two metadata channels influence later phases:
- * <ul>
- * <li>{@code priority} — tie-breaker in {@link ConflictPhase} when two
- * overlapping matches have equal length; higher wins.</li>
- * <li>{@code tags} — string flags read by other rules. Notable values:
- * {@code "coexist"} (opt out of conflict resolution; allowed to overlap),
- * {@code "SxxExx"} (set by {@code SeasonEpisodeExtractor}; gates
- * {@code WeakEpisodeExtractor}'s trailing-weak → {@code absolute_episode}
- * rename pass).</li>
- * <li>{@code isPrivate} — match exists only to influence other rules and
- * is dropped before output by the {@code PrivateRemover} processor.</li>
- * </ul>
- *
- * @param name      the property name identifier (e.g., {@code year}, {@code language}, {@code episode})
- * @param value     the parsed value; type depends on property (e.g., {@code Integer} for year, {@code Language} for language)
- * @param start     the zero-based inclusive start position of the match in the input string
- * @param end       the zero-based exclusive end position of the match in the input string
- * @param raw       the original substring from the input that was matched
- * @param priority  tie-breaker value used in conflict resolution; higher priority wins when matches overlap and have equal length (default {@link Priority#DEFAULT})
- * @param tags      set of string flags that control behavior in other rules (e.g., "coexist", "SxxExx"); never null
- * @param isPrivate if true, this match is used only internally and will be removed from final output
+ * @param name      The semantic property name (e.g., SEASON, EPISODE, YEAR).
+ * @param value     The parsed value of the match (temporarily an Object pending generic migration).
+ * @param span      The exact spatial boundaries and raw text of this match.
+ * @param priority  The resolution priority used by the ConflictSolver during overlapping matches.
+ * @param tags      A set of semantic tags used to carry contextual state (e.g., "range-fill", "weak").
+ * @param isPrivate If {@code true}, this match is used for internal logic and will not be
+ * serialized in the final output.
  */
 public record Match(
         MatchName name,
         Object value,
-        int start,
-        int end,
-        String raw,
+        Span span,
         Priority priority,
         Set<String> tags,
         boolean isPrivate
 ) {
-    public Match {
-        tags = tags == null ? Set.of() : Set.copyOf(tags);
+
+    /**
+     * Creates a copy of this match with a new name.
+     *
+     * @param newName The new semantic property name.
+     * @return a new Match instance with the updated name.
+     */
+    public Match withName(MatchName newName) {
+        return new Match(newName, this.value, this.span, this.priority, this.tags, this.isPrivate);
     }
 
     /**
-     * Convenience factory: default priority {@link Priority#DEFAULT}, no tags, public.
+     * Creates a copy of this match with a new spatial span.
+     *
+     * @param newSpan The new spatial interval.
+     * @return a new Match instance with the updated span.
      */
-    public static Match of(MatchName name, Object value, int start, int end, String raw) {
-        return new Match(name, value, start, end, raw, Priority.DEFAULT, Set.of(), false);
-    }
-
-    public Match withPriority(Priority p) {
-        return new Match(name, value, start, end, raw, p, tags, isPrivate);
-    }
-
-    public Match withTags(Set<String> t) {
-        return new Match(name, value, start, end, raw, priority, t, isPrivate);
-    }
-
-    public Match withStart(int s) {
-        return new Match(name, value, s, end, raw, priority, tags, isPrivate);
-    }
-
-    public Match withEnd(int e) {
-        return new Match(name, value, start, e, raw, priority, tags, isPrivate);
-    }
-
-    public Match withName(MatchName n) {
-        return new Match(n, value, start, end, raw, priority, tags, isPrivate);
-    }
-
-    public int length() {
-        return end - start;
+    public Match withSpan(Span newSpan) {
+        return new Match(this.name, this.value, newSpan, this.priority, this.tags, this.isPrivate);
     }
 
     /**
-     * True if the spans of this match and {@code other} share at least one position.
+     * Match with default values.
      */
-    public boolean overlaps(Match other) {
-        return this.start < other.end && other.start < this.end;
+    public static Match of(MatchName name, Object value, Span span) {
+        return new Match(name, value, span, Priority.DEFAULT, java.util.Set.of(), false);
+    }
+
+    /**
+     * Creates a copy of this match with a new priority.
+     */
+    public Match withPriority(Priority newPriority) {
+        return new Match(this.name, this.value, this.span, newPriority, this.tags, this.isPrivate);
+    }
+
+    /**
+     * Creates a copy of this match with a new set of tags.
+     */
+    public Match withTags(Set<String> newTags) {
+        return new Match(this.name, this.value, this.span, this.priority, newTags, this.isPrivate);
     }
 }

@@ -2,6 +2,7 @@ package io.guessit.engine;
 
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.text.Span;
 import io.guessit.core.trace.PrintTrace;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -16,28 +17,28 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class PrintTraceTest {
 
+    private static final Match YEAR_MATCH = of(YEAR, 2020, new Span(11, 15, "2020"));
+
     @Test
     void formatsBareMatchValueStartEndName() {
-        var m = of(YEAR, 2020, 11, 15, "2020");
-        Assertions.assertThat(formatMatch(m)).isEqualTo("2020:(11,15)+name=year");
+        Assertions.assertThat(formatMatch(YEAR_MATCH)).isEqualTo("2020:(11,15)+name=year");
     }
 
     @Test
     void includesPrivateBeforeName() {
-        var m = new Match(WEAK, 2020, 11, 15, "2020", Priority.DEFAULT, Set.of(), true);
+        var m = new Match(WEAK, 2020, new Span(11, 15, "2020"), Priority.DEFAULT, Set.of(), true);
         Assertions.assertThat(formatMatch(m)).isEqualTo("2020:(11,15)+private+name=weak");
     }
 
     @Test
     void includesPriorityWhenNotDefault() {
-        var m = of(SOURCE, "Blu-ray", 22, 28, "Blu-ray").withPriority(Priority.EXPECTED);
+        var m = of(SOURCE, "Blu-ray", new Span(22, 28, "Blu-ray")).withPriority(Priority.EXPECTED);
         Assertions.assertThat(formatMatch(m)).isEqualTo("Blu-ray:(22,28)+name=source+priority=2000");
     }
 
     @Test
     void omitsPriorityAtDefault() {
-        var m = Match.of(YEAR, 2020, 11, 15, "2020");
-        assertThat(PrintTrace.formatMatch(m)).doesNotContain("priority=");
+        assertThat(PrintTrace.formatMatch(YEAR_MATCH)).doesNotContain("priority=");
     }
 
     @Test
@@ -45,14 +46,13 @@ class PrintTraceTest {
         var tags = new LinkedHashSet<String>();
         tags.add("weak-episode");
         tags.add("weak-duplicate");
-        var m = of(SEASON, 20, 11, 13, "20").withTags(tags);
+        var m = of(SEASON, 20, new Span(11, 13, "20")).withTags(tags);
         Assertions.assertThat(formatMatch(m)).isEqualTo("20:(11,13)+name=season+tags=[weak-duplicate,weak-episode]");
     }
 
     @Test
     void omitsTagsWhenEmpty() {
-        var m = Match.of(YEAR, 2020, 11, 15, "2020");
-        assertThat(PrintTrace.formatMatch(m)).doesNotContain("tags=");
+        assertThat(PrintTrace.formatMatch(YEAR_MATCH)).doesNotContain("tags=");
     }
 
     @Test
@@ -79,16 +79,14 @@ class PrintTraceTest {
     @Test
     void addedLineIndentedFourSpaces() {
         var sb = new StringBuilder();
-        var m = of(YEAR, 2020, 11, 15, "2020");
-        new PrintTrace(sb).added(m);
+        new PrintTrace(sb).added(YEAR_MATCH);
         Assertions.assertThat(sb.toString()).isEqualTo("    + 2020:(11,15)+name=year\n");
     }
 
     @Test
     void removedLineIndentedFourSpaces() {
         var sb = new StringBuilder();
-        var m = of(YEAR, 2020, 11, 15, "2020");
-        new PrintTrace(sb).removed(m);
+        new PrintTrace(sb).removed(YEAR_MATCH);
         Assertions.assertThat(sb.toString()).isEqualTo("    - 2020:(11,15)+name=year\n");
     }
 

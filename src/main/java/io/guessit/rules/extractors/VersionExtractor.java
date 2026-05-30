@@ -1,11 +1,11 @@
 package io.guessit.rules.extractors;
 
-import com.mirkoddd.sift.core.SiftGlobalFlag;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Seps;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 import io.guessit.core.text.patterns.VersionPatterns;
 
@@ -13,9 +13,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
-
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.*;
 
 /**
  * Extracts release {@code version} (the {@code v2}, {@code v3} suffix on
@@ -49,15 +46,14 @@ public final class VersionExtractor implements Extractor {
         var m = PATTERN.matcher(input);
 
         while (m.find()) {
-            int start = m.start();
+            var span = new Span(m.start(), m.end(), m.group());
+            int start = span.start();
 
             boolean isValidPrefix = (start == 0) || Seps.isSep(input.charAt(start - 1)) || Character.isDigit(input.charAt(start - 1));
 
             if (isValidPrefix) {
-                var raw = m.group();
                 int val = Integer.parseInt(m.group(GRP_VAL));
-
-                ctx.matches.add(new Match(MatchName.VERSION, val, start, m.end(), raw, priority(), Set.of(), false));
+                ctx.matches.add(new Match(MatchName.VERSION, val, span, priority(), Set.of(), false));
             }
         }
     }
@@ -89,11 +85,11 @@ public final class VersionExtractor implements Extractor {
     }
 
     private boolean isPrecededByEpisode(Match version, Match episode, String input) {
-        if (episode.end() == version.start()) {
+        if (episode.span().end() == version.span().start()) {
             return true;
         }
 
-        return (episode.end() + 1 == version.start())
-                && Character.toLowerCase(input.charAt(episode.end())) == 'v';
+        return (episode.span().end() + 1 == version.span().start())
+                && Character.toLowerCase(input.charAt(episode.span().end())) == 'v';
     }
 }

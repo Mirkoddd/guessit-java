@@ -4,6 +4,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 import io.guessit.core.text.patterns.PartPatterns;
 import io.guessit.rules.numerals.Numerals;
@@ -58,12 +59,11 @@ public final class PartExtractor implements Extractor {
     }
 
     private Match mapToMatch(MatchResult matchResult, Integer partNumber) {
+        var span = new Span(matchResult.start(), matchResult.end(), matchResult.group());
         return new Match(
                 MatchName.PART,
                 partNumber,
-                matchResult.start(),
-                matchResult.end(),
-                matchResult.group(),
+                span,
                 priority(),
                 Set.of(),
                 false

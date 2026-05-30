@@ -3,6 +3,7 @@ package io.guessit.rules.extractors;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Seps;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 import io.guessit.core.text.patterns.ReleaseGroupPatterns;
 
@@ -86,7 +87,8 @@ public final class ReleaseGroupExtractor implements Extractor {
 
         while ((idx = hay.indexOf(n, from)) >= 0) {
             int end = idx + name.length();
-            var m = new Match(MatchName.RELEASE_GROUP, name, idx, end, input.substring(idx, end),
+            var span = new Span(idx, end, input.substring(idx, end));
+            var m = new Match(MatchName.RELEASE_GROUP, name, span,
                     Priority.EXPECTED, Set.of(EXPECTED_TAG), false);
 
             if (validator.test(m)) ctx.matches.add(m);
@@ -109,7 +111,8 @@ public final class ReleaseGroupExtractor implements Extractor {
                 .filter(res -> res.end() > res.start())
                 .map(res -> {
                     var raw = input.substring(res.start(), res.end());
-                    return new Match(MatchName.RELEASE_GROUP, raw, res.start(), res.end(), raw, Priority.EXPECTED, Set.of(EXPECTED_TAG), false);
+                    var span = new Span(res.start(), res.end(), raw);
+                    return new Match(MatchName.RELEASE_GROUP, raw, span, Priority.EXPECTED, Set.of(EXPECTED_TAG), false);
                 })
                 .filter(validator)
                 .forEach(ctx.matches::add);
@@ -139,7 +142,7 @@ public final class ReleaseGroupExtractor implements Extractor {
         int dash = env.input().lastIndexOf('-', end - 1);
 
         if (shouldSkipForTitleSlot(env.ctx(), env.filePart(), end, endBeforeTrim, dash)) return false;
-        if (!isValidDashPosition(dash, env.filePart().start(), end)) return false;
+        if (!isValidDashPosition(dash, env.filePart().span().start(), end)) return false;
 
         var candidateSpan = extractCandidateSpan(env.input(), dash + 1, end);
         if (candidateSpan == null) return false;
@@ -154,39 +157,39 @@ public final class ReleaseGroupExtractor implements Extractor {
     }
 
     private boolean tryDetectLeadingDashGroup(FilePartEnv env) {
-        var part = env.input().substring(env.filePart().start(), env.filePart().end());
+        var part = env.input().substring(env.filePart().span().start(), env.filePart().span().end());
         int firstDash = part.indexOf('-');
 
         if (!isValidLeadingDashPosition(part, firstDash)) return false;
 
         var rawCandidate = part.substring(0, firstDash);
         var candidate = cleanGroupName(rawCandidate);
-        int absDashEnd = env.filePart().start() + firstDash;
+        int absDashEnd = env.filePart().span().start() + firstDash;
 
         int firstMatchAfter = findFirstMatchAfter(env.ctx(), env.filePart(), absDashEnd);
         var restToFirstMatch = env.ctx().input.substring(absDashEnd + 1, firstMatchAfter);
 
         if (!isValidLeadingCandidate(candidate, restToFirstMatch)) return false;
 
-        int absStart = env.filePart().start();
+        int absStart = env.filePart().span().start();
         if (overlapsAnyLanguage(env.ctx(), absStart, absDashEnd)) return false;
 
         removeOverlappingLanguages(env.ctx(), absStart, absDashEnd);
-        env.ctx().matches.add(new Match(MatchName.RELEASE_GROUP, candidate, absStart, absDashEnd,
-                rawCandidate, Priority.SCENE, Set.of(SCENE_TAG), false));
+        var span = new Span(absStart, absDashEnd, rawCandidate);
+        env.ctx().matches.add(new Match(MatchName.RELEASE_GROUP, candidate, span, Priority.SCENE, Set.of(SCENE_TAG), false));
         return true;
     }
 
     private int calculateEndBeforeTrim(FilePartEnv env) {
         return env.ctx().matches.named(MatchName.CONTAINER)
-                .filter(m -> env.filePart().covers(m.start(), m.end()) && m.tags().contains(EXTENSION_TAG))
+                .filter(m -> env.filePart().covers(m.span()) && m.tags().contains(EXTENSION_TAG))
                 .findFirst()
-                .map(Match::start)
+                .map(m -> m.span().start())
                 .orElseGet(() -> trimKnownExtension(env.ctx(), env.filePart()));
     }
 
     private boolean shouldSkipForTitleSlot(ParseContext ctx, Marker filePart, int end, int endBeforeTrim, int dash) {
-        return end < endBeforeTrim && dash > filePart.start() && filePartIsTitleOnly(ctx, filePart, dash);
+        return end < endBeforeTrim && dash > filePart.span().start() && filePartIsTitleOnly(ctx, filePart, dash);
     }
 
     private boolean isValidDashPosition(int dash, int start, int end) {
@@ -209,14 +212,15 @@ public final class ReleaseGroupExtractor implements Extractor {
         if (!validGroupName(candidate, false, true)) return false;
         if (overlapsNonLanguageExceptHd(ctx, s, e)) return false;
         if (overlapsSubtitleLanguage(ctx, s, e)) return false;
-        if (!hasDotSeparatedPredecessors(ctx, filePart.start(), s)) return false;
+        if (!hasDotSeparatedPredecessors(ctx, filePart.span().start(), s)) return false;
         return isNotProbableLanguagePrefix(candidate);
     }
 
     private void addReleaseGroupMatch(ParseContext ctx, String candidate, String raw, int s, int e) {
         dropHdInsideCandidate(ctx, s, e);
         removeOverlappingLanguages(ctx, s, e);
-        ctx.matches.add(new Match(MatchName.RELEASE_GROUP, candidate, s, e, raw, Priority.SCENE, Set.of(SCENE_TAG), false));
+        var span = new Span(s, e, raw);
+        ctx.matches.add(new Match(MatchName.RELEASE_GROUP, candidate, span, Priority.SCENE, Set.of(SCENE_TAG), false));
     }
 
     private boolean isValidLeadingDashPosition(String part, int firstDash) {
@@ -226,8 +230,8 @@ public final class ReleaseGroupExtractor implements Extractor {
     private int findFirstMatchAfter(ParseContext ctx, Marker filePart, int absDashEnd) {
         int firstMatchAfter = ctx.matches.all()
                 .filter(m -> !m.isPrivate())
-                .filter(m -> m.start() > absDashEnd && m.end() <= filePart.end())
-                .mapToInt(Match::start).min().orElse(filePart.end());
+                .filter(m -> m.span().start() > absDashEnd && m.span().end() <= filePart.span().end())
+                .mapToInt(m -> m.span().start()).min().orElse(filePart.span().end());
         return Math.max(firstMatchAfter, absDashEnd + 1);
     }
 
@@ -249,17 +253,17 @@ public final class ReleaseGroupExtractor implements Extractor {
             int curBoundary = boundary;
             var prev = ctx.matches.all()
                     .filter(m -> !m.isPrivate() && !m.tags().contains(EXPECTED_TAG))
-                    .filter(m -> m.start() >= filePartStart && m.end() <= curBoundary)
-                    .reduce((a, b) -> a.end() >= b.end() ? a : b)
+                    .filter(m -> m.span().start() >= filePartStart && m.span().end() <= curBoundary)
+                    .reduce((a, b) -> a.span().end() >= b.span().end() ? a : b)
                     .orElse(null);
 
             if (prev == null) return false;
 
-            String sep = ctx.input.substring(prev.end(), boundary);
+            String sep = ctx.input.substring(prev.span().end(), boundary);
             if (count == 0) {
                 if (!"-".equals(sep)) return false;
                 count++;
-                boundary = prev.start();
+                boundary = prev.span().start();
                 continue;
             }
             return ".".equals(sep);
@@ -267,25 +271,25 @@ public final class ReleaseGroupExtractor implements Extractor {
     }
 
     private static boolean overlapsSubtitleLanguage(ParseContext ctx, int s, int e) {
-        return ctx.matches.named(MatchName.SUBTITLE_LANGUAGE).anyMatch(m -> m.start() < e && s < m.end());
+        return ctx.matches.named(MatchName.SUBTITLE_LANGUAGE).anyMatch(m -> m.span().start() < e && s < m.span().end());
     }
 
     private static boolean overlapsLanguage(ParseContext ctx, int s, int e) {
-        return ctx.matches.named(MatchName.LANGUAGE).anyMatch(m -> m.start() < e && s < m.end());
+        return ctx.matches.named(MatchName.LANGUAGE).anyMatch(m -> m.span().start() < e && s < m.span().end());
     }
 
     private static void promoteTrailingSourceToReleaseGroup(ParseContext ctx, Marker filePart, int rangeEnd) {
         var sources = ctx.matches.named(SOURCE)
-                .filter(m -> m.start() >= filePart.start() && m.end() <= rangeEnd)
-                .sorted(Comparator.comparingInt(m -> -m.end()))
+                .filter(m -> m.span().start() >= filePart.span().start() && m.span().end() <= rangeEnd)
+                .sorted(Comparator.comparingInt(m -> -m.span().end()))
                 .toList();
 
         if (sources.size() < 2) return;
         var trailing = sources.getFirst();
 
-        var tail = ctx.input.substring(trailing.end(), rangeEnd);
+        var tail = ctx.input.substring(trailing.span().end(), rangeEnd);
         if (!tail.isEmpty() && tail.chars().anyMatch(c -> Character.isLetterOrDigit((char) c))) return;
-        if (trailing.start() == 0 || ctx.input.charAt(trailing.start() - 1) != '-') return;
+        if (trailing.span().start() == 0 || ctx.input.charAt(trailing.span().start() - 1) != '-') return;
 
         ctx.matches.remove(trailing);
     }
@@ -320,17 +324,17 @@ public final class ReleaseGroupExtractor implements Extractor {
 
     private int calculateRangeEnd(FilePartEnv env) {
         var ext = env.ctx().matches.named(MatchName.CONTAINER)
-                .filter(m -> env.filePart().covers(m.start(), m.end()) && m.tags().contains(EXTENSION_TAG))
+                .filter(m -> env.filePart().covers(m.span()) && m.tags().contains(EXTENSION_TAG))
                 .findFirst().orElse(null);
-        int rangeEnd = ext != null ? ext.start() : trimKnownExtension(env.ctx(), env.filePart());
+        int rangeEnd = ext != null ? ext.span().start() : trimKnownExtension(env.ctx(), env.filePart());
         return trimNotAReleaseGroupTail(env, rangeEnd);
     }
 
     private Match findRightmostScenePrev(ParseContext ctx, Marker filePart, int rangeEnd) {
         return ctx.matches.all()
                 .filter(m -> SCENE_PREV.contains(m.name()))
-                .filter(m -> m.start() >= filePart.start() && m.end() <= rangeEnd)
-                .reduce((a, b) -> a.end() >= b.end() ? a : b)
+                .filter(m -> m.span().start() >= filePart.span().start() && m.span().end() <= rangeEnd)
+                .reduce((a, b) -> a.span().end() >= b.span().end() ? a : b)
                 .orElse(null);
     }
 
@@ -346,16 +350,16 @@ public final class ReleaseGroupExtractor implements Extractor {
     private long countNonLanguageSiblings(ParseContext ctx, Marker filePart, int rangeEnd, Match prev) {
         return ctx.matches.all()
                 .filter(m -> SCENE_PREV.contains(m.name()) && m != prev)
-                .filter(m -> m.start() >= filePart.start() && m.end() <= rangeEnd)
+                .filter(m -> m.span().start() >= filePart.span().start() && m.span().end() <= rangeEnd)
                 .filter(this::isNotLanguageOrYearMatch)
                 .count();
     }
 
     private CandidateSpan extractCandidateSpanAfterScenePrev(ParseContext ctx, String input, Match prev, int rangeEnd) {
-        var gap = input.substring(prev.end(), rangeEnd);
+        var gap = input.substring(prev.span().end(), rangeEnd);
         int leadSeps = countLeadingSeparators(gap);
         int trailSeps = countTrailingSeparators(gap, leadSeps);
-        int s = prev.end() + leadSeps;
+        int s = prev.span().end() + leadSeps;
         int e = rangeEnd - trailSeps;
 
         if (e <= s) return null;
@@ -400,13 +404,13 @@ public final class ReleaseGroupExtractor implements Extractor {
             advanced = false;
             var subtitleLang = findSubtitleLanguageAtStart(ctx, sFinal, e);
             if (subtitleLang != null) {
-                sFinal = skipPastMatchAndSeparators(input, subtitleLang.end(), e);
+                sFinal = skipPastMatchAndSeparators(input, subtitleLang.span().end(), e);
                 advanced = true;
                 continue;
             }
             var marker = findSubtitlePrefixMarkerAtStart(ctx, sFinal, e);
             if (marker != null) {
-                sFinal = skipPastMatchAndSeparators(input, marker.end(), e);
+                sFinal = skipPastMatchAndSeparators(input, marker.span().end(), e);
                 advanced = true;
             }
         } while (advanced);
@@ -414,11 +418,11 @@ public final class ReleaseGroupExtractor implements Extractor {
     }
 
     private Match findSubtitleLanguageAtStart(ParseContext ctx, int s, int e) {
-        return ctx.matches.named(MatchName.SUBTITLE_LANGUAGE).filter(m -> m.start() == s && m.end() < e).findFirst().orElse(null);
+        return ctx.matches.named(MatchName.SUBTITLE_LANGUAGE).filter(m -> m.span().start() == s && m.span().end() < e).findFirst().orElse(null);
     }
 
     private Match findSubtitlePrefixMarkerAtStart(ParseContext ctx, int s, int e) {
-        return ctx.matches.all().filter(m -> m.isPrivate() && m.name() == SUBTITLE_LANGUAGE_PREFIX).filter(m -> m.start() == s && m.end() < e).findFirst().orElse(null);
+        return ctx.matches.all().filter(m -> m.isPrivate() && m.name() == SUBTITLE_LANGUAGE_PREFIX).filter(m -> m.span().start() == s && m.span().end() < e).findFirst().orElse(null);
     }
 
     private int skipPastMatchAndSeparators(String input, int start, int end) {
@@ -430,15 +434,15 @@ public final class ReleaseGroupExtractor implements Extractor {
     private Match tryPromoteScenePrevToReleaseGroup(FilePartEnv env, Match prev, int rangeEnd) {
         if (!canPromoteScenePrevToReleaseGroup(env.ctx(), env.input(), env.filePart(), prev, rangeEnd)) return null;
 
-        var rawPrev = env.input().substring(prev.start(), prev.end());
+        var rawPrev = env.input().substring(prev.span().start(), prev.span().end());
         if (!validGroupName(rawPrev, false, true)) return null;
 
         env.ctx().matches.remove(prev);
-        return new Match(MatchName.RELEASE_GROUP, rawPrev, prev.start(), prev.end(), rawPrev, Priority.SCENE, Set.of(SCENE_TAG), false);
+        return new Match(MatchName.RELEASE_GROUP, rawPrev, prev.span(), Priority.SCENE, Set.of(SCENE_TAG), false);
     }
 
     private boolean canPromoteScenePrevToReleaseGroup(ParseContext ctx, String input, Marker filePart, Match prev, int rangeEnd) {
-        return prev.end() == rangeEnd && isPromotableLanguageMatch(prev) && prev.start() > filePart.start() && input.charAt(prev.start() - 1) == '-' && hasDotSeparatedPredecessors(ctx, filePart.start(), prev.start());
+        return prev.span().end() == rangeEnd && isPromotableLanguageMatch(prev) && prev.span().start() > filePart.span().start() && input.charAt(prev.span().start() - 1) == '-' && hasDotSeparatedPredecessors(ctx, filePart.span().start(), prev.span().start());
     }
 
     private boolean isPromotableLanguageMatch(Match match) {
@@ -453,7 +457,8 @@ public final class ReleaseGroupExtractor implements Extractor {
 
         dropHdInsideCandidate(env.ctx(), span.start, span.end);
         removeOverlappingLanguages(env.ctx(), span.start, span.end);
-        return new Match(MatchName.RELEASE_GROUP, candidate, span.start, span.end, raw, Priority.SCENE, Set.of(SCENE_TAG), false);
+        var outSpan = new Span(span.start, span.end, raw);
+        return new Match(MatchName.RELEASE_GROUP, candidate, outSpan, Priority.SCENE, Set.of(SCENE_TAG), false);
     }
 
     private boolean isValidSceneCandidate(ParseContext ctx, Marker filePart, Match prev, String candidate, CandidateSpan span) {
@@ -470,15 +475,15 @@ public final class ReleaseGroupExtractor implements Extractor {
     }
 
     private Optional<Match> tryCreateAnimeBracketMatch(ParseContext ctx, Marker marker) {
-        var raw = marker.raw();
+        var raw = marker.span().raw();
         String innerStr = raw;
-        int innerS = marker.start();
-        int innerE = marker.end();
+        int innerS = marker.span().start();
+        int innerE = marker.span().end();
 
         if (raw.length() >= 2 && (raw.charAt(0) == '[' || raw.charAt(0) == '(')) {
             innerStr = raw.substring(1, raw.length() - 1);
-            innerS = marker.start() + 1;
-            innerE = marker.end() - 1;
+            innerS = marker.span().start() + 1;
+            innerE = marker.span().end() - 1;
         }
 
         final int fInnerS = innerS;
@@ -491,48 +496,49 @@ public final class ReleaseGroupExtractor implements Extractor {
 
         boolean hasAnyInside = ctx.matches.all()
                 .filter(m -> !m.isPrivate())
-                .anyMatch(m -> m.start() >= fInnerS && m.end() <= fInnerE);
+                .anyMatch(m -> m.span().start() >= fInnerS && m.span().end() <= fInnerE);
 
         if (hasAnyInside) {
             return Optional.empty();
         }
 
-        return Optional.of(new Match(MatchName.RELEASE_GROUP, trimmed, fInnerS, fInnerE,
-                innerStr, Priority.SCENE, Set.of("anime"), false));
+        var span = new Span(fInnerS, fInnerE, innerStr);
+        return Optional.of(new Match(MatchName.RELEASE_GROUP, trimmed, span,
+                Priority.SCENE, Set.of("anime"), false));
     }
 
     private static boolean candidateIsLikelyTitle(ParseContext ctx, Marker filePart, Match prev, int candidateEnd) {
         var notRgAfter = ctx.matches.named(MatchName.OTHER)
                 .filter(m -> m.tags().contains(NOT_A_RG_TAG))
-                .filter(m -> m.start() >= candidateEnd && m.end() <= filePart.end())
+                .filter(m -> m.span().start() >= candidateEnd && m.span().end() <= filePart.span().end())
                 .findFirst().orElse(null);
-        return notRgAfter != null && noLeadingTitleHole(ctx, filePart, prev.start());
+        return notRgAfter != null && noLeadingTitleHole(ctx, filePart, prev.span().start());
     }
 
     private static boolean filePartIsTitleOnly(ParseContext ctx, Marker filePart, int rightBoundary) {
         var notRgAfter = ctx.matches.named(MatchName.OTHER)
                 .filter(m -> m.tags().contains(NOT_A_RG_TAG))
-                .filter(m -> m.start() >= rightBoundary && m.end() <= filePart.end())
+                .filter(m -> m.span().start() >= rightBoundary && m.span().end() <= filePart.span().end())
                 .findFirst().orElse(null);
         return notRgAfter != null && noLeadingTitleHole(ctx, filePart, rightBoundary);
     }
 
     private static boolean noLeadingTitleHole(ParseContext ctx, Marker filePart, int rightBoundary) {
-        int hs = filePart.start();
+        int hs = filePart.span().start();
         if (rightBoundary <= hs) return true;
 
         var prevMatches = ctx.matches.all()
-                .filter(m -> m.end() <= rightBoundary && m.start() >= filePart.start())
-                .sorted(Comparator.comparingInt(Match::start))
+                .filter(m -> m.span().end() <= rightBoundary && m.span().start() >= filePart.span().start())
+                .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
 
         int cursor = hs;
         for (var m : prevMatches) {
-            if (m.start() > cursor) {
-                var gap = ctx.input.substring(cursor, m.start());
+            if (m.span().start() > cursor) {
+                var gap = ctx.input.substring(cursor, m.span().start());
                 if (gap.chars().anyMatch(c -> !isGroupSep((char) c))) return false;
             }
-            if (m.end() > cursor) cursor = m.end();
+            if (m.span().end() > cursor) cursor = m.span().end();
         }
 
         if (cursor < rightBoundary) {
@@ -546,7 +552,7 @@ public final class ReleaseGroupExtractor implements Extractor {
         return ctx.matches.all()
                 .filter(m -> !m.isPrivate())
                 .filter(m -> m.name() != MatchName.LANGUAGE && m.name() != MatchName.SUBTITLE_LANGUAGE)
-                .anyMatch(m -> m.start() < e && s < m.end());
+                .anyMatch(m -> m.span().start() < e && s < m.span().end());
     }
 
     private static boolean overlapsNonLanguageExceptHd(ParseContext ctx, int s, int e) {
@@ -554,7 +560,7 @@ public final class ReleaseGroupExtractor implements Extractor {
                 .filter(m -> !m.isPrivate())
                 .filter(m -> m.name() != MatchName.LANGUAGE && m.name() != MatchName.SUBTITLE_LANGUAGE)
                 .filter(m -> !(m.name() == MatchName.OTHER && RG_INTERIOR_OTHER.contains(m.value().toString())))
-                .anyMatch(m -> m.start() < e && s < m.end());
+                .anyMatch(m -> m.span().start() < e && s < m.span().end());
     }
 
     private static List<Marker> pathFilePartsRightmostFirst(ParseContext ctx) {
@@ -576,7 +582,7 @@ public final class ReleaseGroupExtractor implements Extractor {
 
     private static int filePartWeight(Marker fp, ParseContext ctx) {
         var pred = markerWeightPredicate();
-        var weight = (int) ctx.matches.range(fp.start(), fp.end(), pred).map(Match::name).distinct().count();
+        var weight = (int) ctx.matches.inMarker(fp).filter(pred).map(Match::name).distinct().count();
         if (hasEpisodeTitleHole(fp, ctx)) weight++;
         return weight;
     }
@@ -584,20 +590,20 @@ public final class ReleaseGroupExtractor implements Extractor {
     private static boolean hasEpisodeTitleHole(Marker fp, ParseContext ctx) {
         var ep = ctx.matches.all()
                 .filter(m -> m.name() == MatchName.EPISODE || m.name() == MatchName.SEASON)
-                .filter(m -> m.start() >= fp.start() && m.end() <= fp.end())
-                .reduce((a, b) -> a.end() >= b.end() ? a : b)
+                .filter(m -> fp.covers(m.span()))
+                .reduce((a, b) -> a.span().end() >= b.span().end() ? a : b)
                 .orElse(null);
 
         if (ep == null) return false;
 
         var next = ctx.matches.all()
                 .filter(m -> EP_TITLE_NEXT_NAMES.contains(m.name()))
-                .filter(m -> m.start() >= ep.end() && m.end() <= fp.end())
-                .reduce((a, b) -> a.start() <= b.start() ? a : b)
+                .filter(m -> m.span().start() >= ep.span().end() && m.span().end() <= fp.span().end())
+                .reduce((a, b) -> a.span().start() <= b.span().start() ? a : b)
                 .orElse(null);
 
         if (next == null) return false;
-        var gap = ctx.input.substring(ep.end(), next.start());
+        var gap = ctx.input.substring(ep.span().end(), next.span().start());
         return gap.chars().anyMatch(Character::isLetter);
     }
 
@@ -615,9 +621,9 @@ public final class ReleaseGroupExtractor implements Extractor {
     }
 
     private static int trimKnownExtension(ParseContext ctx, Marker filePart) {
-        var part = ctx.input.substring(filePart.start(), filePart.end());
+        var part = ctx.input.substring(filePart.span().start(), filePart.span().end());
         var m = KNOWN_TRAILING_EXT.matcher(part);
-        return m.find() ? filePart.start() + m.start() : filePart.end();
+        return m.find() ? filePart.span().start() + m.start() : filePart.span().end();
     }
 
     private static int trimNotAReleaseGroupTail(FilePartEnv env, int rangeEnd) {
@@ -647,23 +653,23 @@ public final class ReleaseGroupExtractor implements Extractor {
     }
 
     private static int trimTrailingSeparators(String input, Marker filePart, int rangeEnd) {
-        while (rangeEnd > filePart.start() && isGroupSep(input.charAt(rangeEnd - 1))) rangeEnd--;
+        while (rangeEnd > filePart.span().start() && isGroupSep(input.charAt(rangeEnd - 1))) rangeEnd--;
         return rangeEnd;
     }
 
     private static int trimNotReleaseGroupMatch(ParseContext ctx, Marker filePart, int rangeEnd) {
         return ctx.matches.named(MatchName.OTHER)
                 .filter(m -> m.tags().contains(NOT_A_RG_TAG))
-                .filter(m -> m.start() >= filePart.start() && m.end() <= filePart.end())
-                .filter(m -> m.end() == rangeEnd)
-                .findFirst().map(Match::start).orElse(rangeEnd);
+                .filter(m -> filePart.covers(m.span()))
+                .filter(m -> m.span().end() == rangeEnd)
+                .findFirst().map(m -> m.span().start()).orElse(rangeEnd);
     }
 
     private static int trimTrailingLanguageTail(ParseContext ctx, Marker filePart, String input, int rangeEnd) {
         var trailingTail = findTrailingLanguageOrAudioMatch(ctx, filePart, rangeEnd);
         if (trailingTail == null) return rangeEnd;
 
-        int tailStart = trailingTail.start();
+        int tailStart = trailingTail.span().start();
         int beforeTail = calculatePositionBeforeTail(input, filePart, tailStart);
         var sceneBefore = findSceneMatchBeforeTail(ctx, filePart, beforeTail);
 
@@ -672,7 +678,7 @@ public final class ReleaseGroupExtractor implements Extractor {
 
     private static Match findTrailingLanguageOrAudioMatch(ParseContext ctx, Marker filePart, int rangeEnd) {
         return ctx.matches.all()
-                .filter(m -> !m.isPrivate() && m.start() >= filePart.start() && m.end() == rangeEnd)
+                .filter(m -> !m.isPrivate() && m.span().start() >= filePart.span().start() && m.span().end() == rangeEnd)
                 .filter(ReleaseGroupExtractor::isLanguageOrAudioMatch)
                 .findFirst().orElse(null);
     }
@@ -688,38 +694,38 @@ public final class ReleaseGroupExtractor implements Extractor {
 
     private static int calculatePositionBeforeTail(String input, Marker filePart, int tailStart) {
         int tailDepth = 1;
-        while (tailStart - tailDepth > filePart.start() && isGroupSep(input.charAt(tailStart - tailDepth))) tailDepth++;
+        while (tailStart - tailDepth > filePart.span().start() && isGroupSep(input.charAt(tailStart - tailDepth))) tailDepth++;
         return tailStart - tailDepth + 1;
     }
 
     private static Match findSceneMatchBeforeTail(ParseContext ctx, Marker filePart, int beforeTail) {
         return ctx.matches.all()
                 .filter(m -> !m.isPrivate() && SCENE_PREV.contains(m.name()))
-                .filter(m -> m.start() >= filePart.start() && m.end() <= beforeTail)
-                .reduce((a, b) -> a.end() >= b.end() ? a : b)
+                .filter(m -> m.span().start() >= filePart.span().start() && m.span().end() <= beforeTail)
+                .reduce((a, b) -> a.span().end() >= b.span().end() ? a : b)
                 .orElse(null);
     }
 
     private static int calculateGapLength(Match sceneBefore, int tailStart) {
-        return sceneBefore == null ? Integer.MAX_VALUE : (tailStart - sceneBefore.end());
+        return sceneBefore == null ? Integer.MAX_VALUE : (tailStart - sceneBefore.span().end());
     }
 
     private static int trimTrailingNamed(ParseContext ctx, Marker filePart, int rangeEnd, MatchName name) {
-        final int p = rangeEnd > filePart.start() && (ctx.input.charAt(rangeEnd - 1) == ']' || ctx.input.charAt(rangeEnd - 1) == ')') ? rangeEnd - 1 : rangeEnd;
+        final int p = rangeEnd > filePart.span().start() && (ctx.input.charAt(rangeEnd - 1) == ']' || ctx.input.charAt(rangeEnd - 1) == ')') ? rangeEnd - 1 : rangeEnd;
 
         return ctx.matches.named(name)
-                .filter(m -> m.start() >= filePart.start() && m.end() == p)
+                .filter(m -> m.span().start() >= filePart.span().start() && m.span().end() == p)
                 .findFirst()
                 .map(hit -> {
-                    int newEnd = hit.start();
-                    return newEnd > filePart.start() && (ctx.input.charAt(newEnd - 1) == '[' || ctx.input.charAt(newEnd - 1) == '(') ? newEnd - 1 : newEnd;
+                    int newEnd = hit.span().start();
+                    return newEnd > filePart.span().start() && (ctx.input.charAt(newEnd - 1) == '[' || ctx.input.charAt(newEnd - 1) == '(') ? newEnd - 1 : newEnd;
                 }).orElse(rangeEnd);
     }
 
     private static void dropHdInsideCandidate(ParseContext ctx, int s, int e) {
         ctx.matches.all()
                 .filter(m -> m.name() == MatchName.OTHER && RG_INTERIOR_OTHER.contains(String.valueOf(m.value())))
-                .filter(m -> m.start() >= s && m.end() <= e)
+                .filter(m -> m.span().start() >= s && m.span().end() <= e)
                 .toList()
                 .forEach(ctx.matches::remove);
     }
@@ -727,7 +733,7 @@ public final class ReleaseGroupExtractor implements Extractor {
     private static void removeOverlappingLanguages(ParseContext ctx, int s, int e) {
         ctx.matches.all()
                 .filter(m -> m.name() == MatchName.LANGUAGE || m.name() == MatchName.SUBTITLE_LANGUAGE)
-                .filter(m -> m.start() < e && s < m.end())
+                .filter(m -> m.span().start() < e && s < m.span().end())
                 .toList()
                 .forEach(ctx.matches::remove);
     }

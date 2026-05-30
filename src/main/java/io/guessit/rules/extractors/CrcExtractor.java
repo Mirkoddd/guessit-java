@@ -5,6 +5,7 @@ import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 import io.guessit.core.text.patterns.CrcPatterns;
 
@@ -54,7 +55,7 @@ public final class CrcExtractor implements Extractor {
 
     private void dropSeasonEpisodeInsideCrc(ParseContext ctx) {
         var crcSpans = ctx.matches.named(MatchName.CRC32)
-                .map(m -> new int[]{m.start(), m.end()})
+                .map(m -> new int[]{m.span().start(), m.span().end()})
                 .toList();
 
         if (crcSpans.isEmpty()) return;
@@ -64,7 +65,7 @@ public final class CrcExtractor implements Extractor {
                     var n = m.name();
                     return n == MatchName.SEASON || n == MatchName.EPISODE || n == MatchName.SEASON_HEAD;
                 })
-                .filter(m -> crcSpans.stream().anyMatch(s -> m.start() >= s[0] && m.end() <= s[1]))
+                .filter(m -> crcSpans.stream().anyMatch(s -> m.span().start() >= s[0] && m.span().end() <= s[1]))
                 .toList();
 
         toRemove.forEach(ctx.matches::remove);
@@ -77,11 +78,11 @@ public final class CrcExtractor implements Extractor {
 
         while (m.find()) {
             var val = m.group(GRP_VALUE);
-            var head = new Match(MatchName.CRC32, null, m.start(GRP_VALUE), m.end(GRP_VALUE), val, priority(), Set.of(), false);
+            var span = new Span(m.start(GRP_VALUE), m.end(GRP_VALUE), val);
+            var head = new Match(MatchName.CRC32, null, span, priority(), Set.of(), false);
 
             if (seps.test(head)) {
-                ctx.matches.add(new Match(MatchName.CRC32, val,
-                        m.start(GRP_VALUE), m.end(GRP_VALUE), val, priority(), Set.of(), false));
+                ctx.matches.add(new Match(MatchName.CRC32, val, span, priority(), Set.of(), false));
             }
         }
     }
@@ -95,11 +96,11 @@ public final class CrcExtractor implements Extractor {
             var raw = m.group(GRP_VALUE);
 
             if (isLikelyIdNumber(raw) && !SXX_EXX_INSIDE.matcher(raw).find()) {
-                var head = new Match(MatchName.UUID, null, m.start(GRP_VALUE), m.end(GRP_VALUE), raw, priority(), Set.of(), false);
+                var span = new Span(m.start(GRP_VALUE), m.end(GRP_VALUE), raw);
+                var head = new Match(MatchName.UUID, null, span, priority(), Set.of(), false);
 
                 if (seps.test(head)) {
-                    ctx.matches.add(new Match(MatchName.UUID, raw,
-                            m.start(GRP_VALUE), m.end(GRP_VALUE), raw, priority(), Set.of(), false));
+                    ctx.matches.add(new Match(MatchName.UUID, raw, span, priority(), Set.of(), false));
                 }
             }
         }

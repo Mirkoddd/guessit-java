@@ -31,15 +31,15 @@ final class WeakExtractorCommon {
     static final Pattern RANGE_SEP = WeakCommonPatterns.buildRangePattern();
 
     static boolean isInside(Match target, int start, int end) {
-        return target.start() >= start && target.end() <= end;
+        return target.span().start() >= start && target.span().end() <= end;
     }
 
     static boolean isInside(Match target, Match container) {
-        return isInside(target, container.start(), container.end());
+        return target.span().start() >= container.span().start() && target.span().end() <= container.span().end();
     }
 
     static boolean isInside(Match target, Marker container) {
-        return isInside(target, container.start(), container.end());
+        return container.covers(target.span());
     }
 
     static void removeMatches(ParseContext ctx, Stream<Match> streamToRemove) {
@@ -49,6 +49,6 @@ final class WeakExtractorCommon {
     static boolean hasScreenSizeInGroup(ParseContext ctx) {
         return ctx.markers.stream()
                 .filter(mk -> MARKER_GROUP.equals(mk.name()))
-                .anyMatch(mk -> ctx.matches.named(MatchName.SCREEN_SIZE).anyMatch(m -> isInside(m, mk)));
+                .anyMatch(mk -> ctx.matches.named(MatchName.SCREEN_SIZE).anyMatch(m -> mk.covers(m.span())));
     }
 }

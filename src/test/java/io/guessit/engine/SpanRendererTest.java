@@ -4,6 +4,7 @@ import io.guessit.core.pipeline.state.Marker;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.text.Span;
 import io.guessit.core.trace.SpanRenderer;
 import org.junit.jupiter.api.Test;
 
@@ -38,7 +39,7 @@ class SpanRendererTest {
 
     @Test
     void includesMarkers() {
-        var marker = new Marker("group", 0, 5, "[GRP]");
+        var marker = new Marker("group", new Span(0, 5, "[GRP]"));
         String out = SpanRenderer.render("[GRP] foo.mkv", List.of(), List.of(marker));
         assertThat(out).contains("group");
         assertThat(out).contains("[GRP] foo.mkv");
@@ -47,8 +48,8 @@ class SpanRendererTest {
 
     @Test
     void skipsPrivateMatches() {
-        var visible = new Match(MatchName.YEAR, 2020, 0, 4, "2020", Priority.DEFAULT, java.util.Set.of(), false);
-        var hidden  = new Match(MatchName.YEAR, 2020, 0, 4, "2020", Priority.DEFAULT, java.util.Set.of(), true);
+        var visible = new Match(MatchName.YEAR, 2020, new Span(0, 4, "2020"), Priority.DEFAULT, java.util.Set.of(), false);
+        var hidden  = new Match(MatchName.YEAR, 2020, new Span(0, 4, "2020"), Priority.DEFAULT, java.util.Set.of(), true);
         String out = SpanRenderer.render("2020", List.of(visible, hidden), List.of());
         long yearLines = out.lines().filter(l -> l.contains("year")).count();
         assertThat(yearLines).isEqualTo(1L);
@@ -63,7 +64,7 @@ class SpanRendererTest {
     @Test
     void singleCharSpanRendersAsPipe() {
         String out = SpanRenderer.render("ab.X.cd",
-            List.of(Match.of(MatchName.PART, 1, 3, 4, "X")), List.of());
+                List.of(Match.of(MatchName.PART, 1, new Span(3, 4, "X"))), List.of());
         assertThat(out).contains("│"); // │
         assertThat(out).contains("part");
         // Box-drawing horizontal (─ U+2500) must not appear for single-char span
@@ -72,8 +73,8 @@ class SpanRendererTest {
 
     @Test
     void overlappingSameSpanMatchesEachGetOwnRow() {
-        var year   = Match.of(MatchName.YEAR,   2024, 6, 10, "2024");
-        var season = Match.of(MatchName.SEASON, 20,   6, 10, "2024");
+        var year   = Match.of(MatchName.YEAR,   2024, new Span(6, 10, "2024"));
+        var season = Match.of(MatchName.SEASON, 20,   new Span(6, 10, "2024"));
         String out = SpanRenderer.render("Movie.2024.mkv", List.of(year, season), List.of());
         assertThat(out).contains("year");
         assertThat(out).contains("season");
@@ -84,8 +85,8 @@ class SpanRendererTest {
 
     @Test
     void overlappingMarkersDoNotShareUnderline() {
-        var whole = new Marker("whole", 0, 14, "Movie.2020.mkv");
-        var path  = new Marker("path",  0, 14, "Movie.2020.mkv");
+        var whole = new Marker("whole", new Span(0, 14, "Movie.2020.mkv"));
+        var path  = new Marker("path",  new Span(0, 14, "Movie.2020.mkv"));
         String out = SpanRenderer.render("Movie.2020.mkv", List.of(), List.of(whole, path));
         // Two distinct underline rows, one per marker (both use ─ style)
         long underlineRows = out.lines().filter(l -> l.contains("─")).count();
@@ -105,12 +106,12 @@ class SpanRendererTest {
                 List.of(title, season, episode, year, container), List.of());
         String expected =
                 "Show.S01E02.2024.mkv\n" +
-                "──┬─     ─┬\n" +
-                "title  episode\n" +
-                "      ─┬    ──┬─\n" +
-                "    season  year\n" +
-                "                 ─┬─\n" +
-                "              container\n";
+                        "──┬─     ─┬\n" +
+                        "title  episode\n" +
+                        "      ─┬    ──┬─\n" +
+                        "    season  year\n" +
+                        "                 ─┬─\n" +
+                        "              container\n";
         assertThat(out).isEqualTo(expected);
     }
 
@@ -137,38 +138,38 @@ class SpanRendererTest {
         var screen    = match(MatchName.SCREEN_SIZE, "2160p",  screenStart,    screenStart + 5,      "2160p");
         var container = match(MatchName.CONTAINER,   "mkv",    containerStart, containerStart + 3,   "mkv");
 
-        var whole     = new Marker("whole", 0, input.length(), input);
-        var path1     = new Marker("path", 0, firstSlash,  input.substring(0, firstSlash));
-        var path2     = new Marker("path", firstSlash + 1, secondSlash, input.substring(firstSlash + 1, secondSlash));
-        var path3     = new Marker("path", secondSlash + 1, input.length(), input.substring(secondSlash + 1));
-        var group     = new Marker("group", parenOpen, parenClose + 1, input.substring(parenOpen, parenClose + 1));
+        var whole     = new Marker("whole", new Span(0, input.length(), input));
+        var path1     = new Marker("path", new Span(0, firstSlash,  input.substring(0, firstSlash)));
+        var path2     = new Marker("path", new Span(firstSlash + 1, secondSlash, input.substring(firstSlash + 1, secondSlash)));
+        var path3     = new Marker("path", new Span(secondSlash + 1, input.length(), input.substring(secondSlash + 1)));
+        var group     = new Marker("group", new Span(parenOpen, parenClose + 1, input.substring(parenOpen, parenClose + 1)));
 
         String out = SpanRenderer.render(input,
                 List.of(title, year, season, episode, source, screen, container),
                 List.of(whole, path1, path2, path3, group));
         String expected =
                 "Shōgun (2024)/Season 1/Shōgun - S01E07 WEBDL-2160p.mkv\n" +
-                "───┬── ───┬── ────┬─── ───────────────┬───────────────\n" +
-                " title  group   path                path\n" +
-                "──────┬──────                    ─┬    ──┬──       ─┬─\n" +
-                "    path                       season source    container\n" +
-                "───────────────────────────┬──────────────────────────\n" +
-                "                         whole\n" +
-                "        ──┬─                        ─┬       ──┬──\n" +
-                "        year                      episode screen_size\n";
+                        "───┬── ───┬── ────┬─── ───────────────┬───────────────\n" +
+                        " title  group   path                path\n" +
+                        "──────┬──────                    ─┬    ──┬──       ─┬─\n" +
+                        "    path                       season source    container\n" +
+                        "───────────────────────────┬──────────────────────────\n" +
+                        "                         whole\n" +
+                        "        ──┬─                        ─┬       ──┬──\n" +
+                        "        year                      episode screen_size\n";
         assertThat(out).isEqualTo(expected);
     }
 
     @Test
     void privateMatchesAreSkipped() {
-        var publicMatch  = Match.of(MatchName.YEAR, 2020, 0, 4, "2020");
-        var privateMatch = new Match(MatchName.SEASON, 1, 5, 7, "01", Priority.DEFAULT, java.util.Set.of(), true);
+        var publicMatch  = Match.of(MatchName.YEAR, 2020, new Span(0, 4, "2020"));
+        var privateMatch = new Match(MatchName.SEASON, 1, new Span(5, 7, "01"), Priority.DEFAULT, java.util.Set.of(), true);
         String out = SpanRenderer.render("2020 01 mkv", List.of(publicMatch, privateMatch), List.of());
         assertThat(out).contains("year");
         assertThat(out).doesNotContain("season");
     }
 
     private static Match match(MatchName name, Object value, int start, int end, String raw) {
-        return Match.of(name, value, start, end, raw);
+        return Match.of(name, value, new Span(start, end, raw));
     }
 }

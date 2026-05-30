@@ -154,7 +154,7 @@ public final class OutputBuilder implements Consumer<ParseContext> {
     private static Map<MatchName, List<Match>> groupSurvivingMatches(ParseContext ctx, FilterState s) {
         var grouped = new LinkedHashMap<MatchName, List<Match>>();
 
-        ctx.matches.all().sorted(Comparator.comparingInt(Match::start)).forEach(m0 -> {
+        ctx.matches.all().sorted(Comparator.comparingInt(v -> v.span().start())).forEach(m0 -> {
             var m = maybePromoteSubtitleToLanguage(m0, s);
             if (!isFiltered(m, s)) {
                 grouped.computeIfAbsent(m.name(), _ -> new ArrayList<>()).add(m);
@@ -230,12 +230,12 @@ public final class OutputBuilder implements Consumer<ParseContext> {
         var key = name.name().toLowerCase();
         if (ms.size() == 1) {
             var m = ms.getFirst();
-            trace.subStep("Set " + key + " ← " + renderValue(m.value()) + " from match at " + m.start() + "-" + m.end());
+            trace.subStep("Set " + key + " ← " + renderValue(m.value()) + " from match at " + m.span().start() + "-" + m.span().end());
         } else {
             var values = ms.stream().map(m -> renderValue(m.value())).toList();
             var first = ms.getFirst();
             var last = ms.getLast();
-            trace.subStep("Set " + key + " ← " + values + " from " + ms.size() + " matches at " + first.start() + "-" + last.end());
+            trace.subStep("Set " + key + " ← " + values + " from " + ms.size() + " matches at " + first.span().start() + "-" + last.span().end());
         }
     }
 

@@ -3,6 +3,7 @@ package io.guessit.rules.extractors;
 import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Abbreviations;
 import io.guessit.core.text.Seps;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 
 import java.util.ArrayList;
@@ -118,7 +119,7 @@ final class ConfigPatternHelpers {
     }
 
     static Match createMatch(MatchName name, String input, String value, Set<String> tags, int s, int e) {
-        return new Match(name, value, s, e, input.substring(s, e), Priority.DEFAULT, tags, false);
+        return new Match(name, value, new Span(s, e, input.substring(s, e)), Priority.DEFAULT, tags, false);
     }
 
     /**
@@ -149,26 +150,26 @@ final class ConfigPatternHelpers {
      */
     static boolean hasAdjacentBefore(String input, Match m, List<Match> all, List<Marker> markers) {
         Match prev = null;
-        for (var o : all) if (o != m && o.end() <= m.start() && (prev == null || o.end() > prev.end())) prev = o;
+        for (var o : all) if (o != m && o.span().end() <= m.span().start() && (prev == null || o.span().end() > prev.span().end())) prev = o;
         Marker prevGroup = null;
-        for (var g : markers) if ("group".equals(g.name()) && g.end() <= m.start() && (prevGroup == null || g.end() > prevGroup.end())) prevGroup = g;
+        for (var g : markers) if ("group".equals(g.name()) && g.span().end() <= m.span().start() && (prevGroup == null || g.span().end() > prevGroup.span().end())) prevGroup = g;
         int prevEnd = -1;
-        if (prev != null) prevEnd = prev.end();
-        if (prevGroup != null && prevGroup.end() > prevEnd) prevEnd = prevGroup.end();
+        if (prev != null) prevEnd = prev.span().end();
+        if (prevGroup != null && prevGroup.span().end() > prevEnd) prevEnd = prevGroup.span().end();
         if (prevEnd < 0) return false;
-        return Seps.betweenIsSeps(input, prevEnd, m.start());
+        return Seps.betweenIsSeps(input, prevEnd, m.span().start());
     }
 
     static boolean hasAdjacentAfter(String input, Match m, List<Match> all, List<Marker> markers) {
         Match next = null;
-        for (var o : all) if (o != m && o.start() >= m.end() && (next == null || o.start() < next.start())) next = o;
+        for (var o : all) if (o != m && o.span().start() >= m.span().end() && (next == null || o.span().start() < next.span().start())) next = o;
         Marker nextGroup = null;
-        for (var g : markers) if ("group".equals(g.name()) && g.start() >= m.end() && (nextGroup == null || g.start() < nextGroup.start())) nextGroup = g;
+        for (var g : markers) if ("group".equals(g.name()) && g.span().start() >= m.span().end() && (nextGroup == null || g.span().start() < nextGroup.span().start())) nextGroup = g;
         int nextStart = Integer.MAX_VALUE;
-        if (next != null) nextStart = next.start();
-        if (nextGroup != null && nextGroup.start() < nextStart) nextStart = nextGroup.start();
+        if (next != null) nextStart = next.span().start();
+        if (nextGroup != null && nextGroup.span().start() < nextStart) nextStart = nextGroup.span().start();
         if (nextStart == Integer.MAX_VALUE) return false;
-        return Seps.betweenIsSeps(input, m.end(), nextStart);
+        return Seps.betweenIsSeps(input, m.span().end(), nextStart);
     }
 
     /**
@@ -199,7 +200,7 @@ final class ConfigPatternHelpers {
         var seen = new HashSet<String>();
         var toRemove = new ArrayList<Match>();
         for (var m : ctx.matches.named(MatchName.EDITION).toList()) {
-            var key = m.start() + ":" + m.end() + ":" + m.value();
+            var key = m.span().start() + ":" + m.span().end() + ":" + m.value();
             if (!seen.add(key)) toRemove.add(m);
         }
         for (var m : toRemove) ctx.matches.remove(m);

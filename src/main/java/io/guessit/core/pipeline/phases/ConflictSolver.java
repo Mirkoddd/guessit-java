@@ -28,7 +28,7 @@ public final class ConflictSolver {
     public static void solve(MatchSet matches, Trace trace) {
         var publicMatches = matches.all()
                 .filter(m -> !m.isPrivate())
-                .sorted(Comparator.comparingInt(Match::length))
+                .sorted(Comparator.comparingInt((Match m) -> m.span().length()))
                 .toList();
 
         var toRemove = new HashSet<Match>();
@@ -67,7 +67,8 @@ public final class ConflictSolver {
 
         if (!toRemove.contains(toKeep)) {
             toRemove.add(removed);
-            String reason = removed.length() < toKeep.length() ? REASON_SHORTER_SPAN : REASON_LOWER_PRIORITY;
+
+            String reason = removed.span().length() < toKeep.span().length() ? REASON_SHORTER_SPAN : REASON_LOWER_PRIORITY;
             trace.subStep("Dropping " + summary(removed) + " — overlaps " + summary(toKeep) + " (" + reason + ")");
         }
 
@@ -75,12 +76,12 @@ public final class ConflictSolver {
     }
 
     private static String summary(Match m) {
-        return m.name().name().toLowerCase(Locale.ROOT) + " '" + m.raw() + "' at " + m.start() + "-" + m.end();
+        return m.name().name().toLowerCase(Locale.ROOT) + " '" + m.span().raw() + "' at " + m.span().start() + "-" + m.span().end();
     }
 
     private static Match defaultConflictSolver(Match match, Match conflictingMatch) {
-        int matchLen = match.length();
-        int conflictingLen = conflictingMatch.length();
+        int matchLen = match.span().length();
+        int conflictingLen = conflictingMatch.span().length();
 
         if (conflictingLen < matchLen) return conflictingMatch;
         if (matchLen < conflictingLen) return match;
@@ -92,11 +93,21 @@ public final class ConflictSolver {
     }
 
     private static List<Match> findConflicting(Match match, List<Match> publicMatches, Set<Match> toRemove) {
-        return publicMatches.stream()
-                .filter(other -> other != match)
-                .filter(other -> !toRemove.contains(other))
-                .filter(match::overlaps)
-                .sorted(Comparator.comparingInt(Match::length))
-                .toList();
+        var conflicts = new ArrayList<Match>();
+
+        for (Match other : publicMatches) {
+            if (other != match &&
+                    !toRemove.contains(other) &&
+                    match.span().overlaps(other.span())) {
+                    conflicts.add(other);
+                }
+
+        }
+
+        if (conflicts.size() > 1) {
+            conflicts.sort(Comparator.comparingInt(m -> m.span().length()));
+        }
+
+        return conflicts;
     }
 }

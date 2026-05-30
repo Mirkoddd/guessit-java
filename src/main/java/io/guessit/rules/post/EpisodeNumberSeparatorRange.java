@@ -5,6 +5,7 @@ import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.contracts.PostProcessor;
 import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.patterns.EpisodeRangePatterns;
 
 import java.util.ArrayList;
@@ -51,40 +52,41 @@ public final class EpisodeNumberSeparatorRange implements PostProcessor {
     public void process(ParseContext ctx) {
         var eps = ctx.matches.named(EPISODE)
                 .filter(m -> !m.isPrivate() && m.value() instanceof Integer)
-                .sorted(Comparator.comparingInt(Match::start))
+                .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
         var fills = new ArrayList<Match>();
         for (var a : eps) tryExtendRange(ctx, a, fills);
         for (var m : fills) ctx.matches.add(m);
     }
 
-    private record RangeNumber(int value, int start, int end) {}
+    private record RangeNumber(int value, Span span) {}
 
     private static void tryExtendRange(ParseContext ctx, Match a, java.util.List<Match> fills) {
         int va = (Integer) a.value();
-        int scanFrom = a.end();
+        int scanFrom = a.span().end();
         if (scanFrom >= ctx.input.length()) return;
+
         var matcher = RANGE_THEN_NUM.matcher(ctx.input);
         matcher.region(scanFrom, ctx.input.length());
         if (!matcher.lookingAt()) return;
-        var span = extractRangeNumber(matcher);
-        if (span == null) return;
-        if (span.value() <= va || span.value() - va > MAX_JUMP) return;
-        if (vbAlreadyPresent(ctx, span)) return;
-        if (alreadyFilled(ctx, a, span.end())) return;
+
+        var rn = extractRangeNumber(matcher, ctx.input);
+        if (rn == null) return;
+        if (rn.value() <= va || rn.value() - va > MAX_JUMP) return;
+        if (vbAlreadyPresent(ctx, rn)) return;
+        if (alreadyFilled(ctx, a, rn.span().end())) return;
 
         // Add vb itself as an episode match.
-        fills.add(new Match(EPISODE, span.value(), span.start(), span.end(),
-                ctx.input.substring(span.start(), span.end()), Priority.DEFAULT, Set.of(RANGE_FILL), false));
-        // Add intermediate values va+1 .. vb-1 (zero-width, anchored at numStart).
-        for (int v = va + 1; v < span.value(); v++) {
-            fills.add(new Match(EPISODE, v, span.start(), span.start(),
-                    "", Priority.DEFAULT, Set.of(RANGE_FILL), false));
+        fills.add(new Match(EPISODE, rn.value(), rn.span(), Priority.DEFAULT, Set.of(RANGE_FILL), false));
+
+        for (int v = va + 1; v < rn.value(); v++) {
+            var emptySpan = new Span(rn.span().start(), rn.span().start(), "");
+            fills.add(new Match(EPISODE, v, emptySpan, Priority.DEFAULT, Set.of(RANGE_FILL), false));
         }
     }
 
     /** Extract the integer + span from the strictly named capture group. */
-    private static RangeNumber extractRangeNumber(Matcher matcher) {
+    private static RangeNumber extractRangeNumber(Matcher matcher, String input) {
         String numStr = matcher.group(GROUP_NUM);
         if (numStr == null) return null;
 
@@ -95,21 +97,22 @@ public final class EpisodeNumberSeparatorRange implements PostProcessor {
         int numStart = matcher.start(GROUP_NUM);
         int numEnd   = matcher.end(GROUP_NUM);
 
-        return new RangeNumber(vb, numStart, numEnd);
+        var span = new Span(numStart, numEnd, input.substring(numStart, numEnd));
+        return new RangeNumber(vb, span);
     }
 
     /** True when vb is already an episode match at that position —
      * RangeFiller already handled it (or will). */
-    private static boolean vbAlreadyPresent(ParseContext ctx, RangeNumber span) {
+    private static boolean vbAlreadyPresent(ParseContext ctx, RangeNumber rn) {
         return ctx.matches.named(EPISODE)
-                .anyMatch(m -> m.value() instanceof Integer iv && iv == span.value()
-                        && m.start() >= span.start() && m.end() <= span.end());
+                .anyMatch(m -> m.value() instanceof Integer iv && iv == rn.value()
+                        && m.span().start() >= rn.span().start() && m.span().end() <= rn.span().end());
     }
 
     /** True when an existing episode range-fill already covers the gap. */
     private static boolean alreadyFilled(ParseContext ctx, Match a, int numEnd) {
         return ctx.matches.named(EPISODE)
                 .anyMatch(m -> m.tags().contains(RANGE_FILL)
-                        && m.start() >= a.end() && m.end() <= numEnd);
+                        && m.span().start() >= a.span().end() && m.span().end() <= numEnd);
     }
 }

@@ -16,15 +16,15 @@ import java.util.stream.Stream;
  *
  * <p>Layout rules:
  * <ul>
- *   <li>Both match and marker span underlines use {@code ─} (U+2500) body
- *       with {@code ┬} (U+252C) at the midpoint.</li>
- *   <li>Single-char span: {@code │} (U+2502) at that column.</li>
- *   <li>Spans share an underline row only when both their bodies and their
- *       centered label extents are non-overlapping (≥1 column gap between
- *       each pair).  This guarantees labels fit collision-free on the single
- *       label line immediately below each underline row.</li>
- *   <li>No leading indent — output starts at column 0.</li>
- *   <li>Trailing whitespace stripped per line.</li>
+ * <li>Both match and marker span underlines use {@code ─} (U+2500) body
+ * with {@code ┬} (U+252C) at the midpoint.</li>
+ * <li>Single-char span: {@code │} (U+2502) at that column.</li>
+ * <li>Spans share an underline row only when both their bodies and their
+ * centered label extents are non-overlapping (≥1 column gap between
+ * each pair).  This guarantees labels fit collision-free on the single
+ * label line immediately below each underline row.</li>
+ * <li>No leading indent — output starts at column 0.</li>
+ * <li>Trailing whitespace stripped per line.</li>
  * </ul>
  */
 public final class SpanRenderer {
@@ -51,21 +51,21 @@ public final class SpanRenderer {
         return sb.toString();
     }
 
-    private static List<Span> buildSpans(List<Match> matches, List<Marker> markers) {
+    private static List<RenderSpan> buildSpans(List<Match> matches, List<Marker> markers) {
         var matchSpans = matches.stream()
                 .filter(m -> !m.isPrivate())
-                .map(m -> new Span(m.start(), m.end(), m.name().name().toLowerCase(Locale.ROOT)));
+                .map(m -> new RenderSpan(m.span().start(), m.span().end(), m.name().name().toLowerCase(Locale.ROOT)));
 
         var markerSpans = markers.stream()
-                .map(mk -> new Span(mk.start(), mk.end(), mk.name()));
+                .map(mk -> new RenderSpan(mk.span().start(), mk.span().end(), mk.name()));
 
         return Stream.concat(matchSpans, markerSpans)
-                .sorted(Comparator.comparingInt(Span::start).thenComparingInt(Span::end))
+                .sorted(Comparator.comparingInt(RenderSpan::start).thenComparingInt(RenderSpan::end))
                 .toList();
     }
 
-    private static List<List<Span>> assignRows(List<Span> spans) {
-        var rows = new ArrayList<List<Span>>();
+    private static List<List<RenderSpan>> assignRows(List<RenderSpan> spans) {
+        var rows = new ArrayList<List<RenderSpan>>();
 
         for (var span : spans) {
             rows.stream()
@@ -74,7 +74,7 @@ public final class SpanRenderer {
                     .ifPresentOrElse(
                             row -> row.add(span),
                             () -> {
-                                var newRow = new ArrayList<Span>();
+                                var newRow = new ArrayList<RenderSpan>();
                                 newRow.add(span);
                                 rows.add(newRow);
                             }
@@ -83,8 +83,8 @@ public final class SpanRenderer {
         return rows;
     }
 
-    private static void renderRow(List<Span> row, int inputLength, StringBuilder sb) {
-        int width = Math.max(inputLength, row.stream().mapToInt(Span::labelEnd).max().orElse(0));
+    private static void renderRow(List<RenderSpan> row, int inputLength, StringBuilder sb) {
+        int width = Math.max(inputLength, row.stream().mapToInt(RenderSpan::labelEnd).max().orElse(0));
 
         char[] underlineChars = new char[width];
         Arrays.fill(underlineChars, ' ');
@@ -113,13 +113,13 @@ public final class SpanRenderer {
         sb.append(new String(labelChars).stripTrailing()).append('\n');
     }
 
-    private record Span(int start, int end, String label) {
+    private record RenderSpan(int start, int end, String label) {
         int mid() { return start + (end - start) / 2; }
         int len() { return end - start; }
         int labelStart() { return Math.max(0, mid() - (label.length() / 2)); }
         int labelEnd() { return labelStart() + label.length(); }
 
-        boolean overlaps(Span other) {
+        boolean overlaps(RenderSpan other) {
             boolean bodyOverlap = !(other.end() < this.start() || this.end() < other.start());
             boolean labelOverlap = !(other.labelEnd() < this.labelStart() || this.labelEnd() < other.labelStart());
             return bodyOverlap || labelOverlap;

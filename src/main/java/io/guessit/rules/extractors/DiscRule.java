@@ -1,21 +1,17 @@
 package io.guessit.rules.extractors;
 
-import com.mirkoddd.sift.core.SiftGlobalFlag;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 import io.guessit.core.text.patterns.DiscPatterns;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
-
-import static com.mirkoddd.sift.core.Sift.*;
-import static com.mirkoddd.sift.core.SiftPatterns.*;
 
 /**
  * Extracts {@code disc} (multi-disc release indices: "Disc 1", "DVD 2",
@@ -53,12 +49,13 @@ public final class DiscRule implements Extractor {
         var m = PATTERN.matcher(input);
 
         while (m.find()) {
-            var head = new Match(MatchName.DISC, null, m.start(), m.end(), m.group(), Priority.DEFAULT, Set.of(), false);
+            var headSpan = new Span(m.start(), m.end(), m.group());
+            var head = new Match(MatchName.DISC, null, headSpan, Priority.DEFAULT, Set.of(), false);
 
             if (seps.test(head)) {
                 int v = Integer.parseInt(m.group(GRP_VAL));
-                ctx.matches.add(new Match(MatchName.DISC, v, m.start(GRP_VAL), m.end(GRP_VAL),
-                        m.group(GRP_VAL), Priority.DEFAULT, Set.of(), false));
+                var valSpan = new Span(m.start(GRP_VAL), m.end(GRP_VAL), m.group(GRP_VAL));
+                ctx.matches.add(new Match(MatchName.DISC, v, valSpan, Priority.DEFAULT, Set.of(), false));
             }
         }
     }
@@ -76,7 +73,7 @@ public final class DiscRule implements Extractor {
                 .map(m -> {
                     var newTags = new HashSet<>(m.tags());
                     newTags.remove(TAG_DISC_MARKER);
-                    return new Match(MatchName.DISC, m.value(), m.start(), m.end(), m.raw(), m.priority(), newTags, m.isPrivate());
+                    return new Match(MatchName.DISC, m.value(), m.span(), m.priority(), newTags, m.isPrivate());
                 })
                 .toList();
 

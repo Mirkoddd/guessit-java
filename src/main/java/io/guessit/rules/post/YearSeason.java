@@ -27,7 +27,6 @@ public final class YearSeason implements PostProcessor {
         if (ctx.matches.named(MatchName.SEASON).findAny().isPresent()) return;
         if (ctx.matches.named(MatchName.EPISODE).findAny().isEmpty()) return;
         ctx.matches.named(MatchName.YEAR).toList().forEach(year ->
-            ctx.matches.add(new Match(MatchName.SEASON, year.value(), year.start(), year.end(),
-                year.raw(), year.priority(), Set.copyOf(year.tags()), false)));
+            ctx.matches.add(new Match(MatchName.SEASON, year.value(), year.span(), year.priority(), Set.copyOf(year.tags()), false)));
     }
 }

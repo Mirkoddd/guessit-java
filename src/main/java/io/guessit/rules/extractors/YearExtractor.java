@@ -62,7 +62,7 @@ public final class YearExtractor implements Extractor {
 
         var toRemove = fileParts.stream()
                 .flatMap(fp -> {
-                    var inPart = years.stream().filter(y -> fp.covers(y.start(), y.end())).toList();
+                    var inPart = years.stream().filter(y -> fp.covers(y.span())).toList();
                     return inPart.size() <= 1 ? Stream.empty() : determineRemovals(ctx, inPart).stream();
                 })
                 .toList();
@@ -74,7 +74,7 @@ public final class YearExtractor implements Extractor {
     private static List<Match> determineRemovals(ParseContext ctx, List<Match> inPart) {
         var partitions = inPart.stream().collect(Collectors.partitioningBy(y ->
                 ctx.markers.stream().anyMatch(mk ->
-                        WeakExtractorCommon.MARKER_GROUP.equals(mk.name()) && mk.covers(y.start(), y.end()))
+                        WeakExtractorCommon.MARKER_GROUP.equals(mk.name()) && mk.covers(y.span()))
         ));
 
         var grouped = partitions.get(true);
@@ -99,7 +99,7 @@ public final class YearExtractor implements Extractor {
         var weakDuplicates = ctx.matches.all()
                 .filter(m -> m.tags().contains(WeakExtractorCommon.WEAK_DUPLICATE))
                 .filter(m -> m.name() == MatchName.SEASON || m.name() == MatchName.EPISODE)
-                .filter(m -> toRemove.stream().anyMatch(dropped -> dropped.overlaps(m)));
+                .filter(m -> toRemove.stream().anyMatch(dropped -> dropped.span().overlaps(m.span())));
 
         WeakExtractorCommon.removeMatches(ctx, weakDuplicates);
     }
