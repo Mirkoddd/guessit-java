@@ -55,7 +55,7 @@ public final class CrcExtractor implements Extractor {
 
     private void dropSeasonEpisodeInsideCrc(ParseContext ctx) {
         var crcSpans = ctx.matches.named(MatchName.CRC32)
-                .map(m -> new int[]{m.span().start(), m.span().end()})
+                .map(Match::span)
                 .toList();
 
         if (crcSpans.isEmpty()) return;
@@ -65,7 +65,7 @@ public final class CrcExtractor implements Extractor {
                     var n = m.name();
                     return n == MatchName.SEASON || n == MatchName.EPISODE || n == MatchName.SEASON_HEAD;
                 })
-                .filter(m -> crcSpans.stream().anyMatch(s -> m.span().start() >= s[0] && m.span().end() <= s[1]))
+                .filter(m -> crcSpans.stream().anyMatch(s -> m.span().isInside(s)))
                 .toList();
 
         toRemove.forEach(ctx.matches::remove);

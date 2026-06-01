@@ -43,7 +43,7 @@ public final class PreferLastPath implements PostProcessor {
         if (inLastValues.isEmpty()) return;
         var toDrop = ctx.matches.all()
                 .filter(m -> !m.isPrivate())
-                .filter(m -> m.span().end() <= last.span().start())
+                .filter(m -> m.span().isBefore(last.span()))
                 .filter(m -> inLastValues.containsKey(m.name()))
                 // Only drop when the inner filepart's same-named match has a
                 // DIFFERENT value. When values match, keep the outer match so

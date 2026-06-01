@@ -85,12 +85,11 @@ public final class DateExtractor implements Extractor {
             return false;
         }
 
-        boolean isInsideDateSpan = m.span().start() >= dateMatch.span().start() && m.span().end() <= dateMatch.span().end();
         boolean isTargetType = m.name() == MatchName.YEAR
                 || m.name() == MatchName.SEASON
                 || m.name() == MatchName.EPISODE
                 || m.name() == MatchName.CRC32;
 
-        return isInsideDateSpan && isTargetType;
+        return isTargetType && m.span().isInside(dateMatch.span());
     }
 }

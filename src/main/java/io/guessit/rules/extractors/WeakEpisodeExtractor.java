@@ -102,7 +102,7 @@ public final class WeakEpisodeExtractor implements Extractor {
             var headSpan = new Span(ms, m.end(), input.substring(ms, m.end()));
 
             boolean isOverlapping = protectedEpisodes.stream()
-                    .anyMatch(pe -> span.start() < pe.span().end() && span.end() > pe.span().start());
+                    .anyMatch(pe -> pe.span().overlaps(span));
 
             var head = new Match(MatchName.EPISODE, null, headSpan, Priority.PROBABLE, Set.of(MatchTag.WEAK_EPISODE.getYamlValue()), false);
 
@@ -153,42 +153,40 @@ public final class WeakEpisodeExtractor implements Extractor {
         return ctx.matches.named(MatchName.EPISODE)
                 .filter(m -> m.hasTag(MatchTag.WEAK_EPISODE))
                 .filter(weak -> blocking.stream().anyMatch(b ->
-                        b.span().end() <= weak.span().start()
-                                && (weak.span().start() - b.span().end()) <= 3
+                        b.span().isBefore(weak.span())
+                                && weak.span().distanceTo(b.span()) <= 3
                                 && ctx.input.substring(b.span().end(), weak.span().start()).chars().allMatch(c -> Seps.isSep((char) c))
                 ))
                 .toList();
     }
 
     private static Predicate<Match> strongInFilepartPredicate(ParseContext ctx, List<Marker> fileParts) {
-        var titleSpans = ctx.matches.named(MatchName.TITLE)
-                .map(m -> new int[]{m.span().start(), m.span().end()}).toList();
-        Predicate<Match> insideTitle = m -> titleSpans.stream()
-                .anyMatch(t -> t[0] <= m.span().start() && m.span().end() <= t[1]);
+        var titleMatches = ctx.matches.named(MatchName.TITLE).toList();
+        Predicate<Match> insideTitle = m -> titleMatches.stream()
+                .anyMatch(t -> t.span().contains(m.span()));
 
         boolean anyEpisodeSxxExx = ctx.matches.named(MatchName.EPISODE)
                 .anyMatch(m -> !m.isPrivate() && m.hasTag(MatchTag.SXX_EXX) && !insideTitle.test(m));
 
-        var seasonStrongSpans = ctx.matches.all()
+        var seasonStrongMatches = ctx.matches.all()
                 .filter(m -> !m.isPrivate() && m.hasTag(MatchTag.SXX_EXX)
                         && MatchName.SEASON == m.name() && !insideTitle.test(m))
-                .map(m -> new int[]{m.span().start(), m.span().end()})
                 .toList();
 
-        return weak -> hasStrongAnchor(weak, anyEpisodeSxxExx, seasonStrongSpans, fileParts);
+        return weak -> hasStrongAnchor(weak, anyEpisodeSxxExx, seasonStrongMatches, fileParts);
     }
 
     private static boolean hasStrongAnchor(Match weak, boolean anyEpisodeSxxExx,
-                                           List<int[]> seasonStrongSpans, List<Marker> fileParts) {
+                                           List<Match> seasonStrongMatches, List<Marker> fileParts) {
         if (anyEpisodeSxxExx) return true;
         for (var fp : fileParts) {
             if (!fp.covers(weak.span())) continue;
-            for (var sp : seasonStrongSpans) {
-                if (sp[0] >= fp.span().start() && sp[1] <= fp.span().end()) return true;
+            for (var sp : seasonStrongMatches) {
+                if (sp.span().isInside(fp.span())) return true;
             }
             return false;
         }
-        return !seasonStrongSpans.isEmpty();
+        return !seasonStrongMatches.isEmpty();
     }
 
     private static void applyStrongEpisodeRule(ParseContext ctx, List<Match> weakList,
@@ -271,7 +269,7 @@ public final class WeakEpisodeExtractor implements Extractor {
 
     private static Match previousEpisode(List<Match> allEpisodes, Match weak) {
         return allEpisodes.stream()
-                .filter(ep -> ep != weak && ep.span().end() <= weak.span().start())
+                .filter(ep -> ep != weak && ep.span().isBefore(weak.span()))
                 .reduce((_, second) -> second)
                 .orElse(null);
     }
@@ -296,7 +294,7 @@ public final class WeakEpisodeExtractor implements Extractor {
 
             int va = (Integer) a.value();
             int vb = (Integer) b.value();
-            int gapLen = b.span().start() - a.span().end();
+            int gapLen = a.span().distanceTo(b.span());
 
             return vb > va
                     && gapLen > 0

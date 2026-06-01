@@ -66,23 +66,23 @@ public final class BitRateTypeRule implements PostProcessor {
     }
 
     private static Match nearestPrecedingVideoContext(List<Match> allMatches, Match br) {
-        Match prev = null;
-        for (var m : allMatches) {
-            if (m.span().end() > br.span().start()) break;
-            if (VIDEO_CONTEXT.contains(m.name())) prev = m;
-        }
-        return prev;
+        return allMatches.stream()
+                .filter(m -> m.span().isBefore(br.span()) && VIDEO_CONTEXT.contains(m.name()))
+                .max(Comparator.comparingInt(m -> m.span().end()))
+                .orElse(null);
     }
 
     /** First match starting at or after {@code br.end()}; returns it only if
      * it is an {@code audio_codec} reachable through a sep-only gap. */
     private static Match adjacentTrailingAudioCodec(ParseContext ctx, List<Match> allMatches, Match br) {
-        for (var m : allMatches) {
-            if (m.span().start() < br.span().end()) continue;
-            if (m.name() != MatchName.AUDIO_CODEC) return null;
-            return allSeps(ctx.input.substring(br.span().end(), m.span().start())) ? m : null;
-        }
-        return null;
+        var next = allMatches.stream()
+                .filter(m -> m.span().isAfter(br.span()))
+                .min(Comparator.comparingInt(m -> m.span().start()))
+                .orElse(null);
+
+        if (next == null || next.name() != MatchName.AUDIO_CODEC) return null;
+
+        return allSeps(ctx.input.substring(br.span().end(), next.span().start())) ? next : null;
     }
 
     /** Audio-codec exception: trailing audio_codec + Kbps or Mbps&lt;10 keeps as audio. */

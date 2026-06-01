@@ -67,7 +67,8 @@ public final class AbsoluteEpisodePromoter implements PostProcessor {
     private static boolean isFillableGap(String input, Match a, Match b, int va, int vb) {
         if (vb <= va + 1) return false;
         if (vb - va - 1 > MAX_ABS_RANGE) return false;
-        if (b.span().start() <= a.span().end()) return false;
+
+        if (a.span().distanceTo(b.span()) == 0) return false;
 
         var gapText = input.substring(a.span().end(), b.span().start());
         return isSepRange(gapText);

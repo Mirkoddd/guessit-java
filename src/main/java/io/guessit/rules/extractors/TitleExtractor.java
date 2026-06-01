@@ -196,7 +196,8 @@ public final class TitleExtractor implements Extractor {
         if (titles.titles.size() != 1) return false;
         var ep = ctx.matches.inMarker(serieNameFilepart).filter(m -> m.name() == EPISODE).findFirst().orElse(null);
         var t = titles.titles.getFirst();
-        var holeBeforeEpisode = ep != null && t.span().end() <= ep.span().start();
+
+        var holeBeforeEpisode = ep != null && t.span().isBefore(ep.span());
         toRemove.addAll(titles.toRemove);
 
         if (holeBeforeEpisode) {
@@ -318,7 +319,8 @@ public final class TitleExtractor implements Extractor {
     /** True when {@code m} occupies {@code fp} except for separator padding —
      * mirrors python's parent.span match-or-equals tolerance. */
     private static boolean spansFilepartIgnoringSeps(Match m, Marker fp, String input) {
-        if (m.span().start() < fp.span().start() || m.span().end() > fp.span().end()) return false;
+        if (!fp.span().contains(m.span())) return false;
+
         for (int i = fp.span().start(); i < m.span().start(); i++) if (!Seps.isSep(input.charAt(i))) return false;
         for (int i = m.span().end(); i < fp.span().end(); i++) if (!Seps.isSep(input.charAt(i))) return false;
         return true;
@@ -558,10 +560,12 @@ public final class TitleExtractor implements Extractor {
                                Holes.Hole hole, boolean starting) {
         if (Set.of(MatchName.LANGUAGE, MatchName.COUNTRY).contains(m.name())) {
             if (hole.value().length() == m.span().raw().length()) return true;
+
             var others = ctx.matches.inMarker(filepart).filter(
                     x -> x.name() == m.name() && !toKeep.contains(x)
                             && !NON_SPECIFIC_LANGUAGES.contains(String.valueOf(x.value()))
-                            && (x.span().end() <= hole.span().start() || x.span().start() >= hole.span().end()));
+                            && !x.span().overlaps(hole.span()));
+
             return others.findAny().isEmpty() && (!starting || m.span().raw().length() <= 3);
         }
         return false;
@@ -571,7 +575,7 @@ public final class TitleExtractor implements Extractor {
         if (m.name() == MatchName.EPISODE_DETAILS) {
             if (episodeTitleContext) return false;
             if ("episode".equals(ctx.options.type())) {
-                return m.span().start() >= hole.span().start() && m.span().end() <= hole.span().end();
+                return hole.span().contains(m.span());
             }
         }
         return !episodeTitleContext || !Set.of(MatchName.LANGUAGE, MatchName.COUNTRY).contains(m.name());

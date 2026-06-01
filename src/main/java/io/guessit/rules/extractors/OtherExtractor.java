@@ -7,6 +7,7 @@ import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Seps;
+import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 
 import static io.guessit.rules.extractors.ConfigPatternHelpers.*;
@@ -247,8 +248,8 @@ public final class OtherExtractor implements Extractor {
     }
 
     private static boolean isAdjacentSubtitle(String input, Match hc, Match sl) {
-        return (sl.span().start() >= hc.span().end() && Seps.betweenIsSeps(input, hc.span().end(), sl.span().start())) ||
-                (sl.span().end() <= hc.span().start() && Seps.betweenIsSeps(input, sl.span().end(), hc.span().start()));
+        return (sl.span().isAfter(hc.span()) && Seps.betweenIsSeps(input, hc.span().end(), sl.span().start())) ||
+                (sl.span().isBefore(hc.span()) && Seps.betweenIsSeps(input, sl.span().end(), hc.span().start()));
     }
 
     private static void validateStreamingServiceNeighbor(ParseContext ctx) {
@@ -280,7 +281,7 @@ public final class OtherExtractor implements Extractor {
         if (!hasPrefix) return false;
 
         var next = ssMatches.stream()
-                .filter(s -> s.span().start() >= m.span().end())
+                .filter(s -> s.span().isAfter(m.span()))
                 .min(Comparator.comparingInt(s -> s.span().start()))
                 .orElse(null);
 
@@ -291,7 +292,7 @@ public final class OtherExtractor implements Extractor {
         if (!hasSuffix) return false;
 
         var prev = ssMatches.stream()
-                .filter(s -> s.span().end() <= m.span().start())
+                .filter(s -> s.span().isBefore(m.span()))
                 .max(Comparator.comparingInt(s -> s.span().end()))
                 .orElse(null);
 
@@ -305,7 +306,7 @@ public final class OtherExtractor implements Extractor {
         ctx.matches.named(MatchName.OTHER)
                 .filter(m -> m.hasTag(MatchTag.OTHER_VALIDATE_SCREENER))
                 .filter(sc -> sources.stream()
-                        .filter(s -> s.span().end() <= sc.span().start())
+                        .filter(s -> s.span().isBefore(sc.span()))
                         .max(Comparator.comparingInt(s -> s.span().end()))
                         .map(src -> !Seps.betweenIsSeps(input, src.span().end(), sc.span().start()))
                         .orElse(true))
@@ -318,7 +319,7 @@ public final class OtherExtractor implements Extractor {
 
         ctx.matches.named(MatchName.OTHER)
                 .filter(m -> m.hasTag(MatchTag.OTHER_VALIDATE_MUX))
-                .filter(mx -> sources.stream().noneMatch(s -> s.span().end() <= mx.span().start()))
+                .filter(mx -> sources.stream().noneMatch(s -> s.span().isBefore(mx.span())))
                 .toList()
                 .forEach(ctx.matches::remove);
     }
@@ -340,7 +341,7 @@ public final class OtherExtractor implements Extractor {
     private static boolean shouldRemoveAtEnd(ParseContext ctx, String input, Marker filePart, Match m) {
         boolean nonOtherAfter = ctx.matches.all()
                 .filter(x -> !x.isPrivate())
-                .filter(x -> x.span().start() >= m.span().end() && x.span().end() <= filePart.span().end())
+                .filter(x -> x.span().isAfter(m.span()) && filePart.covers(x.span()))
                 .anyMatch(x -> x.name() != MatchName.OTHER && x.name() != MatchName.CONTAINER);
 
         if (nonOtherAfter) return true;
@@ -350,10 +351,11 @@ public final class OtherExtractor implements Extractor {
     private static boolean hasNonSepHole(ParseContext ctx, String input, int s, int e) {
         if (s >= e) return false;
         boolean[] covered = new boolean[e - s];
+        var gapSpan = new Span(s, e, "");
 
         ctx.matches.all()
                 .filter(x -> !x.isPrivate())
-                .filter(x -> x.span().start() < e && x.span().end() > s)
+                .filter(x -> x.span().overlaps(gapSpan))
                 .forEach(x -> {
                     int from = Math.max(x.span().start(), s) - s;
                     int to = Math.min(x.span().end(), e) - s;

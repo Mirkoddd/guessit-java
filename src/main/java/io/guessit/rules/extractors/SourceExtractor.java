@@ -74,10 +74,10 @@ public final class SourceExtractor implements Extractor {
         var sourceMatch = new Match(MatchName.SOURCE, rule.source(), span,
                 Priority.DEFAULT, rule.tags(), false);
 
-        if (!validator.test(sourceMatch) || overlapsExtension(ctx, s, e)) return;
+        if (!validator.test(sourceMatch) || overlapsExtension(ctx, span)) return;
 
         boolean insideStream = ctx.matches.named(MatchName.STREAMING_SERVICE)
-                .anyMatch(ss -> ss.span().start() <= s && e <= ss.span().end() && (ss.span().start() < s || e < ss.span().end()));
+                .anyMatch(ss -> ss.span().contains(span) && !ss.span().equals(span));
 
         if (insideStream) {
             sourceMatch = new Match(MatchName.SOURCE, rule.source(), span,
@@ -95,16 +95,14 @@ public final class SourceExtractor implements Extractor {
         int gs = groupStart(matcher, groupName);
         int ge = groupEnd(matcher, groupName);
         if (gs >= 0 && ge > gs) {
-            // FASE 3: Scrittura sicura
             ctx.matches.add(new Match(MatchName.OTHER, value, new Span(gs, ge, input.substring(gs, ge)),
                     Priority.DEFAULT, Set.of(MatchTag.COEXIST.getYamlValue(), MatchTag.DERIVED_FROM_SOURCE.getYamlValue()), false));
         }
     }
 
-    private static boolean overlapsExtension(ParseContext ctx, int s, int e) {
+    private static boolean overlapsExtension(ParseContext ctx, Span span) {
         return ctx.matches.named(MatchName.CONTAINER)
-                // FASE 2: Lettura sicura
-                .anyMatch(m -> m.hasTag(MatchTag.EXTENSION) && m.span().start() < e && s < m.span().end());
+                .anyMatch(m -> m.hasTag(MatchTag.EXTENSION) && m.span().overlaps(span));
     }
 
     private static int groupStart(Matcher m, String name) {
@@ -151,7 +149,7 @@ public final class SourceExtractor implements Extractor {
         if (!filePart.covers(weak.span())) return false;
 
         boolean later = ctx.matches.named(MatchName.SOURCE)
-                .anyMatch(m -> m != weak && m.span().start() >= weak.span().end() && m.span().end() <= filePart.span().end());
+                .anyMatch(m -> m != weak && m.span().isAfter(weak.span()) && filePart.covers(m.span()));
 
         if (!later) return false;
         return !ctx.input.substring(filePart.span().start(), weak.span().start()).isBlank();
@@ -172,12 +170,15 @@ public final class SourceExtractor implements Extractor {
     }
 
     private void tryUpgradeBluray(ParseContext ctx, Marker filePart, Match bd) {
-        var uhdOther = findUltraHd(ctx, filePart.span().start(), bd.span().start(), true);
-        boolean ok = uhdOther != null && validRange(ctx, uhdOther.span().end(), bd.span().start());
+        var beforeSpan = new Span(filePart.span().start(), bd.span().start(), "");
+        var uhdOther = findUltraHd(ctx, beforeSpan, true);
+
+        boolean ok = uhdOther != null && validRange(ctx, new Span(uhdOther.span().end(), bd.span().start(), ""));
 
         if (!ok) {
-            uhdOther = findUltraHd(ctx, bd.span().end(), filePart.span().end(), false);
-            ok = uhdOther != null && validRange(ctx, bd.span().end(), uhdOther.span().start());
+            var afterSpan = new Span(bd.span().end(), filePart.span().end(), "");
+            uhdOther = findUltraHd(ctx, afterSpan, false);
+            ok = uhdOther != null && validRange(ctx, new Span(bd.span().end(), uhdOther.span().start(), ""));
         }
 
         if (!ok) {
@@ -196,26 +197,22 @@ public final class SourceExtractor implements Extractor {
                 .anyMatch(m -> VAL_2160P.equals(m.value()) && filePart.covers(m.span()));
     }
 
-    private static Match findUltraHd(ParseContext ctx, int start, int end, boolean preferLast) {
+    private static Match findUltraHd(ParseContext ctx, Span targetSpan, boolean preferLast) {
         var candidates = ctx.matches.named(MatchName.OTHER)
-                .filter(m -> isUltraHdCandidateInRange(m, start, end));
+                .filter(m -> !m.isPrivate() && VAL_ULTRA_HD.equals(m.value()) && m.span().isInside(targetSpan));
 
         return preferLast
                 ? candidates.max(Comparator.comparingInt(m -> m.span().end())).orElse(null)
                 : candidates.min(Comparator.comparingInt(m -> m.span().start())).orElse(null);
     }
 
-    private static boolean isUltraHdCandidateInRange(Match m, int start, int end) {
-        return !m.isPrivate() && VAL_ULTRA_HD.equals(m.value()) && m.span().start() >= start && m.span().end() <= end;
+    private static boolean validRange(ParseContext ctx, Span gap) {
+        return gap.length() <= 0 || (allMatchesAreAllowed(ctx, gap) && !hasNonSeparatorHoles(ctx, gap));
     }
 
-    private static boolean validRange(ParseContext ctx, int s, int e) {
-        return s >= e || (allMatchesAreAllowed(ctx, s, e) && !hasNonSeparatorHoles(ctx, s, e));
-    }
-
-    private static boolean allMatchesAreAllowed(ParseContext ctx, int s, int e) {
+    private static boolean allMatchesAreAllowed(ParseContext ctx, Span gap) {
         return ctx.matches.all()
-                .filter(m -> !m.isPrivate() && m.span().start() >= s && m.span().end() <= e)
+                .filter(m -> !m.isPrivate() && m.span().isInside(gap))
                 .allMatch(SourceExtractor::isAllowedMatch);
     }
 
@@ -225,13 +222,15 @@ public final class SourceExtractor implements Extractor {
                 || (m.name() == MatchName.OTHER && m.hasTag(MatchTag.UHD_BLURAY_NEIGHBOR));
     }
 
-    private static boolean hasNonSeparatorHoles(ParseContext ctx, int s, int e) {
-        if (s >= e) return false;
+    private static boolean hasNonSeparatorHoles(ParseContext ctx, Span gap) {
+        if (gap.length() <= 0) return false;
 
-        boolean[] covered = new boolean[e - s];
+        int s = gap.start();
+        int e = gap.end();
+        boolean[] covered = new boolean[gap.length()];
 
         ctx.matches.all()
-                .filter(m -> !m.isPrivate() && m.span().start() < e && m.span().end() > s)
+                .filter(m -> !m.isPrivate() && m.span().overlaps(gap))
                 .forEach(m -> {
                     int from = Math.max(m.span().start(), s) - s;
                     int to = Math.min(m.span().end(), e) - s;

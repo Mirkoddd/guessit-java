@@ -106,13 +106,14 @@ public final class EpisodeNumberSeparatorRange implements PostProcessor {
     private static boolean vbAlreadyPresent(ParseContext ctx, RangeNumber rn) {
         return ctx.matches.named(EPISODE)
                 .anyMatch(m -> m.value() instanceof Integer iv && iv == rn.value()
-                        && m.span().start() >= rn.span().start() && m.span().end() <= rn.span().end());
+                        && m.span().isInside(rn.span()));
     }
 
     /** True when an existing episode range-fill already covers the gap. */
     private static boolean alreadyFilled(ParseContext ctx, Match a, int numEnd) {
+        var gapSpan = new Span(a.span().end(), numEnd, "");
         return ctx.matches.named(EPISODE)
                 .anyMatch(m -> m.hasTag(MatchTag.RANGE_FILL)
-                        && m.span().start() >= a.span().end() && m.span().end() <= numEnd);
+                        && m.span().isInside(gapSpan));
     }
 }

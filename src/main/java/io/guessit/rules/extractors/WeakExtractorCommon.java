@@ -1,6 +1,5 @@
 package io.guessit.rules.extractors;
 
-import io.guessit.core.pipeline.state.Marker;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
@@ -25,18 +24,6 @@ final class WeakExtractorCommon {
     static final String MARKER_GROUP = "group";
 
     static final Pattern RANGE_SEP = WeakCommonPatterns.buildRangePattern();
-
-    static boolean isInside(Match target, int start, int end) {
-        return target.span().start() >= start && target.span().end() <= end;
-    }
-
-    static boolean isInside(Match target, Match container) {
-        return target.span().start() >= container.span().start() && target.span().end() <= container.span().end();
-    }
-
-    static boolean isInside(Match target, Marker container) {
-        return container.covers(target.span());
-    }
 
     static void removeMatches(ParseContext ctx, Stream<Match> streamToRemove) {
         streamToRemove.toList().forEach(ctx.matches::remove);

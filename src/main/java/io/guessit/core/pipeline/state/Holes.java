@@ -39,27 +39,29 @@ public final class Holes {
         }
 
         private void applyMarkerToHole(Marker m, Hole h, List<Hole> newRet) {
-            int hStart = h.span().start();
-            int hEnd = h.span().end();
-            int mStart = m.span().start();
-            int mEnd = m.span().end();
+            if (!m.span().overlaps(h.span())) {
+                newRet.add(h);
+                return;
+            }
 
-            if (mStart <= hStart && mEnd >= hEnd) return; // fully covers — drop
+            if (m.span().contains(h.span())) return;
 
-            if (mStart >= hStart && mEnd <= hEnd) { // splits
-                var left = h.withBounds(hStart, mStart);
-                var right = h.withBounds(mEnd, hEnd);
+            if (h.span().contains(m.span())) {
+                var left = h.withBounds(h.span().start(), m.span().start());
+                var right = h.withBounds(m.span().end(), h.span().end());
                 if (!left.raw().isEmpty()) newRet.add(left);
                 if (!right.raw().isEmpty()) newRet.add(right);
                 return;
             }
-            if (mEnd >= hEnd && mStart < hEnd) { // crops right
-                var cropped = h.withBounds(hStart, mStart);
+
+            if (m.span().end() >= h.span().end() && m.span().start() < h.span().end()) {
+                var cropped = h.withBounds(h.span().start(), m.span().start());
                 if (!cropped.raw().isEmpty()) newRet.add(cropped);
                 return;
             }
-            if (mStart <= hStart && mEnd > hStart) { // crops left
-                var cropped = h.withBounds(mEnd, hEnd);
+
+            if (m.span().start() <= h.span().start() && m.span().end() > h.span().start()) {
+                var cropped = h.withBounds(m.span().end(), h.span().end());
                 if (!cropped.raw().isEmpty()) newRet.add(cropped);
                 return;
             }
@@ -121,9 +123,11 @@ public final class Holes {
         var matches = new ArrayList<>(allMatches);
         matches.sort(Comparator.comparingInt(m -> m.span().start()));
         var active = new ArrayList<Match>();
+        var target = new Span(start, end, "");
+
         for (var m : matches) {
             if (ignore != null && ignore.test(m)) continue;
-            if (m.span().end() <= start || m.span().start() >= end) continue;
+            if (!m.span().overlaps(target)) continue;
             active.add(m);
         }
         return active;

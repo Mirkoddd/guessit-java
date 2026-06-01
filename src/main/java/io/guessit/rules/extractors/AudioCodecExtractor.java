@@ -77,11 +77,11 @@ public final class AudioCodecExtractor implements Extractor {
         if (checkStart) {
             return match.span().start() == 0
                     || Seps.isSep(input.charAt(match.span().start() - 1))
-                    || audio.stream().anyMatch(o -> o != match && o.span().end() == match.span().start());
+                    || audio.stream().anyMatch(o -> o != match && o.span().abutsBefore(match.span()));
         } else {
             return match.span().end() == input.length()
                     || Seps.isSep(input.charAt(match.span().end()))
-                    || audio.stream().anyMatch(o -> o != match && o.span().start() == match.span().end());
+                    || audio.stream().anyMatch(o -> o != match && o.span().abutsAfter(match.span()));
         }
     }
 
@@ -91,7 +91,7 @@ public final class AudioCodecExtractor implements Extractor {
                 .toList();
         for (var wc : weakChannels) {
             boolean hasCodecBefore = audio.stream().anyMatch(o ->
-                    o.name() == MatchName.AUDIO_CODEC && o.span().end() == wc.span().start());
+                    o.name() == MatchName.AUDIO_CODEC && o.span().abutsBefore(wc.span()));
             if (!hasCodecBefore) ctx.matches.remove(wc);
         }
     }
@@ -129,41 +129,42 @@ public final class AudioCodecExtractor implements Extractor {
 
     private boolean codecAtSameSpan(Match prof, List<Match> codecMatches, String reqCodec) {
         return codecMatches.stream().anyMatch(c ->
-                c.span().start() == prof.span().start() && c.span().end() == prof.span().end()
-                        && reqCodec.equals(String.valueOf(c.value())));
+                c.span().equals(prof.span()) && reqCodec.equals(String.valueOf(c.value())));
     }
 
     private boolean codecAtPreviousPosition(ParseContext ctx, Match prof, List<Match> codecMatches, String reqCodec) {
-        Integer prevIdx = ctx.matches.all()
-                .filter(o -> o != prof && o.span().end() <= prof.span().start())
-                .map(m -> m.span().end())
-                .max(Integer::compareTo).orElse(null);
-        return prevIdx != null && codecMatches.stream().anyMatch(c ->
+        int prevIdx = ctx.matches.all()
+                .filter(o -> o != prof && o.span().isBefore(prof.span()))
+                .mapToInt(m -> m.span().end())
+                .max().orElse(-1);
+
+        return prevIdx != -1 && codecMatches.stream().anyMatch(c ->
                 c.span().end() == prevIdx && reqCodec.equals(String.valueOf(c.value())));
     }
 
     private boolean codecAtNextPosition(ParseContext ctx, Match prof, List<Match> codecMatches, String reqCodec) {
-        Integer nextIdx = ctx.matches.all()
-                .filter(o -> o != prof && o.span().start() >= prof.span().end())
-                .map(m -> m.span().start())
-                .min(Integer::compareTo).orElse(null);
-        return nextIdx != null && codecMatches.stream().anyMatch(c ->
+        int nextIdx = ctx.matches.all()
+                .filter(o -> o != prof && o.span().isAfter(prof.span()))
+                .mapToInt(m -> m.span().start())
+                .min().orElse(-1);
+
+        return nextIdx != -1 && codecMatches.stream().anyMatch(c ->
                 c.span().start() == nextIdx && reqCodec.equals(String.valueOf(c.value())));
     }
 
     private void removeConflictingHighQualityMatches(ParseContext ctx) {
         var hqProfileSpans = ctx.matches.named(MatchName.AUDIO_PROFILE)
                 .filter(m -> "High Quality".equals(m.value()))
-                .map(m -> new int[]{m.span().start(), m.span().end()})
+                .map(Match::span)
                 .toList();
 
         if (hqProfileSpans.isEmpty()) return;
 
         var hqOthers = ctx.matches.named(MatchName.OTHER)
                 .filter(m -> "High Quality".equals(m.value()))
-                .filter(m -> hqProfileSpans.stream()
-                        .anyMatch(sp -> sp[0] == m.span().start() && sp[1] == m.span().end()))
+                .filter(m -> hqProfileSpans.stream().anyMatch(sp -> sp.equals(m.span())))
                 .toList();
+
         for (var m : hqOthers) ctx.matches.remove(m);
     }
 

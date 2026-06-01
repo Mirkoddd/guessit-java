@@ -70,19 +70,18 @@ public final class RangeFiller implements PostProcessor {
 
         if (nextVal <= prevVal + 1) return false;
         if (nextVal - prevVal > MAX_JUMP) return false;
-        if (next.span().start() < prev.span().end()) return false;
 
-        int gapLen = next.span().start() - prev.span().end();
+        if (!prev.span().isBefore(next.span())) return false;
+
+        int gapLen = prev.span().distanceTo(next.span());
         if (gapLen <= 0 || gapLen > MAX_GAP) return false;
 
-        String gap = input.substring(prev.span().end(), next.span().start());
+        var gapSpan = new Span(prev.span().end(), next.span().start(), "");
+        String gap = input.substring(gapSpan.start(), gapSpan.end());
         if (!GAP_PATTERN.matchesEntire(gap)) return false;
-
-        int prevEnd = prev.span().end();
-        int nextStart = next.span().start();
 
         return ctx.matches.named(prop)
                 .noneMatch(m -> m.hasTag(MatchTag.RANGE_FILL)
-                        && m.span().start() >= prevEnd && m.span().end() <= nextStart);
+                        && m.span().isInside(gapSpan));
     }
 }

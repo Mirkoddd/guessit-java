@@ -132,21 +132,17 @@ public final class EditionExtractor implements Extractor {
 
         var toRemove = ctx.matches.named(MatchName.EDITION)
                 .filter(ed -> services.stream()
-                        .anyMatch(svc -> isExactOverlap(svc, ed) && streamingServiceWillSurvive(ctx, ctx.input, svc)))
+                        .anyMatch(svc -> svc.span().equals(ed.span()) && streamingServiceWillSurvive(ctx, ctx.input, svc)))
                 .toList();
 
         toRemove.forEach(ctx.matches::remove);
-    }
-
-    private static boolean isExactOverlap(Match m1, Match m2) {
-        return m1.span().start() == m2.span().start() && m1.span().end() == m2.span().end();
     }
 
     private static boolean streamingServiceWillSurvive(ParseContext ctx, String input, Match s) {
         return ctx.matches.all()
                 .filter(m -> !m.isPrivate())
                 .filter(m -> m.hasTag(MatchTag.STREAMING_SERVICE_SUFFIX))
-                .filter(m -> m.span().start() >= s.span().end())
+                .filter(m -> m.span().isAfter(s.span()))
                 .min(Comparator.comparingInt(m -> m.span().start()))
                 .map(n -> Seps.betweenIsSeps(input, s.span().end(), n.span().start())
                         && (s.span().start() == 0 || Seps.isSep(input.charAt(s.span().start() - 1))))

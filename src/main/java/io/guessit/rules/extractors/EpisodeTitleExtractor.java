@@ -4,6 +4,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Formatters;
 import io.guessit.core.text.Seps;
+import io.guessit.core.text.Span;
 import io.guessit.rules.post.TypeProcessor;
 
 import java.util.ArrayList;
@@ -59,7 +60,7 @@ public final class EpisodeTitleExtractor implements Extractor {
     private static void dropLanguagesInsideTitleHoles(ParseContext ctx) {
         var titleSpans = ctx.matches.all()
                 .filter(EpisodeTitleExtractor::isTitleRelated)
-                .map(m -> new int[]{m.span().start(), m.span().end()})
+                .map(Match::span)
                 .toList();
 
         if (titleSpans.isEmpty()) return;
@@ -81,10 +82,8 @@ public final class EpisodeTitleExtractor implements Extractor {
         return (m.name() == MatchName.LANGUAGE || m.name() == MatchName.SUBTITLE_LANGUAGE) && m.span().length() <= 3;
     }
 
-    private static boolean isStrictlyInsideAnySpan(Match m, List<int[]> spans) {
-        return spans.stream().anyMatch(sp ->
-                m.span().start() >= sp[0] && m.span().end() <= sp[1] && (m.span().start() > sp[0] || m.span().end() < sp[1])
-        );
+    private static boolean isStrictlyInsideAnySpan(Match m, List<Span> spans) {
+        return spans.stream().anyMatch(sp -> m.span().isInside(sp) && !m.span().equals(sp));
     }
 
     private void removeConflictsWithEpisodeTitle(ParseContext ctx) {
@@ -202,7 +201,8 @@ public final class EpisodeTitleExtractor implements Extractor {
     }
 
     private static boolean hasTrailingPropertyInRange(ParseContext ctx, Set<MatchName> names, int start, int end) {
-        return ctx.matches.all().anyMatch(m -> names.contains(m.name()) && m.span().start() >= start && m.span().end() <= end);
+        var targetSpan = new Span(start, end, "");
+        return ctx.matches.all().anyMatch(m -> names.contains(m.name()) && m.span().isInside(targetSpan));
     }
 
     private static Optional<Match> previousAdjacent(ParseContext ctx, int startPos, Predicate<Match> predicate) {

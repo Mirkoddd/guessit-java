@@ -235,8 +235,8 @@ public final class ScreenSizeExtractor implements Extractor {
         for (var n : allMatches) {
             if (n == ws || !strongNames.contains(n.name())) continue;
 
-            if (n.span().end() <= ws.span().start() && isGapOnlySeparators(input, n.span().end(), ws.span().start())) return true;
-            if (n.span().start() >= ws.span().end() && isGapOnlySeparators(input, ws.span().end(), n.span().start())) return true;
+            if (n.span().isBefore(ws.span()) && isGapOnlySeparators(input, n.span().end(), ws.span().start())) return true;
+            if (n.span().isAfter(ws.span()) && isGapOnlySeparators(input, ws.span().end(), n.span().start())) return true;
         }
         return false;
     }
@@ -247,7 +247,7 @@ public final class ScreenSizeExtractor implements Extractor {
 
     private void restoreWeakEpisodeIfNeeded(ParseContext ctx, Match ws) {
         boolean hasEpHere = ctx.matches.named(MatchName.EPISODE)
-                .anyMatch(e -> e.span().start() == ws.span().start() && e.span().end() == ws.span().end());
+                .anyMatch(e -> e.span().equals(ws.span()));
 
         if (!hasEpHere && !TYPE_MOVIE.equals(ctx.options.type())) {
             String raw = ws.span().raw();

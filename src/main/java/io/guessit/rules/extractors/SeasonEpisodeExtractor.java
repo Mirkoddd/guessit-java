@@ -161,25 +161,26 @@ public final class SeasonEpisodeExtractor implements Extractor {
         }
     }
 
-    private List<int[]> getScreenSizeSpans(ParseContext ctx, boolean skipScreenSize) {
+    private List<Span> getScreenSizeSpans(ParseContext ctx, boolean skipScreenSize) {
         return skipScreenSize
-                ? ctx.matches.named(MatchName.SCREEN_SIZE).map(m -> new int[]{m.span().start(), m.span().end()}).toList()
+                ? ctx.matches.named(MatchName.SCREEN_SIZE).map(Match::span).toList()
                 : List.of();
     }
 
-    private List<int[]> getExistingSxxExxSpans(ParseContext ctx, boolean isWeakEChain) {
+    private List<Span> getExistingSxxExxSpans(ParseContext ctx, boolean isWeakEChain) {
         return isWeakEChain
                 ? ctx.matches.all()
                   .filter(m -> m.hasTag(MatchTag.SXX_EXX))
-                  .map(m -> new int[]{m.span().start(), m.span().end()})
+                  .map(Match::span)
                   .toList()
                 : List.of();
     }
 
-    private boolean shouldSkipRun(Chain.Run run, boolean skipScreenSize, List<int[]> screenSizeSpans,
-                                  boolean isWeakEChain, List<int[]> existingSxxExx) {
-        if (skipScreenSize && overlapsAny(run.start(), run.end(), screenSizeSpans)) return true;
-        return isWeakEChain && overlapsAny(run.start(), run.end(), existingSxxExx);
+    private boolean shouldSkipRun(Chain.Run run, boolean skipScreenSize, List<Span> screenSizeSpans,
+                                  boolean isWeakEChain, List<Span> existingSxxExx) {
+        var runSpan = new Span(run.start(), run.end(), "");
+        if (skipScreenSize && screenSizeSpans.stream().anyMatch(runSpan::overlaps)) return true;
+        return isWeakEChain && existingSxxExx.stream().anyMatch(runSpan::overlaps);
     }
 
     private record TrimmedRunData(List<String> seasonValues, List<String> episodeValues, List<int[]> seasonSpans,
@@ -378,13 +379,6 @@ public final class SeasonEpisodeExtractor implements Extractor {
         }
     }
 
-    private static boolean overlapsAny(int start, int end, java.util.List<int[]> spans) {
-        for (var s : spans) {
-            if (start < s[1] && end > s[0]) return true;
-        }
-        return false;
-    }
-
     @Override
     public void postProcess(ParseContext ctx) {
         dropTailOverCodec(ctx);
@@ -414,7 +408,7 @@ public final class SeasonEpisodeExtractor implements Extractor {
             for (int i = 1; i < sxxExxList.size(); i++) {
                 var m = sxxExxList.get(i);
                 for (var b : blocking) {
-                    if (b.span().start() < m.span().end() && b.span().end() > m.span().start()) {
+                    if (b.span().overlaps(m.span())) {
                         toRemove.add(m);
                         break;
                     }
@@ -437,7 +431,7 @@ public final class SeasonEpisodeExtractor implements Extractor {
     }
 
     private void processRangeExpansion(ParseContext ctx, String input, Match prev, Match next) {
-        if (next.span().start() < prev.span().end() || next.span().start() > prev.span().end() + 3) return;
+        if (!prev.span().isBefore(next.span()) || prev.span().distanceTo(next.span()) > 3) return;
 
         var gap = input.substring(prev.span().end(), next.span().start());
         if (!containsRange(gap)) return;
@@ -511,7 +505,7 @@ public final class SeasonEpisodeExtractor implements Extractor {
     }
 
     private boolean hasMediaAfter(Match weak, List<Match> mediaSpans) {
-        return mediaSpans.stream().anyMatch(media -> media.span().start() >= weak.span().end());
+        return mediaSpans.stream().anyMatch(media -> media.span().isAfter(weak.span()));
     }
 
     private boolean isHighValueRangePaired(Match m, List<Match> matches, String input) {
@@ -526,11 +520,12 @@ public final class SeasonEpisodeExtractor implements Extractor {
             return false;
         if (!(other.value() instanceof Integer ov) || ov < 100) return false;
 
-        int gapStart = Math.min(cur.span().end(), other.span().end());
-        int gapEnd = Math.max(cur.span().start(), other.span().start());
-        if (gapEnd <= gapStart || gapEnd - gapStart > 5) return false;
+        if (cur.span().overlaps(other.span()) || cur.span().distanceTo(other.span()) > 5) return false;
 
-        String gap = input.substring(gapStart, gapEnd);
+        Span first = cur.span().isBefore(other.span()) ? cur.span() : other.span();
+        Span second = cur.span().isBefore(other.span()) ? other.span() : cur.span();
+
+        String gap = input.substring(first.end(), second.start());
         return isValidGap(gap);
     }
 

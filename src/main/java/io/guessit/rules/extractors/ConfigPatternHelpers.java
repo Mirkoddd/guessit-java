@@ -149,27 +149,37 @@ final class ConfigPatternHelpers {
      * a closing bracket.
      */
     static boolean hasAdjacentBefore(String input, Match m, List<Match> all, List<Marker> markers) {
-        Match prev = null;
-        for (var o : all) if (o != m && o.span().end() <= m.span().start() && (prev == null || o.span().end() > prev.span().end())) prev = o;
-        Marker prevGroup = null;
-        for (var g : markers) if ("group".equals(g.name()) && g.span().end() <= m.span().start() && (prevGroup == null || g.span().end() > prevGroup.span().end())) prevGroup = g;
-        int prevEnd = -1;
-        if (prev != null) prevEnd = prev.span().end();
-        if (prevGroup != null && prevGroup.span().end() > prevEnd) prevEnd = prevGroup.span().end();
-        if (prevEnd < 0) return false;
-        return Seps.betweenIsSeps(input, prevEnd, m.span().start());
+        int prevEnd = all.stream()
+                .filter(o -> o != m && o.span().isBefore(m.span()))
+                .mapToInt(o -> o.span().end())
+                .max().orElse(-1);
+
+        int prevGroupEnd = markers.stream()
+                .filter(g -> "group".equals(g.name()) && g.span().isBefore(m.span()))
+                .mapToInt(g -> g.span().end())
+                .max().orElse(-1);
+
+        int bestEnd = Math.max(prevEnd, prevGroupEnd);
+        if (bestEnd < 0) return false;
+
+        return Seps.betweenIsSeps(input, bestEnd, m.span().start());
     }
 
     static boolean hasAdjacentAfter(String input, Match m, List<Match> all, List<Marker> markers) {
-        Match next = null;
-        for (var o : all) if (o != m && o.span().start() >= m.span().end() && (next == null || o.span().start() < next.span().start())) next = o;
-        Marker nextGroup = null;
-        for (var g : markers) if ("group".equals(g.name()) && g.span().start() >= m.span().end() && (nextGroup == null || g.span().start() < nextGroup.span().start())) nextGroup = g;
-        int nextStart = Integer.MAX_VALUE;
-        if (next != null) nextStart = next.span().start();
-        if (nextGroup != null && nextGroup.span().start() < nextStart) nextStart = nextGroup.span().start();
-        if (nextStart == Integer.MAX_VALUE) return false;
-        return Seps.betweenIsSeps(input, m.span().end(), nextStart);
+        int nextStart = all.stream()
+                .filter(o -> o != m && o.span().isAfter(m.span()))
+                .mapToInt(o -> o.span().start())
+                .min().orElse(Integer.MAX_VALUE);
+
+        int nextGroupStart = markers.stream()
+                .filter(g -> "group".equals(g.name()) && g.span().isAfter(m.span()))
+                .mapToInt(g -> g.span().start())
+                .min().orElse(Integer.MAX_VALUE);
+
+        int bestStart = Math.min(nextStart, nextGroupStart);
+        if (bestStart == Integer.MAX_VALUE) return false;
+
+        return Seps.betweenIsSeps(input, m.span().end(), bestStart);
     }
 
     /**

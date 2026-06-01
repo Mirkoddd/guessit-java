@@ -339,7 +339,7 @@ public final class LanguageExtractor implements Extractor {
 
         var toRemove = ctx.matches.all()
                 .filter(m -> MatchName.LANGUAGE.equals(m.name()) || MatchName.SUBTITLE_LANGUAGE.equals(m.name()))
-                .filter(lang -> profiles.stream().anyMatch(sp -> lang.span().start() == sp.span().start() && lang.span().end() == sp.span().end()))
+                .filter(lang -> profiles.stream().anyMatch(sp -> lang.span().equals(sp.span())))
                 .toList();
 
         toRemove.forEach(ctx.matches::remove);
@@ -354,7 +354,7 @@ public final class LanguageExtractor implements Extractor {
         var toRemove = ctx.matches.all()
                 .filter(m -> MatchName.LANGUAGE.equals(m.name()) || MatchName.SUBTITLE_LANGUAGE.equals(m.name()))
                 .filter(m -> lc.contains(m.span().raw().toLowerCase(Locale.ROOT)))
-                .filter(m -> langListMarkers.stream().noneMatch(sp -> m.span().start() >= sp[0] && m.span().end() <= sp[1]))
+                .filter(m -> langListMarkers.stream().noneMatch(sp -> m.span().isInside(sp)))
                 .toList();
 
         toRemove.forEach(ctx.matches::remove);
@@ -372,18 +372,18 @@ public final class LanguageExtractor implements Extractor {
                 .collect(Collectors.toSet());
     }
 
-    private static List<int[]> findLangListMarkers(ParseContext ctx) {
+    private static List<Span> findLangListMarkers(ParseContext ctx) {
         return ctx.markers.stream()
                 .filter(g -> GROUP_MARKER.equals(g.name()))
-                .filter(g -> hasMultipleLanguages(ctx, g.span().start(), g.span().end()))
-                .map(g -> new int[]{g.span().start(), g.span().end()})
+                .map(Marker::span)
+                .filter(span -> hasMultipleLanguages(ctx, span))
                 .toList();
     }
 
-    private static boolean hasMultipleLanguages(ParseContext ctx, int start, int end) {
+    private static boolean hasMultipleLanguages(ParseContext ctx, Span targetSpan) {
         return ctx.matches.all()
                 .filter(mm -> MatchName.LANGUAGE.equals(mm.name()) || MatchName.SUBTITLE_LANGUAGE.equals(mm.name()))
-                .filter(mm -> mm.span().start() >= start && mm.span().end() <= end)
+                .filter(mm -> mm.span().isInside(targetSpan))
                 .count() >= 2;
     }
 
@@ -442,7 +442,7 @@ public final class LanguageExtractor implements Extractor {
 
     private static Marker findNextGroupMarker(ParseContext ctx, Match marker) {
         return ctx.markers.stream()
-                .filter(g -> GROUP_MARKER.equals(g.name()) && g.span().start() >= marker.span().end())
+                .filter(g -> GROUP_MARKER.equals(g.name()) && g.span().isAfter(marker.span()))
                 .min(Comparator.comparingInt(g -> g.span().start()))
                 .orElse(null);
     }
@@ -453,7 +453,7 @@ public final class LanguageExtractor implements Extractor {
 
     private static Match findNextLanguageAfterMarker(List<Match> languages, Match marker, String input) {
         return languages.stream()
-                .filter(l -> l.span().start() >= marker.span().end())
+                .filter(l -> l.span().isAfter(marker.span()))
                 .min(Comparator.comparingInt(m -> m.span().start()))
                 .filter(l -> Seps.betweenIsSeps(input, marker.span().end(), l.span().start()))
                 .orElse(null);
@@ -466,7 +466,7 @@ public final class LanguageExtractor implements Extractor {
         if (enclosing == null) return;
 
         var sortedAfter = languages.stream()
-                .filter(l -> l.span().start() > firstLanguage.span().start() && l.span().end() <= enclosing.span().end())
+                .filter(l -> l.span().isInside(enclosing.span()) && l.span().start() > firstLanguage.span().start())
                 .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
 
@@ -509,7 +509,8 @@ public final class LanguageExtractor implements Extractor {
         int innerStart = Math.min(group.span().start() + 1, marker.span().start());
         int innerEnd = Math.max(group.span().end() - 1, marker.span().end());
 
-        if (innerStart >= marker.span().start() && innerEnd <= marker.span().end()) return true;
+        var innerSpan = new Span(innerStart, innerEnd, "");
+        if (marker.span().contains(innerSpan)) return true;
 
         String before = innerStart < marker.span().start() ? input.substring(innerStart, marker.span().start()) : "";
         String after = innerEnd > marker.span().end() ? input.substring(marker.span().end(), innerEnd) : "";
@@ -532,13 +533,13 @@ public final class LanguageExtractor implements Extractor {
     private static AdjacentMatches findAdjacentMatches(ParseContext ctx, Match marker, FilePartBounds bounds) {
         int prevEnd = ctx.matches.all()
                 .filter(m -> m != marker && (!m.isPrivate() || MatchName.LANGUAGE.equals(m.name())))
-                .filter(m -> m.span().end() <= marker.span().start() && m.span().end() > bounds.leftBound)
+                .filter(m -> m.span().isBefore(marker.span()) && m.span().end() > bounds.leftBound)
                 .mapToInt(m -> m.span().end())
                 .max().orElse(bounds.leftBound);
 
         int nextStart = ctx.matches.all()
                 .filter(m -> m != marker && (!m.isPrivate() || MatchName.LANGUAGE.equals(m.name())))
-                .filter(m -> m.span().start() >= marker.span().end() && m.span().start() < bounds.rightBound)
+                .filter(m -> m.span().isAfter(marker.span()) && m.span().start() < bounds.rightBound)
                 .mapToInt(m -> m.span().start())
                 .min().orElse(bounds.rightBound);
 
@@ -571,7 +572,7 @@ public final class LanguageExtractor implements Extractor {
 
     private static boolean renameAdjacentLanguagesBefore(ParseContext ctx, Match marker) {
         var prev = ctx.matches.named(MatchName.LANGUAGE)
-                .filter(l -> l.span().end() <= marker.span().start())
+                .filter(l -> l.span().isBefore(marker.span()))
                 .max(Comparator.comparingInt(m -> m.span().end()))
                 .filter(l -> Seps.betweenIsSeps(ctx.input, l.span().end(), marker.span().start()))
                 .orElse(null);
@@ -590,7 +591,7 @@ public final class LanguageExtractor implements Extractor {
         ctx.matches.named(MatchName.CONTAINER)
                 .filter(m -> m.hasTag(MatchTag.SUBTITLE) && m.hasTag(MatchTag.EXTENSION))
                 .findFirst().flatMap(subtitleExt -> ctx.matches.named(MatchName.LANGUAGE)
-                        .filter(l -> l.span().end() <= subtitleExt.span().start())
+                        .filter(l -> l.span().isBefore(subtitleExt.span()))
                         .max(Comparator.comparingInt(m -> m.span().end()))).ifPresent(lang -> renameToSubtitle(ctx, lang));
     }
 

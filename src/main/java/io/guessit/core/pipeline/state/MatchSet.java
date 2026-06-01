@@ -1,5 +1,7 @@
 package io.guessit.core.pipeline.state;
 
+import io.guessit.core.text.Span;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -56,7 +58,8 @@ public final class MatchSet {
 
     /** All matches whose span overlaps the half-open range {@code [start, end)}. */
     public Stream<Match> overlapping(int start, int end) {
-        return matches.stream().filter(m -> m.span().start() < end && start < m.span().end());
+        var target = new Span(start, end, "");
+        return matches.stream().filter(m -> m.span().overlaps(target));
     }
 
     /** All matches whose span lies entirely inside {@code marker}. */
@@ -65,21 +68,22 @@ public final class MatchSet {
     }
 
     public Stream<Match> range(int start, int end, Predicate<Match> p) {
+        var target = new Span(start, end, "");
         return matches.stream()
-                .filter(m -> m.span().start() >= start && m.span().end() <= end)
+                .filter(m -> m.span().isInside(target))
                 .filter(p);
     }
 
     public Optional<Match> previous(Match m, Predicate<Match> p) {
         return matches.stream()
-                .filter(o -> o.span().end() <= m.span().start())
+                .filter(o -> o.span().isBefore(m.span()))
                 .filter(p)
                 .max(Comparator.comparingInt(o -> o.span().end()));
     }
 
     public Optional<Match> next(Match m, Predicate<Match> p) {
         return matches.stream()
-                .filter(o -> o.span().start() >= m.span().end())
+                .filter(o -> o.span().isAfter(m.span()))
                 .filter(p)
                 .min(Comparator.comparingInt(o -> o.span().start()));
     }

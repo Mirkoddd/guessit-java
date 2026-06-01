@@ -17,8 +17,8 @@ import io.guessit.core.text.Span;
  */
 public record Marker(String name, Span span) {
 
-    /** 🚀 True if the given Span lies entirely inside this marker. */
+    /** True if the given Span lies entirely inside this marker. */
     public boolean covers(Span otherSpan) {
-        return otherSpan.start() >= span.start() && otherSpan.end() <= span.end();
+        return span.contains(otherSpan);
     }
 }

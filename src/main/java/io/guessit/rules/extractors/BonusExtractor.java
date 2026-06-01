@@ -58,7 +58,7 @@ public final class BonusExtractor implements Extractor {
             var head = new Match(MatchName.BONUS, null, span, priority(), Set.of(), false);
 
             boolean hasConflict = potentialConflicts.stream()
-                    .anyMatch(x -> x.span().start() < span.end() && x.span().end() > span.start());
+                    .anyMatch(x -> x.span().overlaps(span));
 
             if (seps.test(head) && !hasConflict) {
                 ctx.matches.add(new Match(MatchName.BONUS, Integer.parseInt(m.group(GRP_NAME)),

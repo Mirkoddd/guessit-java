@@ -131,7 +131,7 @@ public final class WebsiteExtractor implements Extractor {
         if (!hasFollowingSeasonEpisodeOrDate(w, ctx)) return false;
 
         return ctx.markers.stream().noneMatch(mk ->
-                WeakExtractorCommon.MARKER_GROUP.equals(mk.name()) && WeakExtractorCommon.isInside(w, mk));
+                WeakExtractorCommon.MARKER_GROUP.equals(mk.name()) && mk.covers(w.span()));
     }
 
     private boolean isSafeWebsite(Match w) {
@@ -143,12 +143,12 @@ public final class WebsiteExtractor implements Extractor {
         return ctx.matches.all().anyMatch(o ->
                 (o.name() == MatchName.SEASON || o.name() == MatchName.EPISODE
                         || o.name() == MatchName.YEAR || o.name() == MatchName.DATE)
-                        && o.span().start() >= w.span().end());
+                        && o.span().isAfter(w.span()));
     }
 
     private boolean shouldRemovePrefixMatch(Match m, ParseContext ctx, List<Match> toRemove) {
         var websiteMatch = ctx.matches.named(MatchName.WEBSITE)
-                .filter(w -> w.span().start() > m.span().end() && !toRemove.contains(w))
+                .filter(w -> w.span().isAfter(m.span()) && !toRemove.contains(w))
                 .findFirst()
                 .orElse(null);
 

@@ -78,7 +78,7 @@ public final class VideoCodecExtractor implements Extractor {
             var dummy = new Match(MatchName.DUMMY, "", cSpan, Priority.NONE, Set.of(), false);
             if (Validators.sepsBefore(ctx.input).test(dummy)) {
                 ctx.matches.named(VIDEO_CODEC_NAME)
-                        .filter(e -> e.span().start() == cSpan.start() && e.span().end() < cSpan.end())
+                        .filter(e -> cSpan.contains(e.span()) && !e.span().equals(cSpan))
                         .toList()
                         .forEach(ctx.matches::remove);
 
@@ -144,8 +144,8 @@ public final class VideoCodecExtractor implements Extractor {
 
         var toRemove = ctx.matches.named(VIDEO_CODEC_NAME)
                 .filter(codec -> {
-                    boolean before = sepsBefore.test(codec) || prefixSpans.stream().anyMatch(m -> m.span().end() == codec.span().start());
-                    boolean after = sepsAfter.test(codec) || suffixSpans.stream().anyMatch(m -> m.span().start() == codec.span().end());
+                    boolean before = sepsBefore.test(codec) || prefixSpans.stream().anyMatch(m -> m.span().abutsBefore(codec.span()));
+                    boolean after = sepsAfter.test(codec) || suffixSpans.stream().anyMatch(m -> m.span().abutsAfter(codec.span()));
                     return !(before && after);
                 }).toList();
 
