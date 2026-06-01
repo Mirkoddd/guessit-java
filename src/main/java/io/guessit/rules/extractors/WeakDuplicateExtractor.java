@@ -77,7 +77,7 @@ public final class WeakDuplicateExtractor implements Extractor {
 
     @Override
     public void postProcess(ParseContext ctx) {
-        var fileParts = Markers.named(ctx.markers, WeakExtractorCommon.MARKER_PATH).toList();
+        var fileParts = Markers.named(ctx.markers, MarkerType.PATH).toList();
         boolean hasSxxExx = ctx.matches.all().anyMatch(m -> m.hasTag(MatchTag.SXX_EXX));
 
         dropInAnimeContext(ctx);
@@ -99,7 +99,7 @@ public final class WeakDuplicateExtractor implements Extractor {
     private static void dropInAnimeContext(ParseContext ctx) {
         boolean animeContext = !ctx.input.isEmpty()
                 && (ctx.input.startsWith("[") || ctx.input.startsWith("("))
-                && ctx.markers.stream().anyMatch(mk -> WeakExtractorCommon.MARKER_GROUP.equals(mk.name()) && mk.span().start() <= 1 && !isAllDigits(mk.span().raw()));
+                && ctx.markers.stream().anyMatch(mk -> mk.type() == MarkerType.GROUP && mk.span().start() <= 1 && !isAllDigits(mk.span().raw()));
 
         if (!animeContext) {
             animeContext = WeakExtractorCommon.hasScreenSizeInGroup(ctx);

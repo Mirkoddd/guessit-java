@@ -10,8 +10,8 @@ import java.util.stream.Stream;
 public final class Markers {
     private Markers() {}
 
-    public static Stream<Marker> named(List<Marker> markers, String name) {
-        return markers.stream().filter(m -> m.name().equals(name));
+    public static Stream<Marker> named(List<Marker> markers, MarkerType type) {
+        return markers.stream().filter(m -> m.type() == type);
     }
 
     public static Stream<Marker> coveringMatch(List<Marker> markers, Match m, Predicate<Marker> p) {

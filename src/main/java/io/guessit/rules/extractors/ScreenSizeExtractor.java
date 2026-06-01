@@ -1,6 +1,7 @@
 package io.guessit.rules.extractors;
 
 import io.guessit.core.pipeline.contracts.Extractor;
+import io.guessit.core.pipeline.state.MarkerType;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.MatchTag;
@@ -45,9 +46,6 @@ public final class ScreenSizeExtractor implements Extractor {
     private static final String VALUE_2160P_NORMALIZED = "2160p";
 
     private static final String TYPE_MOVIE = "movie";
-
-    private static final String MARKER_PATH = "path";
-    private static final String MARKER_WHOLE = "whole";
 
     private static final Pattern WH_P = ScreenSizePatterns.buildWhPattern(GRP_WIDTH, GRP_HEIGHT);
     private static final Pattern WIDTH_HEIGHT_NORM = ScreenSizePatterns.buildWidthHeightNorm(GRP_WIDTH, GRP_HEIGHT, GRP_SCAN);
@@ -289,7 +287,7 @@ public final class ScreenSizeExtractor implements Extractor {
 
     private void keepOnlyLastDistinctScreenSize(ParseContext ctx) {
         for (var filePart : ctx.markers) {
-            if (!MARKER_PATH.equals(filePart.name()) && !MARKER_WHOLE.equals(filePart.name())) continue;
+            if (filePart.type() != MarkerType.PATH && filePart.type() != MarkerType.WHOLE) continue;
 
             var inPart = ctx.matches.named(MatchName.SCREEN_SIZE)
                     .filter(m -> filePart.covers(m.span()))

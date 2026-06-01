@@ -2,6 +2,7 @@ package io.guessit.rules.markers;
 
 import io.guessit.core.pipeline.state.Marker;
 import io.guessit.core.pipeline.phases.MarkerPhase.MarkerProducer;
+import io.guessit.core.pipeline.state.MarkerType;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Span;
 
@@ -23,10 +24,10 @@ public final class PathMarker implements MarkerProducer {
     @Override
     public void produce(ParseContext ctx) {
         var input = ctx.input;
-        ctx.markers.add(new Marker("whole", new Span(0, input.length(), input)));
+        ctx.markers.add(new Marker(MarkerType.WHOLE, new Span(0, input.length(), input)));
 
         if (ctx.options != null && ctx.options.nameOnly()) {
-            ctx.markers.add(new Marker("path", new Span(0, input.length(), input)));
+            ctx.markers.add(new Marker(MarkerType.PATH, new Span(0, input.length(), input)));
             return;
         }
 
@@ -36,7 +37,7 @@ public final class PathMarker implements MarkerProducer {
             if (c == '/' || c == '\\') {
                 // Skip empty segments from leading or doubled separators.
                 if (i > start) {
-                    ctx.markers.add(new Marker("path", new Span(start, i, input.substring(start, i))));
+                    ctx.markers.add(new Marker(MarkerType.PATH, new Span(start, i, input.substring(start, i))));
                 }
                 start = i + 1;
             }
@@ -44,7 +45,7 @@ public final class PathMarker implements MarkerProducer {
 
         // Trailing segment (no separator after the last filepart).
         if (start < input.length()) {
-            ctx.markers.add(new Marker("path", new Span(start, input.length(), input.substring(start))));
+            ctx.markers.add(new Marker(MarkerType.PATH, new Span(start, input.length(), input.substring(start))));
         }
     }
 }

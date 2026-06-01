@@ -155,7 +155,7 @@ final class ConfigPatternHelpers {
                 .max().orElse(-1);
 
         int prevGroupEnd = markers.stream()
-                .filter(g -> "group".equals(g.name()) && g.span().isBefore(m.span()))
+                .filter(g -> g.type() == MarkerType.GROUP && g.span().isBefore(m.span()))
                 .mapToInt(g -> g.span().end())
                 .max().orElse(-1);
 
@@ -172,7 +172,7 @@ final class ConfigPatternHelpers {
                 .min().orElse(Integer.MAX_VALUE);
 
         int nextGroupStart = markers.stream()
-                .filter(g -> "group".equals(g.name()) && g.span().isAfter(m.span()))
+                .filter(g -> g.type() == MarkerType.GROUP && g.span().isAfter(m.span()))
                 .mapToInt(g -> g.span().start())
                 .min().orElse(Integer.MAX_VALUE);
 

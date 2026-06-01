@@ -1,10 +1,6 @@
 package io.guessit.rules.post;
 
-import io.guessit.core.pipeline.state.Marker;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.MatchTag;
-import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.pipeline.contracts.PostProcessor;
 
 import java.util.Comparator;
@@ -34,7 +30,7 @@ public final class PreferLastPath implements PostProcessor {
     @Override
     public void process(ParseContext ctx) {
         var paths = ctx.markers.stream()
-                .filter(m -> "path".equals(m.name()))
+                .filter(m -> m.type() == MarkerType.PATH)
                 .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
         if (paths.size() < 2) return;

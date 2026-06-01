@@ -131,7 +131,7 @@ public final class TitleExtractor implements Extractor {
     }
 
     private void titleFromPosition(ParseContext ctx) {
-        var paths = ctx.markers.stream().filter(m -> "path".equals(m.name())).toList();
+        var paths = ctx.markers.stream().filter(m -> m.type() == MarkerType.PATH).toList();
         if (paths.isEmpty()) return;
         var sorted = Markers.markerSorted(paths, ctx.matches);
         var serieNameFilepart = serieNameFilepart(ctx, paths);
@@ -245,11 +245,11 @@ public final class TitleExtractor implements Extractor {
         var withYearInGroup = new ArrayList<Match>();
         var withYear = new ArrayList<Match>();
         for (var t : titles) {
-            var fp = Markers.atMatch(ctx.markers, t, m -> "path".equals(m.name())).orElse(null);
+            var fp = Markers.atMatch(ctx.markers, t, m -> m.type() == MarkerType.PATH).orElse(null);
             if (fp == null) continue;
             var year = ctx.matches.inMarker(fp).filter(m -> m.name() == MatchName.YEAR).findFirst().orElse(null);
             if (year == null) continue;
-            var inGroup = Markers.atMatch(ctx.markers, year, m -> "group".equals(m.name())).isPresent();
+            var inGroup = Markers.atMatch(ctx.markers, year, m -> m.type() == MarkerType.GROUP).isPresent();
             (inGroup ? withYearInGroup : withYear).add(t);
         }
         Set<Object> keepValues;
@@ -515,15 +515,16 @@ public final class TitleExtractor implements Extractor {
     }
 
     private List<Holes.Hole> holesProcess(ParseContext ctx, List<Holes.Hole> holes) {
-        var groupMarkers = new ArrayList<>(Markers.named(ctx.markers, "group").toList());
+        var groupMarkers = new ArrayList<>(Markers.named(ctx.markers, MarkerType.GROUP).toList());
         var iter = groupMarkers.iterator();
         while (iter.hasNext()) {
             var g = iter.next();
             var groupMatch = new Match(MatchName.G, null, g.span(), Priority.DEFAULT, Set.of(), false);
-            var path = Markers.atMatch(ctx.markers, groupMatch, m -> "path".equals(m.name())).orElse(null);
+
+            var path = Markers.atMatch(ctx.markers, groupMatch, m -> m.type() == MarkerType.PATH).orElse(null);
 
             if (path != null
-                    && ((path.span().start() == g.span().start() && path.span().end() == g.span().end())
+                    && (path.span().equals(g.span())
                     || (path.span().start() == g.span().start() - 1 && path.span().end() == g.span().end() + 1))) {
                 iter.remove();
             }

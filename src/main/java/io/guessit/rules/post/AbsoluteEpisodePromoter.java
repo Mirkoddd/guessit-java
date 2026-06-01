@@ -95,7 +95,7 @@ public final class AbsoluteEpisodePromoter implements PostProcessor {
     }
 
     private static void groupMarkerAbsolute(ParseContext ctx) {
-        Markers.named(ctx.markers, "path").forEach(fp -> promoteWithinFilePart(ctx, fp));
+        Markers.named(ctx.markers, MarkerType.PATH).forEach(fp -> promoteWithinFilePart(ctx, fp));
     }
 
     private static void promoteWithinFilePart(ParseContext ctx, Marker fp) {
@@ -159,7 +159,7 @@ public final class AbsoluteEpisodePromoter implements PostProcessor {
 
     private static Marker enclosingGroupMarker(ParseContext ctx, Match m) {
         return ctx.markers.stream()
-                .filter(g -> "group".equals(g.name()) && g.covers(m.span()))
+                .filter(g -> g.type() == MarkerType.GROUP && g.covers(m.span()))
                 .findFirst()
                 .orElse(null);
     }

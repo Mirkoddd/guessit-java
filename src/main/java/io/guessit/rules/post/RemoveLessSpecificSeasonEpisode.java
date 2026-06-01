@@ -32,7 +32,7 @@ public final class RemoveLessSpecificSeasonEpisode implements PostProcessor {
     @Override
     public void process(ParseContext ctx) {
         var paths = ctx.markers.stream()
-                .filter(m -> "path".equals(m.name()))
+                .filter(m -> m.type() == MarkerType.PATH)
                 .toList();
         if (paths.isEmpty()) return;
 

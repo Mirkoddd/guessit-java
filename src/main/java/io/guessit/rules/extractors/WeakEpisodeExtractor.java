@@ -122,7 +122,7 @@ public final class WeakEpisodeExtractor implements Extractor {
         var weakList = ctx.matches.named(MatchName.EPISODE)
                 .filter(m -> m.hasTag(MatchTag.WEAK_EPISODE))
                 .toList();
-        var fileParts = Markers.named(ctx.markers, WeakExtractorCommon.MARKER_PATH).toList();
+        var fileParts = Markers.named(ctx.markers, MarkerType.PATH).toList();
         var strongInFilePart = strongInFilepartPredicate(ctx, fileParts);
 
         if (weakList.stream().anyMatch(strongInFilePart)) {
@@ -318,6 +318,6 @@ public final class WeakEpisodeExtractor implements Extractor {
 
     private static boolean inAnyGroupMarker(ParseContext ctx, Match m) {
         return ctx.markers.stream()
-                .anyMatch(mk -> WeakExtractorCommon.MARKER_GROUP.equals(mk.name()) && mk.covers(m.span()));
+                .anyMatch(mk -> mk.type() == MarkerType.GROUP && mk.covers(m.span()));
     }
 }

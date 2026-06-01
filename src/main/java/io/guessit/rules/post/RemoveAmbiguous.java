@@ -1,9 +1,6 @@
 package io.guessit.rules.post;
 
-import io.guessit.core.pipeline.state.Markers;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.pipeline.contracts.PostProcessor;
 
 import java.util.*;
@@ -41,7 +38,7 @@ public class RemoveAmbiguous implements PostProcessor {
         // valuable filepart first), so its values win when later fileparts
         // have differently-valued same-named matches.
         var pathsSorted = ctx.markers.stream()
-                .filter(m -> "path".equals(m.name()))
+                .filter(m -> m.type() == MarkerType.PATH)
                 .toList();
         var sorted = Markers.markerSorted(pathsSorted, ctx.matches);
         var paths = reverseFileparts ? sorted.reversed() : sorted;

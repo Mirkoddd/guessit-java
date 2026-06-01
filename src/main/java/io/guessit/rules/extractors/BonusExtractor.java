@@ -1,11 +1,7 @@
 package io.guessit.rules.extractors;
 
 import io.guessit.core.pipeline.contracts.Extractor;
-import io.guessit.core.pipeline.state.Holes;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.MatchTag;
-import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Formatters;
 import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
@@ -28,7 +24,6 @@ import java.util.regex.Pattern;
 public final class BonusExtractor implements Extractor {
 
     private static final String GRP_NAME = "name";
-    private static final String MARKER_PATH = "path";
     private static final Pattern P = BonusPatterns.buildPattern(GRP_NAME);
 
     @Override
@@ -85,7 +80,7 @@ public final class BonusExtractor implements Extractor {
 
     private Optional<Match> extractBonusTitle(ParseContext ctx, Match bonus) {
         return ctx.markers.stream()
-                .filter(mk -> mk.name().equals(MARKER_PATH) && mk.covers(bonus.span()))
+                .filter(mk -> mk.type() == MarkerType.PATH && mk.covers(bonus.span()))
                 .findFirst()
                 .flatMap(fp -> {
                     var holes = Holes.compute(

@@ -1,9 +1,6 @@
 package io.guessit.engine;
 
-import io.guessit.core.pipeline.state.Marker;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Span;
 import io.guessit.core.trace.SpanRenderer;
 import org.junit.jupiter.api.Test;
@@ -39,7 +36,7 @@ class SpanRendererTest {
 
     @Test
     void includesMarkers() {
-        var marker = new Marker("group", new Span(0, 5, "[GRP]"));
+        var marker = new Marker(MarkerType.GROUP, new Span(0, 5, "[GRP]"));
         String out = SpanRenderer.render("[GRP] foo.mkv", List.of(), List.of(marker));
         assertThat(out).contains("group");
         assertThat(out).contains("[GRP] foo.mkv");
@@ -85,8 +82,8 @@ class SpanRendererTest {
 
     @Test
     void overlappingMarkersDoNotShareUnderline() {
-        var whole = new Marker("whole", new Span(0, 14, "Movie.2020.mkv"));
-        var path  = new Marker("path",  new Span(0, 14, "Movie.2020.mkv"));
+        var whole = new Marker(MarkerType.WHOLE, new Span(0, 14, "Movie.2020.mkv"));
+        var path  = new Marker(MarkerType.PATH,  new Span(0, 14, "Movie.2020.mkv"));
         String out = SpanRenderer.render("Movie.2020.mkv", List.of(), List.of(whole, path));
         // Two distinct underline rows, one per marker (both use ─ style)
         long underlineRows = out.lines().filter(l -> l.contains("─")).count();
@@ -138,11 +135,11 @@ class SpanRendererTest {
         var screen    = match(MatchName.SCREEN_SIZE, "2160p",  screenStart,    screenStart + 5,      "2160p");
         var container = match(MatchName.CONTAINER,   "mkv",    containerStart, containerStart + 3,   "mkv");
 
-        var whole     = new Marker("whole", new Span(0, input.length(), input));
-        var path1     = new Marker("path", new Span(0, firstSlash,  input.substring(0, firstSlash)));
-        var path2     = new Marker("path", new Span(firstSlash + 1, secondSlash, input.substring(firstSlash + 1, secondSlash)));
-        var path3     = new Marker("path", new Span(secondSlash + 1, input.length(), input.substring(secondSlash + 1)));
-        var group     = new Marker("group", new Span(parenOpen, parenClose + 1, input.substring(parenOpen, parenClose + 1)));
+        var whole     = new Marker(MarkerType.WHOLE, new Span(0, input.length(), input));
+        var path1     = new Marker(MarkerType.PATH, new Span(0, firstSlash,  input.substring(0, firstSlash)));
+        var path2     = new Marker(MarkerType.PATH, new Span(firstSlash + 1, secondSlash, input.substring(firstSlash + 1, secondSlash)));
+        var path3     = new Marker(MarkerType.PATH, new Span(secondSlash + 1, input.length(), input.substring(secondSlash + 1)));
+        var group     = new Marker(MarkerType.GROUP, new Span(parenOpen, parenClose + 1, input.substring(parenOpen, parenClose + 1)));
 
         String out = SpanRenderer.render(input,
                 List.of(title, year, season, episode, source, screen, container),

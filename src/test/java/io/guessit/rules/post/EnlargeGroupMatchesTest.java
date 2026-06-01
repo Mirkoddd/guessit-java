@@ -3,6 +3,7 @@ package io.guessit.rules.post;
 import io.guessit.api.Options;
 import io.guessit.config.OptionsConfig;
 import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.MarkerType;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Span;
 import org.assertj.core.api.Assertions;
@@ -25,7 +26,7 @@ class EnlargeGroupMatchesTest {
         // match: start=1, end=4  — touches left boundary only (end=4 != group.end-1=10)
         // expected after processing: start=0, end=4
         var ctx = ctx("[abc value]");
-        ctx.markers.add(new Marker("group", new Span(0, 11, "[abc value]")));
+        ctx.markers.add(new Marker(MarkerType.GROUP, new Span(0, 11, "[abc value]")));
         ctx.matches.add(of(TITLE, "abc", new Span(1, 4, "abc")));
 
         new EnlargeGroupMatches().process(ctx);
@@ -42,7 +43,7 @@ class EnlargeGroupMatchesTest {
         // match: start=5, end=10 — touches right boundary only (start=5 != group.start+1=1)
         // expected after processing: start=5, end=11
         var ctx = ctx("[abc value]");
-        ctx.markers.add(new Marker("group", new Span(0, 11, "[abc value]")));
+        ctx.markers.add(new Marker(MarkerType.GROUP, new Span(0, 11, "[abc value]")));
         ctx.matches.add(of(TITLE, "value", new Span(5, 10, "value")));
 
         new EnlargeGroupMatches().process(ctx);
@@ -59,7 +60,7 @@ class EnlargeGroupMatchesTest {
         // match: start=1, end=6 — touches both boundaries
         // expected after processing: start=0, end=7
         var ctx = ctx("[value]");
-        ctx.markers.add(new Marker("group", new Span(0, 7, "[value]")));
+        ctx.markers.add(new Marker(MarkerType.GROUP, new Span(0, 7, "[value]")));
         ctx.matches.add(of(TITLE, "value", new Span(1, 6, "value")));
 
         new EnlargeGroupMatches().process(ctx);
@@ -73,7 +74,7 @@ class EnlargeGroupMatchesTest {
     void nonGroupMarkerIsIgnored() {
         // "path" markers should not trigger enlargement
         var ctx = ctx("[value]");
-        ctx.markers.add(new Marker("path", new Span(0, 7, "[value]")));
+        ctx.markers.add(new Marker(MarkerType.PATH, new Span(0, 7, "[value]")));
         ctx.matches.add(of(TITLE, "value", new Span(1, 6, "value")));
 
         new EnlargeGroupMatches().process(ctx);
@@ -87,7 +88,7 @@ class EnlargeGroupMatchesTest {
     void matchNotTouchingBoundariesIsUnchanged() {
         // match entirely inside the group but not at boundaries
         var ctx = ctx("[abc value xyz]");
-        ctx.markers.add(new Marker("group", new Span(0, 15, "[abc value xyz]")));
+        ctx.markers.add(new Marker(MarkerType.GROUP, new Span(0, 15, "[abc value xyz]")));
         ctx.matches.add(of(TITLE, "value", new Span(5, 10, "value")));
 
         new EnlargeGroupMatches().process(ctx);

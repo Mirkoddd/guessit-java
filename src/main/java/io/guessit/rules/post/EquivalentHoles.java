@@ -23,7 +23,7 @@ public final class EquivalentHoles implements PostProcessor {
 
     @Override
     public void process(ParseContext ctx) {
-        var paths = ctx.markers.stream().filter(m -> "path".equals(m.name())).toList();
+        var paths = ctx.markers.stream().filter(m -> m.type() == MarkerType.PATH).toList();
         if (paths.isEmpty()) return;
         var sorted = Markers.markerSorted(paths, ctx.matches);
         for (var fp : sorted) {

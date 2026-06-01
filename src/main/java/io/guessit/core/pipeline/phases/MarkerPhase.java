@@ -34,8 +34,8 @@ public record MarkerPhase(List<MarkerProducer> producers) implements Phase {
         }
         for (var m : ctx.markers) {
             if (!beforeAll.contains(m)) {
-                ctx.trace.note("marker: " + m.span().raw() + ":(" + m.span().start() + "," + m.span().end() + ")+name=" + m.name());
-                ctx.trace.subStep("Found " + m.name() + " marker '" + m.span().raw() + "' at " + m.span().start() + "-" + m.span().end());
+                ctx.trace.note("marker: " + m.span().raw() + ":(" + m.span().start() + "," + m.span().end() + ")+name=" + m.type().name());
+                ctx.trace.subStep("Found " + m.type().getValue() + " marker '" + m.span().raw() + "' at " + m.span().start() + "-" + m.span().end());
             }
         }
         ctx.trace.spans(ctx.input, ctx.matches.snapshot(), ctx.markers);

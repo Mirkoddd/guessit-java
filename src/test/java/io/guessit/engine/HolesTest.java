@@ -2,6 +2,7 @@ package io.guessit.engine;
 
 import io.guessit.core.pipeline.state.Holes;
 import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.MarkerType;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.text.Formatters;
 import io.guessit.core.text.Span;
@@ -41,7 +42,7 @@ class HolesTest {
     @Test void cropAroundMarker() {
         var input = "abc[def]ghi";
         var hole = new Hole(new Span(0, 11, input), Formatters::cleanup);
-        var cropped = hole.crop(of(new Marker("group", new Span(3, 8, "[def]"))));
+        var cropped = hole.crop(of(new Marker(MarkerType.GROUP, new Span(3, 8, "[def]"))));
         Assertions.assertThat(cropped).hasSize(2);
         assertThat(cropped.get(0).value()).isEqualTo("abc");
         assertThat(cropped.get(1).value()).isEqualTo("ghi");

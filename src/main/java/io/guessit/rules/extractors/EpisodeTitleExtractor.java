@@ -89,7 +89,7 @@ public final class EpisodeTitleExtractor implements Extractor {
     private void removeConflictsWithEpisodeTitle(ParseContext ctx) {
         var toRemove = new ArrayList<Match>();
 
-        for (var fp : Markers.named(ctx.markers, "path").toList()) {
+        for (var fp : Markers.named(ctx.markers, MarkerType.PATH).toList()) {
             ctx.matches.inMarker(fp)
                     .filter(m -> AFFECTED_NAMES.contains(m.name()))
                     .filter(m -> conflictsWithEpisodeTitle(ctx, fp, m))
@@ -151,7 +151,7 @@ public final class EpisodeTitleExtractor implements Extractor {
     private void episodeTitleFromPosition(ParseContext ctx) {
         if (ctx.matches.named(MatchName.EPISODE_TITLE).findAny().isPresent()) return;
 
-        var paths = ctx.markers.stream().filter(m -> m.name().equals("path")).toList();
+        var paths = ctx.markers.stream().filter(m -> m.type() == MarkerType.PATH).toList();
         var titleExtractor = new TitleExtractor();
         boolean hasCrc = ctx.matches.named(MatchName.CRC32).findAny().isPresent();
         boolean isMovie = MOVIE_TYPE.equals(TypeProcessor.predictType(ctx));
@@ -249,7 +249,7 @@ public final class EpisodeTitleExtractor implements Extractor {
     private void filePart3EpisodeTitle(ParseContext ctx) {
         if (ctx.matches.all().anyMatch(m -> m.hasTag(MatchTag.FILE_PART_TITLE))) return;
 
-        var paths = Markers.named(ctx.markers, "path").toList();
+        var paths = Markers.named(ctx.markers, MarkerType.PATH).toList();
         if (paths.size() < 3) return;
 
         var filename = paths.getLast();
@@ -304,7 +304,7 @@ public final class EpisodeTitleExtractor implements Extractor {
     private void filePart2EpisodeTitle(ParseContext ctx) {
         if (ctx.matches.all().anyMatch(m -> m.hasTag(MatchTag.FILE_PART_TITLE))) return;
 
-        var paths = Markers.named(ctx.markers, "path").toList();
+        var paths = Markers.named(ctx.markers, MarkerType.PATH).toList();
         if (paths.size() < 2) return;
 
         var filename = paths.getLast();

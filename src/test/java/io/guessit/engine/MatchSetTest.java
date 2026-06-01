@@ -47,7 +47,7 @@ class MatchSetTest {
     @Test
     void inMarker() {
         var s = new MatchSet();
-        var marker = new Marker("path", new Span(0, 10, "abcdefghij"));
+        var marker = new Marker(MarkerType.PATH, new Span(0, 10, "abcdefghij"));
         s.add(of(YEAR, 2020, new Span(0, 4, "2020")));
         s.add(of(YEAR, 1999, new Span(12, 16, "1999")));
         var inside = s.inMarker(marker).toList();

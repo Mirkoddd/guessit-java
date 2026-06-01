@@ -1,10 +1,7 @@
 package io.guessit.rules.extractors;
 
 import io.guessit.core.pipeline.contracts.Extractor;
-import io.guessit.core.pipeline.state.Holes;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Formatters;
 import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
@@ -27,7 +24,6 @@ public final class FilmExtractor implements Extractor {
 
     public static final String EXTRACTOR_NAME = "film";
     private static final String GRP_N = "n";
-    private static final String MARKER_PATH = "path";
 
     private static final Pattern PATTERN = FilmPatterns.buildFilmPattern(GRP_N);
 
@@ -73,7 +69,7 @@ public final class FilmExtractor implements Extractor {
 
     private Optional<Match> extractFilmTitle(ParseContext ctx, Match film) {
         return ctx.markers.stream()
-                .filter(mk -> mk.name().equals(MARKER_PATH) && mk.covers(film.span()))
+                .filter(mk -> mk.type() == MarkerType.PATH && mk.covers(film.span()))
                 .findFirst()
                 .flatMap(fp -> {
                     var holes = Holes.compute(

@@ -2,6 +2,7 @@ package io.guessit.rules.post;
 
 import io.guessit.core.pipeline.contracts.PostProcessor;
 import io.guessit.core.pipeline.state.Marker;
+import io.guessit.core.pipeline.state.MarkerType;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Span;
@@ -22,7 +23,7 @@ public final class EnlargeGroupMatches implements PostProcessor {
     @Override
     public void process(ParseContext ctx) {
         for (var g : ctx.markers) {
-            if ("group".equals(g.name())) enlargeForGroup(ctx, g);
+            if (g.type() == MarkerType.GROUP) enlargeForGroup(ctx, g);
         }
     }
 

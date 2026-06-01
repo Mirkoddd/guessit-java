@@ -2,6 +2,7 @@ package io.guessit.rules.markers;
 
 import io.guessit.core.pipeline.state.Marker;
 import io.guessit.core.pipeline.phases.MarkerPhase.MarkerProducer;
+import io.guessit.core.pipeline.state.MarkerType;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Span;
 
@@ -40,7 +41,7 @@ public final class GroupMarker implements MarkerProducer {
                 int e = i + 1;
                 // Skip empty / single-char groups; nothing useful inside.
                 if (e - s > 2) {
-                    ctx.markers.add(new Marker("group", new Span(s + 1, e - 1, input.substring(s + 1, e - 1))));
+                    ctx.markers.add(new Marker(MarkerType.GROUP, new Span(s + 1, e - 1, input.substring(s + 1, e - 1))));
                 }
             }
 

@@ -2,11 +2,7 @@ package io.guessit.rules.extractors;
 
 import io.guessit.api.Options;
 import io.guessit.core.pipeline.contracts.Extractor;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.MatchTag;
-import io.guessit.core.pipeline.state.ParseContext;
-import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
@@ -131,7 +127,7 @@ public final class WebsiteExtractor implements Extractor {
         if (!hasFollowingSeasonEpisodeOrDate(w, ctx)) return false;
 
         return ctx.markers.stream().noneMatch(mk ->
-                WeakExtractorCommon.MARKER_GROUP.equals(mk.name()) && mk.covers(w.span()));
+                mk.type() == MarkerType.GROUP && mk.covers(w.span()));
     }
 
     private boolean isSafeWebsite(Match w) {

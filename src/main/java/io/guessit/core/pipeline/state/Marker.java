@@ -4,20 +4,25 @@ import io.guessit.core.pipeline.phases.MarkerPhase;
 import io.guessit.core.text.Span;
 
 /**
- * Named span over the input string, produced by {@link MarkerPhase}.
+ * A typed spatial boundary over the input string, produced by {@link MarkerPhase}.
  *
- * <p>Three marker kinds are emitted by the default rules:
+ * <p>Markers define structural scopes within the input, as specified by {@link MarkerType}:
  * <ul>
- * <li>{@code whole} — the entire input. Used as a fallback title scope.</li>
- * <li>{@code path} — one per {@code /} or {@code \\}-separated segment.
- * Used to scope rules to a single filepart (filename vs parent dir).</li>
- * <li>{@code group} — one per balanced bracketed substring, e.g. {@code [...]}
- * or {@code (...)}. Used by release-group, language, and similar rules.</li>
+ * <li>{@link MarkerType#WHOLE} — the entire input. Used as a fallback scope.</li>
+ * <li>{@link MarkerType#PATH} — a single directory or file segment (separated by {@code /} or {@code \\}).
+ * Used to isolate rules to a specific filepart (e.g., filename vs parent directory).</li>
+ * <li>{@link MarkerType#GROUP} — a balanced bracketed substring (e.g., {@code [...]} or {@code (...)}).
+ * Used to scope release groups, languages, and similar isolated tags.</li>
  * </ul>
  */
-public record Marker(String name, Span span) {
+public record Marker(MarkerType type, Span span) {
 
-    /** True if the given Span lies entirely inside this marker. */
+    /** * Checks if this marker's boundary completely encloses the given span.
+     * <p>
+     * Conceptually equivalent to {@code otherSpan.isInside(this.span)}.
+     * * @param otherSpan the spatial span to check
+     * @return {@code true} if the given span lies entirely inside this marker
+     */
     public boolean covers(Span otherSpan) {
         return span.contains(otherSpan);
     }

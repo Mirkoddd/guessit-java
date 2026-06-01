@@ -1,11 +1,7 @@
 package io.guessit.rules.extractors;
 
 import io.guessit.core.pipeline.contracts.Extractor;
-import io.guessit.core.pipeline.state.Markers;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.MatchTag;
-import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.PatternMatcher;
 import io.guessit.core.text.RegexOpts;
 import io.guessit.core.text.Validators;
@@ -59,7 +55,7 @@ public final class YearExtractor implements Extractor {
         var years = ctx.matches.named(MatchName.YEAR).toList();
         if (years.size() <= 1) return;
 
-        var fileParts = Markers.named(ctx.markers, WeakExtractorCommon.MARKER_PATH).toList();
+        var fileParts = Markers.named(ctx.markers, MarkerType.PATH).toList();
 
         var toRemove = fileParts.stream()
                 .flatMap(fp -> {
@@ -75,7 +71,7 @@ public final class YearExtractor implements Extractor {
     private static List<Match> determineRemovals(ParseContext ctx, List<Match> inPart) {
         var partitions = inPart.stream().collect(Collectors.partitioningBy(y ->
                 ctx.markers.stream().anyMatch(mk ->
-                        WeakExtractorCommon.MARKER_GROUP.equals(mk.name()) && mk.covers(y.span()))
+                        mk.type() == MarkerType.GROUP && mk.covers(y.span()))
         ));
 
         var grouped = partitions.get(true);

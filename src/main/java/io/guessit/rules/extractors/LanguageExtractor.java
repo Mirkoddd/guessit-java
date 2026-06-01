@@ -21,7 +21,6 @@ import static io.guessit.core.pipeline.state.MatchName.*;
  */
 public final class LanguageExtractor implements Extractor {
 
-    private static final String GROUP_MARKER = "group";
     private static final String UND_NAME = "Undetermined";
     private static final String MUL_NAME = "Multiple languages";
     private static final MatchName MARKER_PREFIX = MatchName.SUBTITLE_LANGUAGE_PREFIX;
@@ -374,7 +373,7 @@ public final class LanguageExtractor implements Extractor {
 
     private static List<Span> findLangListMarkers(ParseContext ctx) {
         return ctx.markers.stream()
-                .filter(g -> GROUP_MARKER.equals(g.name()))
+                .filter(g -> g.type() == MarkerType.GROUP)
                 .map(Marker::span)
                 .filter(span -> hasMultipleLanguages(ctx, span))
                 .toList();
@@ -442,7 +441,7 @@ public final class LanguageExtractor implements Extractor {
 
     private static Marker findNextGroupMarker(ParseContext ctx, Match marker) {
         return ctx.markers.stream()
-                .filter(g -> GROUP_MARKER.equals(g.name()) && g.span().isAfter(marker.span()))
+                .filter(g -> g.type() == MarkerType.GROUP && g.span().isAfter(marker.span()))
                 .min(Comparator.comparingInt(g -> g.span().start()))
                 .orElse(null);
     }
@@ -480,7 +479,7 @@ public final class LanguageExtractor implements Extractor {
 
     private static Marker findSmallestEnclosingGroup(ParseContext ctx, Match marker) {
         return ctx.markers.stream()
-                .filter(g -> GROUP_MARKER.equals(g.name()) && g.covers(marker.span()))
+                .filter(g -> g.type() == MarkerType.GROUP && g.covers(marker.span()))
                 .min(Comparator.comparingInt(g -> g.span().length()))
                 .orElse(null);
     }
@@ -500,7 +499,7 @@ public final class LanguageExtractor implements Extractor {
 
     private static boolean isMarkerValidInGroups(ParseContext ctx, Match marker) {
         return ctx.markers.stream()
-                .filter(g -> GROUP_MARKER.equals(g.name()))
+                .filter(g -> g.type() == MarkerType.GROUP)
                 .filter(g -> g.covers(marker.span()))
                 .allMatch(g -> isMarkerStandaloneInGroup(ctx.input, marker, g));
     }
@@ -522,7 +521,7 @@ public final class LanguageExtractor implements Extractor {
 
     private static FilePartBounds findFilepartBounds(ParseContext ctx, Match marker) {
         return ctx.markers.stream()
-                .filter(fp -> "path".equals(fp.name()) && fp.covers(marker.span()))
+                .filter(fp -> fp.type() == MarkerType.PATH && fp.covers(marker.span()))
                 .map(fp -> new FilePartBounds(fp.span().start(), fp.span().end()))
                 .findFirst()
                 .orElseGet(() -> new FilePartBounds(0, ctx.input.length()));

@@ -16,15 +16,15 @@ class PhaseDebugWiringTest {
         var sw = new StringWriter();
         var trace = new DebugTrace(sw);
         Guessit.withOptions(Options.defaults())
-            .guess("Movie.Name.2020.1080p.BluRay.x264-GRP.mkv", trace);
+                .guess("Movie.Name.2020.1080p.BluRay.x264-GRP.mkv", trace);
         var out = sw.toString();
         assertThat(out)
-            .contains("Markers phase — ")
-            .contains("Extractors phase — ")
-            .contains("Conflicts phase — ")
-            .contains("Extractor_post phase — ")
-            .contains("Post phase — ")
-            .contains("Output phase — ");
+                .contains("Markers phase — ")
+                .contains("Extractors phase — ")
+                .contains("Conflicts phase — ")
+                .contains("Extractor_post phase — ")
+                .contains("Post phase — ")
+                .contains("Output phase — ");
     }
 
     @Test
@@ -32,7 +32,7 @@ class PhaseDebugWiringTest {
         var sw = new StringWriter();
         var trace = new DebugTrace(sw);
         Guessit.withOptions(Options.defaults())
-            .guess("Movie.2020.mkv", trace);
+                .guess("Movie.2020.mkv", trace);
         assertThat(sw.toString()).contains("  Looking for year");
     }
 
@@ -41,7 +41,7 @@ class PhaseDebugWiringTest {
         var sw = new StringWriter();
         var trace = new DebugTrace(sw, true);
         Guessit.withOptions(Options.defaults())
-            .guess("Movie.2020.mkv", trace);
+                .guess("Movie.2020.mkv", trace);
         // The input string appears at least once embedded in a span view block.
         assertThat(sw.toString()).contains("Movie.2020.mkv");
         // Per-row underline must appear under at least one step.
@@ -56,8 +56,8 @@ class PhaseDebugWiringTest {
         var out = sw.toString();
         // Each marker should appear exactly once in the prose narration.
         long wholeMarkerLines = out.lines()
-            .filter(l -> l.contains("whole marker") || l.matches(".*marker:.*name=whole.*"))
-            .count();
+                .filter(l -> l.contains("whole marker") || l.matches(".*marker:.*type=whole.*"))
+                .count();
         assertThat(wholeMarkerLines).as("debug output should not duplicate marker lines").isEqualTo(1L);
     }
 }

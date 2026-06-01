@@ -1,11 +1,7 @@
 package io.guessit.rules.extractors;
 
 import io.guessit.core.pipeline.contracts.Extractor;
-import io.guessit.core.pipeline.state.Marker;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.MatchTag;
-import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
@@ -326,7 +322,7 @@ public final class OtherExtractor implements Extractor {
 
     private static void validateAtEnd(ParseContext ctx) {
         var pathMarkers = ctx.markers.stream()
-                .filter(m -> "path".equals(m.name()))
+                .filter(m -> m.type() == MarkerType.PATH)
                 .toList();
 
         ctx.matches.named(MatchName.OTHER)

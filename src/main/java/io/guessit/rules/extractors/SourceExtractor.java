@@ -27,7 +27,6 @@ public final class SourceExtractor implements Extractor {
     private static final String VAL_ULTRA_HD = "Ultra HD";
     private static final String VAL_2160P = "2160p";
     private static final String VAL_BLU_RAY = "Blu-ray";
-    private static final String MARKER_PATH = "path";
 
     @Override
     public String name() {
@@ -135,7 +134,7 @@ public final class SourceExtractor implements Extractor {
 
     private void validateWeakSource(ParseContext ctx) {
         var pathMarkers = ctx.markers.stream()
-                .filter(m -> MARKER_PATH.equals(m.name()))
+                .filter(marker -> marker.type() == MarkerType.PATH)
                 .toList();
 
         ctx.matches.named(MatchName.SOURCE)
@@ -157,7 +156,7 @@ public final class SourceExtractor implements Extractor {
 
     private void upgradeUltraHdBluray(ParseContext ctx) {
         var pathMarkers = ctx.markers.stream()
-                .filter(m -> MARKER_PATH.equals(m.name()))
+                .filter(m -> m.type() == MarkerType.PATH)
                 .toList();
 
         ctx.matches.named(MatchName.SOURCE)

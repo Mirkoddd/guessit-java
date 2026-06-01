@@ -38,7 +38,6 @@ public final class ReleaseGroupExtractor implements Extractor {
     private static final String TAG_SUB = "sub";
 
     private static final Pattern PARENS_BRACKETS = ReleaseGroupPatterns.buildParensBracketsPattern(TAG_MAIN, TAG_SUB);
-    public static final String PATH_TAG = "path";
     public static final String SUB_TAG = "sub";
 
     private static final ConcurrentMap<String, Pattern> EXPECTED_RE_CACHE = new ConcurrentHashMap<>();
@@ -470,7 +469,7 @@ public final class ReleaseGroupExtractor implements Extractor {
 
     private void detectAnimeBrackets(ParseContext ctx) {
         ctx.markers.stream()
-                .filter(m -> "group".equals(m.name()))
+                .filter(m -> m.type() == MarkerType.GROUP)
                 .map(m -> tryCreateAnimeBracketMatch(ctx, m))
                 .flatMap(Optional::stream)
                 .findFirst()
@@ -570,7 +569,7 @@ public final class ReleaseGroupExtractor implements Extractor {
     }
 
     private static List<Marker> pathFilePartsRightmostFirst(ParseContext ctx) {
-        var paths = ctx.markers.stream().filter(m -> m.name().equals(PATH_TAG)).toList();
+        var paths = ctx.markers.stream().filter(m -> m.type() == MarkerType.PATH).toList();
         return markerSortedWithEpisodeTitleHint(paths, ctx);
     }
 
@@ -624,7 +623,7 @@ public final class ReleaseGroupExtractor implements Extractor {
     }
 
     private static List<Marker> pathFilePartsLeftmostFirst(ParseContext ctx) {
-        return ctx.markers.stream().filter(m -> m.name().equals(PATH_TAG)).toList();
+        return ctx.markers.stream().filter(m -> m.type() == MarkerType.PATH).toList();
     }
 
     private static int trimKnownExtension(ParseContext ctx, Marker filePart) {

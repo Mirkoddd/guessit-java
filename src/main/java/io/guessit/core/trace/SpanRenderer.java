@@ -57,7 +57,7 @@ public final class SpanRenderer {
                 .map(m -> new RenderSpan(m.span().start(), m.span().end(), m.name().name().toLowerCase(Locale.ROOT)));
 
         var markerSpans = markers.stream()
-                .map(mk -> new RenderSpan(mk.span().start(), mk.span().end(), mk.name()));
+                .map(mk -> new RenderSpan(mk.span().start(), mk.span().end(), mk.type().getValue()));
 
         return Stream.concat(matchSpans, markerSpans)
                 .sorted(Comparator.comparingInt(RenderSpan::start).thenComparingInt(RenderSpan::end))
