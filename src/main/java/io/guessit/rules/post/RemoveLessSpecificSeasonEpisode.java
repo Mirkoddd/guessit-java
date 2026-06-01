@@ -1,9 +1,6 @@
 package io.guessit.rules.post;
 
-import io.guessit.core.pipeline.state.Markers;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.pipeline.contracts.PostProcessor;
 
 import java.util.*;
@@ -42,9 +39,9 @@ public final class RemoveLessSpecificSeasonEpisode implements PostProcessor {
         var reversed = new ArrayList<>(paths);
         Collections.reverse(reversed);
         var sorted = Markers.markerSorted(reversed, ctx.matches,
-                m -> m.name() == targetName && m.tags().contains("SxxExx"));
+                m -> m.name() == targetName && m.hasTag(MatchTag.SXX_EXX));
 
-        var sxxTie = Comparator.comparing((Match m) -> m.tags().contains("SxxExx") ? 0 : 1);
+        var sxxTie = Comparator.comparing((Match m) -> m.hasTag(MatchTag.SXX_EXX) ? 0 : 1);
         var perFilepart = new ArrayList<List<Match>>();
         for (var fp : sorted) {
             var inFp = ctx.matches.inMarker(fp)

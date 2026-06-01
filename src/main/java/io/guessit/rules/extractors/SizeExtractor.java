@@ -3,6 +3,7 @@ package io.guessit.rules.extractors;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
@@ -19,7 +20,6 @@ public final class SizeExtractor implements Extractor {
 
     public static final String EXTRACTOR_NAME = "size";
     private static final String GRP_SIZE = "val";
-    private static final String TAG_RELEASE_GROUP_PREFIX = "release-group-prefix";
 
     private static final Pattern PATTERN = SizePatterns.buildSizePattern(GRP_SIZE);
 
@@ -46,7 +46,7 @@ public final class SizeExtractor implements Extractor {
 
             if (seps.test(head)) {
                 ctx.matches.add(new Match(MatchName.SIZE, Size.fromString(raw), span,
-                        priority(), Set.of(TAG_RELEASE_GROUP_PREFIX), false));
+                        priority(), Set.of(MatchTag.RELEASE_GROUP_PREFIX.getYamlValue()), false));
             }
         }
     }

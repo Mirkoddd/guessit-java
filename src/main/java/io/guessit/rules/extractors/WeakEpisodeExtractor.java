@@ -46,7 +46,6 @@ import static io.guessit.core.text.patterns.WeakEpisodePatterns.*;
 public final class WeakEpisodeExtractor implements Extractor {
 
     public static final String EPISODE = "episode";
-    public static final String WEAK_EPISODE = "weak-episode";
 
     private static final String GRP_EP = "ep";
 
@@ -81,7 +80,7 @@ public final class WeakEpisodeExtractor implements Extractor {
 
         // Pre-compute SxxExx episodes; skip weak matches that overlap them.
         var protectedEpisodes = ctx.matches.named(MatchName.EPISODE)
-                .filter(m -> m.tags().contains(WeakExtractorCommon.SXXEXX))
+                .filter(m -> m.hasTag(MatchTag.SXX_EXX))
                 .toList();
 
         emit(ctx, input, TWO_DIGIT, seps, protectedEpisodes);
@@ -105,11 +104,11 @@ public final class WeakEpisodeExtractor implements Extractor {
             boolean isOverlapping = protectedEpisodes.stream()
                     .anyMatch(pe -> span.start() < pe.span().end() && span.end() > pe.span().start());
 
-            var head = new Match(MatchName.EPISODE, null, headSpan, Priority.PROBABLE, Set.of(WEAK_EPISODE), false);
+            var head = new Match(MatchName.EPISODE, null, headSpan, Priority.PROBABLE, Set.of(MatchTag.WEAK_EPISODE.getYamlValue()), false);
 
             if (!isOverlapping && seps.test(head)) {
                 int v = Integer.parseInt(m.group(GRP_EP));
-                ctx.matches.add(new Match(MatchName.EPISODE, v, span, Priority.PROBABLE, Set.of(WEAK_EPISODE), false));
+                ctx.matches.add(new Match(MatchName.EPISODE, v, span, Priority.PROBABLE, Set.of(MatchTag.WEAK_EPISODE.getYamlValue()), false));
             }
         }
     }
@@ -120,7 +119,9 @@ public final class WeakEpisodeExtractor implements Extractor {
 
         var toRemove = new ArrayList<>(weakEpisodesAdjacentToBlocking(ctx));
 
-        var weakList = ctx.matches.named(MatchName.EPISODE).filter(m -> m.tags().contains(WEAK_EPISODE)).toList();
+        var weakList = ctx.matches.named(MatchName.EPISODE)
+                .filter(m -> m.hasTag(MatchTag.WEAK_EPISODE))
+                .toList();
         var fileParts = Markers.named(ctx.markers, WeakExtractorCommon.MARKER_PATH).toList();
         var strongInFilePart = strongInFilepartPredicate(ctx, fileParts);
 
@@ -150,7 +151,7 @@ public final class WeakEpisodeExtractor implements Extractor {
         var blocking = ctx.matches.all().filter(m -> BLOCKING_NAMES.contains(m.name())).toList();
 
         return ctx.matches.named(MatchName.EPISODE)
-                .filter(m -> m.tags().contains(WEAK_EPISODE))
+                .filter(m -> m.hasTag(MatchTag.WEAK_EPISODE))
                 .filter(weak -> blocking.stream().anyMatch(b ->
                         b.span().end() <= weak.span().start()
                                 && (weak.span().start() - b.span().end()) <= 3
@@ -166,10 +167,10 @@ public final class WeakEpisodeExtractor implements Extractor {
                 .anyMatch(t -> t[0] <= m.span().start() && m.span().end() <= t[1]);
 
         boolean anyEpisodeSxxExx = ctx.matches.named(MatchName.EPISODE)
-                .anyMatch(m -> !m.isPrivate() && m.tags().contains(WeakExtractorCommon.SXXEXX) && !insideTitle.test(m));
+                .anyMatch(m -> !m.isPrivate() && m.hasTag(MatchTag.SXX_EXX) && !insideTitle.test(m));
 
         var seasonStrongSpans = ctx.matches.all()
-                .filter(m -> !m.isPrivate() && m.tags().contains(WeakExtractorCommon.SXXEXX)
+                .filter(m -> !m.isPrivate() && m.hasTag(MatchTag.SXX_EXX)
                         && MatchName.SEASON == m.name() && !insideTitle.test(m))
                 .map(m -> new int[]{m.span().start(), m.span().end()})
                 .toList();
@@ -284,7 +285,7 @@ public final class WeakEpisodeExtractor implements Extractor {
 
     private static boolean hasRangePairedWeakEpisodes(ParseContext ctx) {
         var weakList = ctx.matches.named(MatchName.EPISODE)
-                .filter(m -> m.tags().contains(WEAK_EPISODE) && !m.tags().contains(WeakExtractorCommon.WEAK_DUPLICATE))
+                .filter(m -> m.hasTag(MatchTag.WEAK_EPISODE) && !m.hasTag(MatchTag.WEAK_DUPLICATE))
                 .filter(m -> m.value() instanceof Integer i && i >= 100)
                 .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
@@ -306,11 +307,11 @@ public final class WeakEpisodeExtractor implements Extractor {
 
     private static void removeAllWeak(ParseContext ctx) {
         var weakList = ctx.matches.named(MatchName.EPISODE)
-                .filter(m -> m.tags().contains(WEAK_EPISODE))
-                .filter(m -> !(m.tags().contains(WeakExtractorCommon.WEAK_DUPLICATE) && !inAnyGroupMarker(ctx, m)))
+                .filter(m -> m.hasTag(MatchTag.WEAK_EPISODE))
+                .filter(m -> !(m.hasTag(MatchTag.WEAK_DUPLICATE) && !inAnyGroupMarker(ctx, m)))
                 .toList();
         var weakSeasons = ctx.matches.named(MatchName.SEASON)
-                .filter(m -> m.tags().contains(WEAK_EPISODE) && m.tags().contains(WeakExtractorCommon.WEAK_DUPLICATE))
+                .filter(m -> m.hasTag(MatchTag.WEAK_EPISODE) && m.hasTag(MatchTag.WEAK_DUPLICATE))
                 .filter(m -> inAnyGroupMarker(ctx, m))
                 .toList();
         for (var m : weakList) ctx.matches.remove(m);

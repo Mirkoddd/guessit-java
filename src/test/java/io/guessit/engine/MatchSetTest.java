@@ -1,9 +1,6 @@
 package io.guessit.engine;
 
-import io.guessit.core.pipeline.state.Marker;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchSet;
-import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Span;
 import org.junit.jupiter.api.Test;
 
@@ -123,9 +120,9 @@ class MatchSetTest {
     @Test
     void taggedFiltersByTagSet() {
         var set = new MatchSet();
-        set.add(new Match(OTHER, null, new Span(0, 1, "a"), Priority.DEFAULT, Set.of("foo"), false));
+        set.add(new Match(OTHER, null, new Span(0, 1, "a"), Priority.DEFAULT, Set.of(MatchTag.INFO.getYamlValue()), false));
         set.add(of(OTHER, null, new Span(2, 3, "b")));
-        var tagged = set.tagged("foo").toList();
+        var tagged = set.tagged(MatchTag.INFO).toList();
         assertThat(tagged).hasSize(1);
         assertThat(tagged.getFirst().name()).isEqualTo(OTHER);
     }

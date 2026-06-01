@@ -1,9 +1,6 @@
 package io.guessit.rules.post;
 
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.ParseContext;
-import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.pipeline.contracts.PostProcessor;
 import io.guessit.core.text.Span;
 
@@ -39,7 +36,7 @@ public final class TypeProcessor implements PostProcessor {
         ctx.trace.subStep("Stage 2: demote episode_title to alternative_title when type is not episode");
         if (!EPISODE_TYPE.equals(type)) {
             var toRename = ctx.matches.named(MatchName.EPISODE_TITLE)
-                    .filter(m -> !m.tags().contains("alternative-replaced"))
+                    .filter(m -> !m.hasTag(MatchTag.ALTERNATIVE_REPLACED))
                     .toList();
 
             for (var m : toRename) {
@@ -60,7 +57,7 @@ public final class TypeProcessor implements PostProcessor {
         if (anyNamed(ctx, MatchName.DATE) && !hasYear) return EPISODE_TYPE;
         if (anyNamed(ctx, MatchName.BONUS) && !hasYear) return EPISODE_TYPE;
         var hasCrc = anyNamed(ctx, MatchName.CRC32);
-        var anyAnimeRg = ctx.matches.named(MatchName.RELEASE_GROUP).anyMatch(m -> m.tags().contains("anime"));
+        var anyAnimeRg = ctx.matches.named(MatchName.RELEASE_GROUP).anyMatch(m -> m.hasTag(MatchTag.ANIME));
         if (hasCrc && anyAnimeRg) return EPISODE_TYPE;
         return MOVIE_TYPE;
     }

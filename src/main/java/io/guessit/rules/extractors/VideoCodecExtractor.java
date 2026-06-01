@@ -3,6 +3,7 @@ package io.guessit.rules.extractors;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.PatternMatcher;
@@ -21,10 +22,8 @@ import java.util.function.Predicate;
  */
 public final class VideoCodecExtractor implements Extractor {
 
-    public static final String VIDEO_PROFILE = "video_profile";
     public static final String VIDEO_CODEC = "video_codec";
 
-    private static final String VIDEO_PROFILE_RULE_TAG = "video_profile.rule";
     private static final MatchName VIDEO_CODEC_NAME = MatchName.VIDEO_CODEC;
     private static final MatchName VIDEO_PROFILE_NAME = MatchName.VIDEO_PROFILE;
     private static final MatchName COLOR_DEPTH_NAME = MatchName.COLOR_DEPTH;
@@ -59,7 +58,8 @@ public final class VideoCodecExtractor implements Extractor {
 
     private void extractCodecs(ParseContext ctx, Predicate<Match> validator) {
         var optsBase = RegexOpts.defaults().withValidator(validator);
-        var tags = Set.of("source-suffix", "streaming_service.suffix");
+
+        var tags = Set.of(MatchTag.SOURCE_SUFFIX.getYamlValue(), MatchTag.STREAMING_SERVICE_SUFFIX.getYamlValue());
 
         for (var rule : VideoCodecPatterns.CODEC_RULES) {
             var opts = optsBase.withValue(_ -> rule.value());
@@ -83,17 +83,18 @@ public final class VideoCodecExtractor implements Extractor {
                         .forEach(ctx.matches::remove);
 
                 ctx.matches.add(new Match(VIDEO_CODEC_NAME, "H.265", cSpan, Priority.DEFAULT,
-                        Set.of("source-suffix", "streaming_service.suffix"), false));
+                        Set.of(MatchTag.SOURCE_SUFFIX.getYamlValue(), MatchTag.STREAMING_SERVICE_SUFFIX.getYamlValue()), false));
 
                 ctx.matches.add(new Match(COLOR_DEPTH_NAME, "10-bit", dSpan, Priority.DEFAULT,
-                        Set.of("video-codec-suffix", "derivedFrom:video_codec"), false));
+                        Set.of(MatchTag.VIDEO_CODEC_SUFFIX.getYamlValue(), MatchTag.DERIVED_FROM_VIDEO_CODEC.getYamlValue()), false));
             }
         }
     }
 
     private void extractProfiles(ParseContext ctx, Predicate<Match> validator) {
         var strOptsBase = StringOpts.defaults().withValidator(validator);
-        var tagsTagged = Set.of(VIDEO_PROFILE_RULE_TAG);
+
+        var tagsTagged = Set.of(MatchTag.VIDEO_PROFILE_RULE.getYamlValue());
 
         for (var rule : VideoCodecPatterns.PROFILE_STR_RULES) {
             for (var m : PatternMatcher.string(ctx.input, rule.aliases(), VIDEO_PROFILE_NAME, strOptsBase, ctx.trace)) {
@@ -128,7 +129,7 @@ public final class VideoCodecExtractor implements Extractor {
         boolean hasCodec = ctx.matches.named(VIDEO_CODEC_NAME).findAny().isPresent();
         if (!hasCodec) {
             var toRemove = ctx.matches.named(VIDEO_PROFILE_NAME)
-                    .filter(p -> p.tags().contains(VIDEO_PROFILE_RULE_TAG))
+                    .filter(p -> p.hasTag(MatchTag.VIDEO_PROFILE_RULE))
                     .toList();
             toRemove.forEach(ctx.matches::remove);
         }
@@ -138,8 +139,8 @@ public final class VideoCodecExtractor implements Extractor {
         var sepsBefore = Validators.sepsBefore(ctx.input);
         var sepsAfter = Validators.sepsAfter(ctx.input);
 
-        var prefixSpans = ctx.matches.all().filter(m -> m.tags().contains("video-codec-prefix")).toList();
-        var suffixSpans = ctx.matches.all().filter(m -> m.tags().contains("video-codec-suffix")).toList();
+        var prefixSpans = ctx.matches.all().filter(m -> m.hasTag(MatchTag.VIDEO_CODEC_PREFIX)).toList();
+        var suffixSpans = ctx.matches.all().filter(m -> m.hasTag(MatchTag.VIDEO_CODEC_SUFFIX)).toList();
 
         var toRemove = ctx.matches.named(VIDEO_CODEC_NAME)
                 .filter(codec -> {

@@ -4,6 +4,7 @@ import io.guessit.api.Options;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Seps;
@@ -34,7 +35,6 @@ public final class WebsiteExtractor implements Extractor {
     @SuppressWarnings("java:S1075") // Classpath embedded resource, not a filesystem URI
     private static final String TLD_PATH = "/io/guessit/data/tlds-alpha-by-domain.txt";
     private static final String GRP_URL = "url";
-    private static final String TAG_PREFIX = "website.prefix";
 
     private final Pattern pattern1;  // safe subdomain + TLD
     private final Pattern pattern2;  // safe TLD
@@ -83,7 +83,7 @@ public final class WebsiteExtractor implements Extractor {
             for (int i = hay.indexOf(needle); i >= 0; i = hay.indexOf(needle, i + 1)) {
                 int end = i + needle.length();
                 var span = new Span(i, end, input.substring(i, end));
-                var m = new Match(MatchName.WEBSITE, prefix, span, Priority.NONE, Set.of(TAG_PREFIX), true);
+                var m = new Match(MatchName.WEBSITE, prefix, span, Priority.NONE, Set.of(MatchTag.WEBSITE_PREFIX.getYamlValue()), true);
                 if (validator.test(m)) ctx.matches.add(m);
             }
         }
@@ -118,7 +118,7 @@ public final class WebsiteExtractor implements Extractor {
                 .filter(w -> shouldRemoveUnsafeWebsite(w, ctx))
                 .collect(Collectors.toList());
 
-        var prefixes = ctx.matches.all().filter(m -> m.tags().contains(TAG_PREFIX)).toList();
+        var prefixes = ctx.matches.all().filter(m -> m.hasTag(MatchTag.WEBSITE_PREFIX)).toList();
         toRemove.addAll(prefixes.stream()
                 .filter(m -> shouldRemovePrefixMatch(m, ctx, toRemove))
                 .toList());

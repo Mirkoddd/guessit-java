@@ -1,10 +1,7 @@
 package io.guessit.rules.extractors;
 
 import io.guessit.core.pipeline.contracts.Extractor;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.ParseContext;
-import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.PatternMatcher;
 import io.guessit.core.text.RegexOpts;
 import io.guessit.core.text.Seps;
@@ -90,7 +87,7 @@ public final class AudioCodecExtractor implements Extractor {
 
     private void removeWeakAudioChannels(ParseContext ctx, List<Match> audio) {
         var weakChannels = ctx.matches.all()
-                .filter(m -> m.name() == MatchName.AUDIO_CHANNELS && m.tags().contains("weak-audio_channels"))
+                .filter(m -> m.name() == MatchName.AUDIO_CHANNELS && m.hasTag(MatchTag.WEAK_AUDIO_CHANNELS))
                 .toList();
         for (var wc : weakChannels) {
             boolean hasCodecBefore = audio.stream().anyMatch(o ->
@@ -101,7 +98,7 @@ public final class AudioCodecExtractor implements Extractor {
 
     private void removeOrphanedAudioProfiles(ParseContext ctx) {
         var profilesWithRule = ctx.matches.named(MatchName.AUDIO_PROFILE)
-                .filter(m -> m.tags().contains("audio_profile.rule"))
+                .filter(m -> m.hasTag(MatchTag.AUDIO_PROFILE_RULE))
                 .toList();
         var codecMatches = ctx.matches.named(MatchName.AUDIO_CODEC).toList();
 
@@ -117,7 +114,7 @@ public final class AudioCodecExtractor implements Extractor {
 
     private String extractRequiredCodec(Match profile) {
         for (var t : profile.tags()) {
-            if (!"audio_profile.rule".equals(t)) {
+            if (!MatchTag.AUDIO_PROFILE_RULE.getYamlValue().equals(t)) {
                 return t;
             }
         }

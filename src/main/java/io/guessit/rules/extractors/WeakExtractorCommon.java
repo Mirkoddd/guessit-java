@@ -21,10 +21,6 @@ final class WeakExtractorCommon {
     static final String TYPE_MOVIE = "movie";
     static final String TYPE_EPISODE = "episode";
 
-    static final String WEAK_EPISODE = "weak-episode";
-    static final String WEAK_DUPLICATE = "weak-duplicate";
-    static final String SXXEXX = "SxxExx";
-
     static final String MARKER_PATH = "path";
     static final String MARKER_GROUP = "group";
 

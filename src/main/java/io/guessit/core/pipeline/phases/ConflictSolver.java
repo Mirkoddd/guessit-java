@@ -2,6 +2,7 @@ package io.guessit.core.pipeline.phases;
 
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchSet;
+import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.trace.Trace;
 
 import java.util.*;
@@ -17,7 +18,6 @@ import java.util.*;
  */
 public final class ConflictSolver {
 
-    private static final String TAG_COEXIST = "coexist";
     private static final String REASON_SHORTER_SPAN = "shorter span";
     private static final String REASON_LOWER_PRIORITY = "lower priority";
 
@@ -43,7 +43,7 @@ public final class ConflictSolver {
     }
 
     private static void resolveAgainstConflicts(Match match, List<Match> publicMatches, Set<Match> toRemove, Trace trace) {
-        if (match.tags().contains(TAG_COEXIST)) return;
+        if (match.hasTag(MatchTag.COEXIST)) return;
 
         var conflicting = findConflicting(match, publicMatches, toRemove);
         boolean removalRecorded = false;
@@ -51,7 +51,7 @@ public final class ConflictSolver {
         for (int i = 0; i < conflicting.size() && !removalRecorded; i++) {
             var conflictingMatch = conflicting.get(i);
 
-            if (!conflictingMatch.tags().contains(TAG_COEXIST)) {
+            if (!conflictingMatch.hasTag(MatchTag.COEXIST)) {
                 var removed = defaultConflictSolver(match, conflictingMatch);
 
                 removalRecorded = recordRemoval(match, conflictingMatch, removed, toRemove, trace);

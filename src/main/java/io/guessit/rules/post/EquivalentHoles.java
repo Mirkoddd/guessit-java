@@ -1,8 +1,8 @@
 package io.guessit.rules.post;
 
+import io.guessit.core.pipeline.contracts.PostProcessor;
 import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Formatters;
-import io.guessit.core.pipeline.contracts.PostProcessor;
 
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -13,7 +13,7 @@ import java.util.stream.Stream;
  * match, update the existing match's value to the better-cased variant.
  *
  * <p>Drives the {@code title.yml} dir-vs-filename casing fixtures
- * ({@code Some.title/SOME TITLE.mkv} → {@code Some title}, etc).
+ * ({@code Some.title/SOME TITLE.mkv} → {@code Some title}, etc...).
  */
 public final class EquivalentHoles implements PostProcessor {
     @Override
@@ -42,7 +42,7 @@ public final class EquivalentHoles implements PostProcessor {
                             .filter(hole -> hole != null && hole.value() != null && !hole.value().isEmpty())
                             .flatMap(hole -> ctx.matches.named(name)
                                     .filter(m -> m.value() instanceof String)
-                                    .filter(m -> !m.tags().contains("equivalent-ignore"))
+                                    .filter(m -> !m.hasTag(MatchTag.EQUIVALENT_IGNORE))
                                     .filter(m -> hole.value().equalsIgnoreCase((String) m.value()))
                                     .map(m -> {
                                         var mv = (String) m.value();

@@ -4,6 +4,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Holes;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Formatters;
 import io.guessit.core.text.Span;
@@ -26,7 +27,6 @@ import java.util.regex.Pattern;
  */
 public final class BonusExtractor implements Extractor {
 
-    public static final String WEAK_EPISODE = "weak-episode";
     private static final String GRP_NAME = "name";
     private static final String MARKER_PATH = "path";
     private static final Pattern P = BonusPatterns.buildPattern(GRP_NAME);
@@ -49,7 +49,7 @@ public final class BonusExtractor implements Extractor {
 
         var potentialConflicts = ctx.matches.snapshot().stream()
                 .filter(x -> x.name() == MatchName.VIDEO_CODEC ||
-                        (x.name() == MatchName.EPISODE && !x.tags().contains(WEAK_EPISODE)))
+                        (x.name() == MatchName.EPISODE && !x.hasTag(MatchTag.WEAK_EPISODE)))
                 .toList();
 
         while (m.find()) {
@@ -93,7 +93,7 @@ public final class BonusExtractor implements Extractor {
                             bonus.span().end(),
                             fp.span().end(),
                             ctx.matches.snapshot(),
-                            m -> m.isPrivate() || m.tags().contains(WEAK_EPISODE),
+                            m -> m.isPrivate() || m.hasTag(MatchTag.WEAK_EPISODE),
                             null,
                             Formatters::cleanup
                     );

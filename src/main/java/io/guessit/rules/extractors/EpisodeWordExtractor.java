@@ -3,6 +3,7 @@ package io.guessit.rules.extractors;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Seps;
@@ -28,8 +29,6 @@ public final class EpisodeWordExtractor implements Extractor {
     public static final String SEASON = "season";
 
     private static final String TYPE_MOVIE = "movie";
-    private static final String TAG_SEASON_WORD = "season-word";
-    private static final String TAG_EPISODE_WORD = "episode-word";
 
     private static final String GRP_COUNT = "count";
     private static final String GRP_SEASON_WORD = "seasonWord";
@@ -139,7 +138,8 @@ public final class EpisodeWordExtractor implements Extractor {
         if (n < 0) return -1;
 
         var span = new Span(valStart, valEnd, ctx.input.substring(valStart, valEnd));
-        ctx.matches.add(new Match(MatchName.SEASON, n, span, Priority.DEFAULT, Set.of(TAG_SEASON_WORD), false));
+        // FASE 3: Scrittura sicura con MatchTag
+        ctx.matches.add(new Match(MatchName.SEASON, n, span, Priority.DEFAULT, Set.of(MatchTag.SEASON_WORD.getYamlValue()), false));
         return n;
     }
 
@@ -216,7 +216,8 @@ public final class EpisodeWordExtractor implements Extractor {
         }
 
         var span = new Span(tStart, tEnd, ctx.input.substring(tStart, tEnd));
-        ctx.matches.add(new Match(MatchName.SEASON, v, span, Priority.DEFAULT, Set.of(TAG_SEASON_WORD), false));
+        // FASE 3: Scrittura sicura con MatchTag
+        ctx.matches.add(new Match(MatchName.SEASON, v, span, Priority.DEFAULT, Set.of(MatchTag.SEASON_WORD.getYamlValue()), false));
 
         return new TailResult(true, v);
     }
@@ -228,7 +229,8 @@ public final class EpisodeWordExtractor implements Extractor {
     private void addRangeSeasons(ParseContext ctx, int prevVal, int v, int tStart) {
         for (int x = prevVal + 1; x < v; x++) {
             var span = new Span(tStart, tStart, "");
-            ctx.matches.add(new Match(MatchName.SEASON, x, span, Priority.DEFAULT, Set.of(TAG_SEASON_WORD), false));
+            // FASE 3: Scrittura sicura con MatchTag
+            ctx.matches.add(new Match(MatchName.SEASON, x, span, Priority.DEFAULT, Set.of(MatchTag.SEASON_WORD.getYamlValue()), false));
         }
     }
 
@@ -314,7 +316,8 @@ public final class EpisodeWordExtractor implements Extractor {
         int epEnd = epMatcher.end(GRP_EP_VAL);
 
         var span = new Span(epStart, epEnd, ctx.input.substring(epStart, epEnd));
-        ctx.matches.add(new Match(MatchName.EPISODE, ep, span, Priority.DEFAULT, Set.of(TAG_EPISODE_WORD), false));
+        // FASE 3: Scrittura sicura con MatchTag
+        ctx.matches.add(new Match(MatchName.EPISODE, ep, span, Priority.DEFAULT, Set.of(MatchTag.EPISODE_WORD.getYamlValue()), false));
 
         addEpisodeVersion(ctx, epMatcher);
         addEpisodeCountFromMatch(ctx, epMatcher);
@@ -364,7 +367,8 @@ public final class EpisodeWordExtractor implements Extractor {
         int c = Integer.parseInt(dm.group(GRP_COUNT));
 
         var epSpan = new Span(dm.start(GRP_EP_VAL), dm.end(GRP_EP_VAL), dm.group(GRP_EP_VAL));
-        ctx.matches.add(new Match(MatchName.EPISODE, e, epSpan, Priority.DEFAULT, Set.of(TAG_EPISODE_WORD), false));
+        // FASE 3: Scrittura sicura con MatchTag
+        ctx.matches.add(new Match(MatchName.EPISODE, e, epSpan, Priority.DEFAULT, Set.of(MatchTag.EPISODE_WORD.getYamlValue()), false));
 
         var countSpan = new Span(dm.start(GRP_COUNT), dm.end(GRP_COUNT), dm.group(GRP_COUNT));
         ctx.matches.add(new Match(MatchName.EPISODE_COUNT, c, countSpan, Priority.DEFAULT, Set.of(), false));

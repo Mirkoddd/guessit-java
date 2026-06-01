@@ -1,11 +1,8 @@
 package io.guessit.rules.post;
 
 import com.mirkoddd.sift.core.engine.SiftCompiledPattern;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.pipeline.contracts.PostProcessor;
-import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Span;
 import io.guessit.core.text.patterns.RangeFillerPatterns;
 
@@ -21,8 +18,6 @@ public final class RangeFiller implements PostProcessor {
 
     private static final int MAX_GAP = 6;
     private static final int MAX_JUMP = 20;
-
-    private static final String TAG_RANGE_FILL = "range-fill";
 
     private static final SiftCompiledPattern GAP_PATTERN = RangeFillerPatterns.buildGapPattern();
 
@@ -62,7 +57,7 @@ public final class RangeFiller implements PostProcessor {
 
             for (int v = prevVal + 1; v < nextVal; v++) {
                 var span = new Span(prev.span().end(), next.span().start(), String.valueOf(v));
-                fills.add(new Match(prop, v, span, Priority.DEFAULT, Set.of(TAG_RANGE_FILL), false));
+                fills.add(new Match(prop, v, span, Priority.DEFAULT, Set.of(MatchTag.RANGE_FILL.getYamlValue()), false));
             }
         }
 
@@ -87,7 +82,7 @@ public final class RangeFiller implements PostProcessor {
         int nextStart = next.span().start();
 
         return ctx.matches.named(prop)
-                .noneMatch(m -> m.tags().contains(TAG_RANGE_FILL)
+                .noneMatch(m -> m.hasTag(MatchTag.RANGE_FILL)
                         && m.span().start() >= prevEnd && m.span().end() <= nextStart);
     }
 }

@@ -15,7 +15,6 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 public final class EpisodeTitleExtractor implements Extractor {
-    public static final String TITLE = "title";
     public static final String SEASON = "season";
 
     private static final Set<MatchName> PREVIOUS_NAMES = Set.of(
@@ -32,7 +31,6 @@ public final class EpisodeTitleExtractor implements Extractor {
     private static final Set<MatchName> AFFECTED_IF_HOLES_AFTER = Set.of(MatchName.PART);
     public static final String EPISODE_TITLE = "episode_title";
     private static final String MOVIE_TYPE = "movie";
-    private static final String FILE_PART_TITLE_TAG = "file-part-title";
 
     @Override
     public String name() {
@@ -173,7 +171,7 @@ public final class EpisodeTitleExtractor implements Extractor {
         }
 
         var titles = titleExtractor.checkTitlesInFilepart(ctx, fp, TitleExtractor::isIgnored,
-                MatchName.EPISODE_TITLE, List.of(TITLE), null, true);
+                MatchName.EPISODE_TITLE, List.of(MatchTag.TITLE.getYamlValue()), null, true);
         if (titles == null) return false;
 
         var titlesToAdd = titles.titles().stream()
@@ -223,7 +221,8 @@ public final class EpisodeTitleExtractor implements Extractor {
         if (ctx.matches.named(MatchName.EPISODE_TITLE).findAny().isPresent()) return;
 
         ctx.matches.named(MatchName.ALTERNATIVE_TITLE).findFirst().ifPresent(alt ->
-                ctx.matches.chainBefore(alt.span().start(), ctx.input, Seps.CHARS, m -> m.tags().contains(TITLE))
+                ctx.matches.chainBefore(alt.span().start(), ctx.input, Seps.CHARS,
+                                m -> m.hasTag(MatchTag.TITLE))
                         .ifPresent(mainTitle -> processAltTitleReplace(ctx, alt, mainTitle)));
     }
 
@@ -233,7 +232,7 @@ public final class EpisodeTitleExtractor implements Extractor {
 
         if (prev.isPresent() || hasCrc) {
             var newTags = new HashSet<>(alt.tags());
-            newTags.add("alternative-replaced");
+            newTags.add(MatchTag.ALTERNATIVE_REPLACED.getYamlValue());
             ctx.matches.replace(alt, new Match(MatchName.EPISODE_TITLE, alt.value(), alt.span(),
                     alt.priority(), Set.copyOf(newTags), alt.isPrivate()));
         }
@@ -248,7 +247,7 @@ public final class EpisodeTitleExtractor implements Extractor {
     }
 
     private void filePart3EpisodeTitle(ParseContext ctx) {
-        if (ctx.matches.tagged(FILE_PART_TITLE_TAG).findAny().isPresent()) return;
+        if (ctx.matches.all().anyMatch(m -> m.hasTag(MatchTag.FILE_PART_TITLE))) return;
 
         var paths = Markers.named(ctx.markers, "path").toList();
         if (paths.size() < 3) return;
@@ -281,7 +280,7 @@ public final class EpisodeTitleExtractor implements Extractor {
 
     private static Holes.Hole findEpisodeTitleHoles(ParseContext ctx, Marker subdirectory) {
         Predicate<Match> ignore = m -> {
-            if (m.tags().contains("weak-episode")) return true;
+            if (m.hasTag(MatchTag.WEAK_EPISODE)) return true;
             if (!TitleExtractor.isIgnored(m)) return false;
             return (m.name() != MatchName.COUNTRY && m.name() != MatchName.LANGUAGE)
                     || !isBracketWrapped(ctx.input, m);
@@ -303,7 +302,7 @@ public final class EpisodeTitleExtractor implements Extractor {
     }
 
     private void filePart2EpisodeTitle(ParseContext ctx) {
-        if (ctx.matches.tagged(FILE_PART_TITLE_TAG).findAny().isPresent()) return;
+        if (ctx.matches.all().anyMatch(m -> m.hasTag(MatchTag.FILE_PART_TITLE))) return;
 
         var paths = Markers.named(ctx.markers, "path").toList();
         if (paths.size() < 2) return;
@@ -320,7 +319,7 @@ public final class EpisodeTitleExtractor implements Extractor {
 
         var h = findEpisodeTitleHoles(ctx, directory);
         if (h != null) {
-            ctx.matches.add(new Match(MatchName.TITLE, h.value(), h.span(), Priority.DEFAULT, Set.of(FILE_PART_TITLE_TAG), false));
+            ctx.matches.add(new Match(MatchName.TITLE, h.value(), h.span(), Priority.DEFAULT, Set.of(MatchTag.FILE_PART_TITLE.getYamlValue()), false));
         }
     }
 }

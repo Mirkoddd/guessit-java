@@ -67,4 +67,22 @@ public record Match(
     public Match withTags(Set<String> newTags) {
         return new Match(this.name, this.value, this.span, this.priority, newTags, this.isPrivate);
     }
+
+    public boolean hasTag(MatchTag tag) {
+        if (tags == null || tags.isEmpty() || tag == null) return false;
+
+        String yamlValue = tag.getYamlValue();
+
+        if (tags.contains(yamlValue)) {
+            return true;
+        }
+
+        for (String t : tags) {
+            if (t.equalsIgnoreCase(yamlValue)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

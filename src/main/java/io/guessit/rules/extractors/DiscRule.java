@@ -3,6 +3,7 @@ package io.guessit.rules.extractors;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Span;
@@ -26,7 +27,6 @@ import java.util.regex.Pattern;
 public final class DiscRule implements Extractor {
 
     public static final String EXTRACTOR_NAME = "disc";
-    public static final String TAG_DISC_MARKER = "disc-marker";
 
     private static final String GRP_VAL = "val";
 
@@ -64,7 +64,7 @@ public final class DiscRule implements Extractor {
     @Override
     public void postProcess(ParseContext ctx) {
         var marked = ctx.matches.named(MatchName.EPISODE)
-                .filter(m -> m.tags().contains(TAG_DISC_MARKER))
+                .filter(m -> m.hasTag(MatchTag.DISC_MARKER))
                 .toList();
 
         if (marked.isEmpty()) return;
@@ -72,7 +72,7 @@ public final class DiscRule implements Extractor {
         var renamed = marked.stream()
                 .map(m -> {
                     var newTags = new HashSet<>(m.tags());
-                    newTags.remove(TAG_DISC_MARKER);
+                    newTags.remove(MatchTag.DISC_MARKER.getYamlValue());
                     return new Match(MatchName.DISC, m.value(), m.span(), m.priority(), newTags, m.isPrivate());
                 })
                 .toList();

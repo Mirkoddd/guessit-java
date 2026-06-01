@@ -35,11 +35,9 @@ import static io.guessit.core.pipeline.state.MatchName.EPISODE;
  */
 public final class TitleExtractor implements Extractor {
     static final Set<String> NON_SPECIFIC_LANGUAGES = Set.of("mul", "und");
-    public static final String TITLE = "title";
-    private static final String EXPECTED_TAG = "expected";
 
     @Override
-    public String name() { return TITLE; }
+    public String name() { return MatchName.TITLE.name().toLowerCase(); }
 
     @Override
     public String description() {
@@ -80,7 +78,10 @@ public final class TitleExtractor implements Extractor {
             var raw = input.substring(idx, idx + search.length());
             var formatted = Formatters.titleText(raw);
             var span = new Span(idx, idx + search.length(), raw);
-            var m = new Match(MatchName.TITLE, formatted, span, Priority.DEFAULT, Set.of(EXPECTED_TAG, TITLE), false);
+
+            var m = new Match(MatchName.TITLE, formatted, span, Priority.DEFAULT,
+                    Set.of(MatchTag.EXPECTED.getYamlValue(), MatchTag.TITLE.getYamlValue()), false);
+
             if (sepsSurround.test(m)) ctx.matches.add(m);
             idx += search.length();
         }
@@ -93,7 +94,10 @@ public final class TitleExtractor implements Extractor {
             var raw = input.substring(matcher.start(), matcher.end());
             var formatted = Formatters.titleText(raw);
             var span = new Span(matcher.start(), matcher.end(), raw);
-            var m = new Match(MatchName.TITLE, formatted, span, Priority.DEFAULT, Set.of(EXPECTED_TAG, TITLE), false);
+
+            var m = new Match(MatchName.TITLE, formatted, span, Priority.DEFAULT,
+                    Set.of(MatchTag.EXPECTED.getYamlValue(), MatchTag.TITLE.getYamlValue()), false);
+
             if (sepsSurround.test(m)) ctx.matches.add(m);
         }
     }
@@ -109,7 +113,8 @@ public final class TitleExtractor implements Extractor {
 
     @Override
     public void postProcess(ParseContext ctx) {
-        var hasExpected = ctx.matches.named(MatchName.TITLE).anyMatch(m -> m.tags().contains(EXPECTED_TAG));
+        var hasExpected = ctx.matches.named(MatchName.TITLE).anyMatch(m -> m.hasTag(MatchTag.EXPECTED));
+
         if (!hasExpected) {
             // Mirror python: Filepart3/2EpisodeTitle seed a title at the
             // outer/subdir hole BEFORE TitleFromPosition runs. Without this,
@@ -161,17 +166,19 @@ public final class TitleExtractor implements Extractor {
 
     /**
      * Filename has 2+ title-eligible holes around episode: title comes from
-     * the filename, not the outer dir (mirrors python rebulk behaviour).
+     * the filename, not the outer dir (mirrors python rebulk behavior).
      */
     private boolean appendMultiHoleTitles(TitlesInFilepart titles, List<Match> toAppend, List<Match> toRemove) {
         if (titles.titles.isEmpty()) return false;
         var first = titles.titles.getFirst();
+
         toAppend.add(new Match(MatchName.TITLE, first.value(), first.span(),
-                first.priority(), Set.of(TITLE, "filepart-title"), false));
+                first.priority(), Set.of(MatchTag.TITLE.getYamlValue(), MatchTag.FILE_PART_TITLE.getYamlValue()), false));
+
         for (int i = 1; i < titles.titles.size(); i++) {
             var t = titles.titles.get(i);
             toAppend.add(new Match(MatchName.EPISODE_TITLE, t.value(), t.span(),
-                    t.priority(), Set.of(TITLE), false));
+                    t.priority(), Set.of(MatchTag.TITLE.getYamlValue()), false));
         }
         toRemove.addAll(titles.toRemove);
         return true;
@@ -191,13 +198,14 @@ public final class TitleExtractor implements Extractor {
         var t = titles.titles.getFirst();
         var holeBeforeEpisode = ep != null && t.span().end() <= ep.span().start();
         toRemove.addAll(titles.toRemove);
+
         if (holeBeforeEpisode) {
             toAppend.add(new Match(MatchName.TITLE, t.value(), t.span(),
-                    t.priority(), Set.of(TITLE, "filepart-title"), false));
+                    t.priority(), Set.of(MatchTag.TITLE.getYamlValue(), MatchTag.FILE_PART_TITLE.getYamlValue()), false));
             return true;
         }
         toAppend.add(new Match(MatchName.EPISODE_TITLE, t.value(), t.span(),
-                t.priority(), Set.of(TITLE), false));
+                t.priority(), Set.of(MatchTag.TITLE.getYamlValue()), false));
         return false;
     }
 
@@ -247,17 +255,19 @@ public final class TitleExtractor implements Extractor {
         if (!withYearInGroup.isEmpty()) keepValues = withYearInGroup.stream().map(Match::value).collect(java.util.stream.Collectors.toSet());
         else if (!withYear.isEmpty()) keepValues = withYear.stream().map(Match::value).collect(java.util.stream.Collectors.toSet());
         else return;
+
         for (var t : titles) {
             if (!keepValues.contains(t.value())) {
                 ctx.matches.remove(t);
-            } else if (!t.tags().contains("equivalent-ignore")) {
+            } else if (!t.hasTag(MatchTag.EQUIVALENT_IGNORE)) {
                 // Mirror python PreferTitleWithYear AppendTags: surviving
                 // titles get "equivalent-ignore" so EquivalentHoles doesn't
                 // overwrite their better-cased outer-folder value with a
                 // titlecased filename hole (e.g. "Comme une Image" must not
                 // be replaced by "Comme Une Image" from inner "Comme.Une.Image").
                 var withTag = new HashSet<>(t.tags());
-                withTag.add("equivalent-ignore");
+
+                withTag.add(MatchTag.EQUIVALENT_IGNORE.getYamlValue());
                 ctx.matches.replace(t, new Match(t.name(), t.value(), t.span(),
                         t.priority(), withTag, t.isPrivate()));
             }
@@ -321,8 +331,9 @@ public final class TitleExtractor implements Extractor {
                                            java.util.function.Predicate<Match> additionalIgnore) {
         var ignore = (java.util.function.Predicate<Match>) m ->
                 isIgnored(m) || (additionalIgnore != null && additionalIgnore.test(m));
+
         return checkTitlesInFilepart(ctx, filepart, ignore, MatchName.TITLE,
-                List.of(TITLE),
+                List.of(MatchTag.TITLE.getYamlValue()),
                 MatchName.ALTERNATIVE_TITLE, false);
     }
 
@@ -487,8 +498,9 @@ public final class TitleExtractor implements Extractor {
         for (var i = 1; i < split.size(); i++) {
             var s = split.get(i);
             if (isRedundantSeasonWord(s.value(), ctx)) continue;
+
             titles.add(new Match(alternativeMatchName, s.value(), s.span(),
-                    Priority.DEFAULT, Set.of(TITLE), false));
+                    Priority.DEFAULT, Set.of(MatchTag.TITLE.getYamlValue()), false));
         }
         return titles;
     }

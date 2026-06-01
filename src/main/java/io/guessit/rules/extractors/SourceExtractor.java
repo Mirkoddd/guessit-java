@@ -23,14 +23,6 @@ public final class SourceExtractor implements Extractor {
     private static final String CONF_RIP_PREFIX = "rip_prefix";
     private static final String CONF_RIP_SUFFIX = "rip_suffix";
 
-    private static final String TAG_COEXIST = "coexist";
-    private static final String TAG_DERIVED_FROM_SOURCE = "derivedFrom:source";
-    private static final String TAG_EXTENSION = "extension";
-    private static final String TAG_SOURCE_PREFIX = "source-prefix";
-    private static final String TAG_SOURCE_SUFFIX = "source-suffix";
-    private static final String TAG_WEAK_SOURCE = "weak.source";
-    private static final String TAG_UHD_BLURAY_NEIGHBOR = "uhdbluray-neighbor";
-
     private static final String VAL_ULTRA_HD_BLURAY = "Ultra HD Blu-ray";
     private static final String VAL_ULTRA_HD = "Ultra HD";
     private static final String VAL_2160P = "2160p";
@@ -103,14 +95,16 @@ public final class SourceExtractor implements Extractor {
         int gs = groupStart(matcher, groupName);
         int ge = groupEnd(matcher, groupName);
         if (gs >= 0 && ge > gs) {
+            // FASE 3: Scrittura sicura
             ctx.matches.add(new Match(MatchName.OTHER, value, new Span(gs, ge, input.substring(gs, ge)),
-                    Priority.DEFAULT, Set.of(TAG_COEXIST, TAG_DERIVED_FROM_SOURCE), false));
+                    Priority.DEFAULT, Set.of(MatchTag.COEXIST.getYamlValue(), MatchTag.DERIVED_FROM_SOURCE.getYamlValue()), false));
         }
     }
 
     private static boolean overlapsExtension(ParseContext ctx, int s, int e) {
         return ctx.matches.named(MatchName.CONTAINER)
-                .anyMatch(m -> m.tags().contains(TAG_EXTENSION) && m.span().start() < e && s < m.span().end());
+                // FASE 2: Lettura sicura
+                .anyMatch(m -> m.hasTag(MatchTag.EXTENSION) && m.span().start() < e && s < m.span().end());
     }
 
     private static int groupStart(Matcher m, String name) {
@@ -135,8 +129,8 @@ public final class SourceExtractor implements Extractor {
         var sepsAfter = Validators.sepsAfter(ctx.input);
 
         ctx.matches.named(MatchName.SOURCE)
-                .filter(s -> (!sepsBefore.test(s) && noNeighborTag(ctx, s.span().start() - 1, TAG_SOURCE_PREFIX)) ||
-                        (!sepsAfter.test(s) && noNeighborTag(ctx, s.span().end(), TAG_SOURCE_SUFFIX)))
+                .filter(s -> (!sepsBefore.test(s) && noNeighborTag(ctx, s.span().start() - 1, MatchTag.SOURCE_PREFIX)) ||
+                        (!sepsAfter.test(s) && noNeighborTag(ctx, s.span().end(), MatchTag.SOURCE_SUFFIX)))
                 .toList()
                 .forEach(ctx.matches::remove);
     }
@@ -147,7 +141,7 @@ public final class SourceExtractor implements Extractor {
                 .toList();
 
         ctx.matches.named(MatchName.SOURCE)
-                .filter(m -> m.tags().contains(TAG_WEAK_SOURCE))
+                .filter(m -> m.hasTag(MatchTag.WEAK_SOURCE))
                 .filter(weak -> pathMarkers.stream().anyMatch(fp -> shouldRemoveWeakSource(ctx, fp, weak)))
                 .toList()
                 .forEach(ctx.matches::remove);
@@ -228,7 +222,7 @@ public final class SourceExtractor implements Extractor {
     private static boolean isAllowedMatch(Match m) {
         return m.name() == MatchName.SCREEN_SIZE
                 || m.name() == MatchName.COLOR_DEPTH
-                || (m.name() == MatchName.OTHER && m.tags().contains(TAG_UHD_BLURAY_NEIGHBOR));
+                || (m.name() == MatchName.OTHER && m.hasTag(MatchTag.UHD_BLURAY_NEIGHBOR));
     }
 
     private static boolean hasNonSeparatorHoles(ParseContext ctx, int s, int e) {
@@ -251,7 +245,7 @@ public final class SourceExtractor implements Extractor {
         return false;
     }
 
-    private static boolean noNeighborTag(ParseContext ctx, int pos, String tag) {
-        return ctx.matches.all().noneMatch(m -> m.tags().contains(tag) && m.span().start() <= pos && pos <= m.span().end());
+    private static boolean noNeighborTag(ParseContext ctx, int pos, MatchTag tag) {
+        return ctx.matches.all().noneMatch(m -> m.hasTag(tag) && m.span().start() <= pos && pos <= m.span().end());
     }
 }

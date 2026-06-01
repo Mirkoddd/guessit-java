@@ -3,6 +3,7 @@ package io.guessit.rules.extractors;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Seps;
 
@@ -15,7 +16,7 @@ import java.util.Set;
 
 /**
  * Extracts the {@code edition} property — release edition tags such as
- * "Collector", "Director's Cut", "Extended", "Remastered", etc.
+ * "Collector", "Director's cut", "Extended", "Remastered", etc.
  *
  * <p>Patterns are loaded from the {@code edition.edition} config section
  * (under {@code advanced_config} in {@code options.json}). The config shape
@@ -118,9 +119,9 @@ public final class EditionExtractor implements Extractor {
 
     @Override
     public void postProcess(ParseContext ctx) {
-        removeUnlessNeighbor(ctx, MatchName.EDITION, "has-neighbor", true, true);
-        removeUnlessNeighbor(ctx, MatchName.EDITION, "has-neighbor-before", true, false);
-        removeUnlessNeighbor(ctx, MatchName.EDITION, "has-neighbor-after", false, true);
+        removeUnlessNeighbor(ctx, MatchName.EDITION, MatchTag.HAS_NEIGHBOR, true, true);
+        removeUnlessNeighbor(ctx, MatchName.EDITION, MatchTag.HAS_NEIGHBOR_BEFORE, true, false);
+        removeUnlessNeighbor(ctx, MatchName.EDITION, MatchTag.HAS_NEIGHBOR_AFTER, false, true);
         dropOverlappingStreamingService(ctx);
         dedupSameSpan(ctx);
     }
@@ -144,7 +145,7 @@ public final class EditionExtractor implements Extractor {
     private static boolean streamingServiceWillSurvive(ParseContext ctx, String input, Match s) {
         return ctx.matches.all()
                 .filter(m -> !m.isPrivate())
-                .filter(m -> m.tags().contains("streaming_service.suffix"))
+                .filter(m -> m.hasTag(MatchTag.STREAMING_SERVICE_SUFFIX))
                 .filter(m -> m.span().start() >= s.span().end())
                 .min(Comparator.comparingInt(m -> m.span().start()))
                 .map(n -> Seps.betweenIsSeps(input, s.span().end(), n.span().start())

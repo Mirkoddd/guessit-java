@@ -1,10 +1,7 @@
 package io.guessit.rules.extractors;
 
 import io.guessit.core.pipeline.contracts.Extractor;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.ParseContext;
-import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Abbreviations;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Span;
@@ -26,7 +23,7 @@ import java.util.regex.PatternSyntaxException;
  * generate huge numbers of false positives if accepted alone. {@link #postProcess}
  * keeps a candidate only if a {@code source} match (BluRay, WEB-DL, …) abuts
  * it within one character — releasers spell these adjacent ({@code "AMZN.WEB-DL"}),
- * and the source neighbour is what disambiguates the service token from a
+ * and the source neighbor is what disambiguates the service token from a
  * coincidental short word.
  */
 public final class StreamingServiceExtractor implements Extractor {
@@ -112,7 +109,7 @@ public final class StreamingServiceExtractor implements Extractor {
             int e = i + n.length();
             if (boundsOk(ctx, input, i, e)) {
                 var span = new Span(i, e, input.substring(i, e));
-                ctx.matches.add(new Match(MatchName.STREAMING_SERVICE, value, span, Priority.DEFAULT, Set.of("source-prefix"), false));
+                ctx.matches.add(new Match(MatchName.STREAMING_SERVICE, value, span, Priority.DEFAULT, Set.of(MatchTag.SOURCE_PREFIX.getYamlValue()), false));
             }
             from = i + 1;
         }
@@ -131,7 +128,7 @@ public final class StreamingServiceExtractor implements Extractor {
             int e = matchResult.end();
             if (boundsOk(ctx, input, s, e)) {
                 var span = new Span(s, e, input.substring(s, e));
-                ctx.matches.add(new Match(MatchName.STREAMING_SERVICE, value, span, Priority.DEFAULT, Set.of("source-prefix"), false));
+                ctx.matches.add(new Match(MatchName.STREAMING_SERVICE, value, span, Priority.DEFAULT, Set.of(MatchTag.SOURCE_PREFIX.getYamlValue()), false));
             }
         });
     }
@@ -150,9 +147,9 @@ public final class StreamingServiceExtractor implements Extractor {
     }
 
     private static boolean abutsStreamingTagged(ParseContext ctx, int pos, boolean prefixSide) {
-        var tag = prefixSide ? "streaming_service.prefix" : "streaming_service.suffix";
+        var tag = prefixSide ? MatchTag.STREAMING_SERVICE_PREFIX : MatchTag.STREAMING_SERVICE_SUFFIX;
         return ctx.matches.named(MatchName.OTHER)
-                .filter(m -> m.tags().contains(tag))
+                .filter(m -> m.hasTag(tag))
                 .anyMatch(m -> prefixSide ? m.span().end() == pos : m.span().start() == pos);
     }
 
@@ -190,7 +187,7 @@ public final class StreamingServiceExtractor implements Extractor {
 
         boolean atPosHasSuffix = ctx.matches.all()
                 .filter(m -> m != s && m.span().start() == nextPos)
-                .anyMatch(m -> m.tags().contains("streaming_service.suffix"));
+                .anyMatch(m -> m.hasTag(MatchTag.STREAMING_SERVICE_SUFFIX));
 
         boolean cleanGap = nextPos <= sEnd || betweenIsSeps(input, sEnd, nextPos);
 
@@ -211,7 +208,7 @@ public final class StreamingServiceExtractor implements Extractor {
 
         boolean atPosHasPrefix = ctx.matches.all()
                 .filter(m -> m != s && m.span().end() == prevPos)
-                .anyMatch(m -> m.tags().contains("streaming_service.prefix"));
+                .anyMatch(m -> m.hasTag(MatchTag.STREAMING_SERVICE_PREFIX));
 
         boolean cleanGap = prevPos >= sStart || betweenIsSeps(input, prevPos, sStart);
 

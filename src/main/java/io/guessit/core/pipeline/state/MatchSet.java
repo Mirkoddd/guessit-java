@@ -116,8 +116,8 @@ public final class MatchSet {
         return Optional.ofNullable(found);
     }
 
-    public Stream<Match> tagged(String tag) {
-        return matches.stream().filter(m -> m.tags().contains(tag));
+    public Stream<Match> tagged(MatchTag tag) {
+        return matches.stream().filter(m -> m.hasTag(tag));
     }
 
     public List<Match> snapshot() { return List.copyOf(matches); }

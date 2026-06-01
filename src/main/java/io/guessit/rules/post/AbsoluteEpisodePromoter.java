@@ -18,8 +18,6 @@ public final class AbsoluteEpisodePromoter implements PostProcessor {
     private static final int MAX_NON_ENC_GAP = 10;
 
     private static final String NOENC_PREFIX = "noenc-";
-    private static final String TAG_RANGE_FILL = "range-fill";
-    private static final String TAG_SXX_EXX = "SxxExx";
 
     @Override
     public String description() {
@@ -83,7 +81,7 @@ public final class AbsoluteEpisodePromoter implements PostProcessor {
                     v,
                     new Span(b.span().start(), b.span().start(), ""),
                     a.priority(),
-                    Set.of(TAG_RANGE_FILL),
+                    Set.of(MatchTag.RANGE_FILL.getYamlValue()),
                     false
             ));
         }
@@ -118,7 +116,7 @@ public final class AbsoluteEpisodePromoter implements PostProcessor {
 
     private static boolean hasSxxExxEpisode(ParseContext ctx, Marker fp) {
         return ctx.matches.named(MatchName.EPISODE)
-                .anyMatch(m -> m.tags().contains(TAG_SXX_EXX) && fp.covers(m.span()));
+                .anyMatch(m -> m.hasTag(MatchTag.SXX_EXX) && fp.covers(m.span()));
     }
 
     private static List<Match> collectEpisodesInFilePart(ParseContext ctx, Marker fp) {
@@ -141,7 +139,7 @@ public final class AbsoluteEpisodePromoter implements PostProcessor {
 
             if (enc != null) {
                 currentKey = enc;
-            } else if (e.tags().contains(TAG_RANGE_FILL) && lastKey != null) {
+            } else if (e.hasTag(MatchTag.RANGE_FILL) && lastKey != null) {
                 currentKey = lastKey;
             } else {
                 currentKey = resolveNonEncKey(ctx, e, clusters, lastNonEncKey);

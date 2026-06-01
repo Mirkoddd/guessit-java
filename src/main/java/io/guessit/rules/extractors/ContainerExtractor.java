@@ -2,6 +2,7 @@ package io.guessit.rules.extractors;
 
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.PatternMatcher;
 import io.guessit.core.text.RegexOpts;
@@ -20,14 +21,6 @@ import java.util.regex.Pattern;
 public final class ContainerExtractor implements Extractor {
 
     public static final String CONTAINER = "container";
-
-    private static final String TAG_EXTENSION = "extension";
-    private static final String TAG_BODY = "body";
-    private static final String TAG_SUBTITLE = "subtitle";
-    private static final String TAG_INFO = "info";
-    private static final String TAG_VIDEO = "video";
-    private static final String TAG_TORRENT = "torrent";
-    private static final String TAG_NZB = "nzb";
 
     private static final String CFG_SUBTITLES = "subtitles";
     private static final String CFG_INFO = "info";
@@ -64,11 +57,11 @@ public final class ContainerExtractor implements Extractor {
 
         var input = ctx.input;
 
-        extractExtensions(ctx, input, subtitles, TAG_SUBTITLE);
-        extractExtensions(ctx, input, info, TAG_INFO);
-        extractExtensions(ctx, input, videos, TAG_VIDEO);
-        extractExtensions(ctx, input, torrent, TAG_TORRENT);
-        extractExtensions(ctx, input, nzb, TAG_NZB);
+        extractExtensions(ctx, input, subtitles, MatchTag.SUBTITLE);
+        extractExtensions(ctx, input, info, MatchTag.INFO);
+        extractExtensions(ctx, input, videos, MatchTag.VIDEO);
+        extractExtensions(ctx, input, torrent, MatchTag.TORRENT);
+        extractExtensions(ctx, input, nzb, MatchTag.NZB);
 
         var body = new HashSet<>(subtitles);
         body.remove(EXT_SUB);
@@ -80,10 +73,10 @@ public final class ContainerExtractor implements Extractor {
 
         var opts = StringOpts.defaults()
                 .withValidator(Validators.sepsSurround(input))
-                .withTags(Set.of(TAG_BODY));
+                .withTags(Set.of(MatchTag.BODY.getYamlValue()));
 
         var potentialConflicts = ctx.matches.snapshot().stream()
-                .filter(x -> (x.name() == MatchName.CONTAINER && x.tags().contains(TAG_EXTENSION)) ||
+                .filter(x -> (x.name() == MatchName.CONTAINER && x.hasTag(MatchTag.EXTENSION)) ||
                         x.name() == MatchName.VIDEO_CODEC ||
                         x.name() == MatchName.AUDIO_CODEC ||
                         x.name() == MatchName.SCREEN_SIZE)
@@ -99,7 +92,7 @@ public final class ContainerExtractor implements Extractor {
         }
     }
 
-    private void extractExtensions(ParseContext ctx, String input, List<String> extensions, String kindTag) {
+    private void extractExtensions(ParseContext ctx, String input, List<String> extensions, MatchTag kindTag) {
         if (extensions.isEmpty()) return;
 
         Pattern p = patternCache.computeIfAbsent(extensions, extList ->
@@ -107,7 +100,7 @@ public final class ContainerExtractor implements Extractor {
 
         var opts = RegexOpts.defaults()
                 .withValue(s -> s.startsWith(".") ? s.substring(1).toLowerCase(Locale.ROOT) : s.toLowerCase(Locale.ROOT))
-                .withTags(Set.of(TAG_EXTENSION, kindTag));
+                .withTags(Set.of(MatchTag.EXTENSION.getYamlValue(), kindTag.getYamlValue()));
 
         for (var m : PatternMatcher.regex(input, p, MatchName.CONTAINER, opts, ctx.trace)) {
             ctx.matches.add(m);

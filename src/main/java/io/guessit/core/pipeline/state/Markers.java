@@ -31,7 +31,7 @@ public final class Markers {
                 !m.isPrivate()
                         && m.name() != MatchName.PROPER_COUNT
                         && m.name() != MatchName.TITLE
-                        && !(m.name() == MatchName.CONTAINER && m.tags().contains("extension"))
+                        && !(m.name() == MatchName.CONTAINER && m.hasTag(MatchTag.EXTENSION))
                         && !(m.name() == MatchName.OTHER && "Rip".equals(m.value())));
     }
 

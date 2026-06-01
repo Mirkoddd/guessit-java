@@ -284,7 +284,9 @@ public final class LanguageExtractor implements Extractor {
                 .findFirst();
 
         foundLang.ifPresent(lang -> {
-            Set<String> tags = MatchName.SUBTITLE_LANGUAGE.equals(name) ? Set.of("attached-affix") : Set.of();
+            Set<String> tags = MatchName.SUBTITLE_LANGUAGE.equals(name)
+                    ? Set.of(MatchTag.ATTACHED_AFFIX.getYamlValue())
+                    : Set.of();
             var span = new Span(word.start(), word.end(), word.value());
             env.ctx().matches.add(new Match(name, lang, span, Priority.DEFAULT, tags, false));
         });
@@ -586,7 +588,7 @@ public final class LanguageExtractor implements Extractor {
 
     private void renameWithSubtitleExtension(ParseContext ctx) {
         ctx.matches.named(MatchName.CONTAINER)
-                .filter(m -> m.tags().contains("subtitle") && m.tags().contains("extension"))
+                .filter(m -> m.hasTag(MatchTag.SUBTITLE) && m.hasTag(MatchTag.EXTENSION))
                 .findFirst().flatMap(subtitleExt -> ctx.matches.named(MatchName.LANGUAGE)
                         .filter(l -> l.span().end() <= subtitleExt.span().start())
                         .max(Comparator.comparingInt(m -> m.span().end()))).ifPresent(lang -> renameToSubtitle(ctx, lang));

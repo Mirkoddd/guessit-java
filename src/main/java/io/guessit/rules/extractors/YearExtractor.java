@@ -4,6 +4,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Markers;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.PatternMatcher;
 import io.guessit.core.text.RegexOpts;
@@ -97,7 +98,7 @@ public final class YearExtractor implements Extractor {
 
     private static void dropWeakDuplicatesInsideRemoved(ParseContext ctx, List<Match> toRemove) {
         var weakDuplicates = ctx.matches.all()
-                .filter(m -> m.tags().contains(WeakExtractorCommon.WEAK_DUPLICATE))
+                .filter(m -> m.hasTag(MatchTag.WEAK_DUPLICATE))
                 .filter(m -> m.name() == MatchName.SEASON || m.name() == MatchName.EPISODE)
                 .filter(m -> toRemove.stream().anyMatch(dropped -> dropped.span().overlaps(m.span())));
 

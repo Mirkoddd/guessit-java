@@ -1,9 +1,10 @@
 package io.guessit.rules.post;
 
+import io.guessit.core.pipeline.contracts.PostProcessor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.pipeline.state.ParseContext;
-import io.guessit.core.pipeline.contracts.PostProcessor;
 import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Span;
 import io.guessit.core.text.patterns.EpisodeRangePatterns;
@@ -46,7 +47,6 @@ public final class EpisodeNumberSeparatorRange implements PostProcessor {
     private static final Pattern RANGE_THEN_NUM = EpisodeRangePatterns.buildRangePattern(GROUP_NUM);
 
     public static final MatchName EPISODE = MatchName.EPISODE;
-    private static final String RANGE_FILL = "range-fill";
 
     @Override
     public void process(ParseContext ctx) {
@@ -77,11 +77,11 @@ public final class EpisodeNumberSeparatorRange implements PostProcessor {
         if (alreadyFilled(ctx, a, rn.span().end())) return;
 
         // Add vb itself as an episode match.
-        fills.add(new Match(EPISODE, rn.value(), rn.span(), Priority.DEFAULT, Set.of(RANGE_FILL), false));
+        fills.add(new Match(EPISODE, rn.value(), rn.span(), Priority.DEFAULT, Set.of(MatchTag.RANGE_FILL.getYamlValue()), false));
 
         for (int v = va + 1; v < rn.value(); v++) {
             var emptySpan = new Span(rn.span().start(), rn.span().start(), "");
-            fills.add(new Match(EPISODE, v, emptySpan, Priority.DEFAULT, Set.of(RANGE_FILL), false));
+            fills.add(new Match(EPISODE, v, emptySpan, Priority.DEFAULT, Set.of(MatchTag.RANGE_FILL.getYamlValue()), false));
         }
     }
 
@@ -112,7 +112,7 @@ public final class EpisodeNumberSeparatorRange implements PostProcessor {
     /** True when an existing episode range-fill already covers the gap. */
     private static boolean alreadyFilled(ParseContext ctx, Match a, int numEnd) {
         return ctx.matches.named(EPISODE)
-                .anyMatch(m -> m.tags().contains(RANGE_FILL)
+                .anyMatch(m -> m.hasTag(MatchTag.RANGE_FILL)
                         && m.span().start() >= a.span().end() && m.span().end() <= numEnd);
     }
 }

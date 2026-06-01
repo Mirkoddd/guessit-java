@@ -3,6 +3,7 @@ package io.guessit.rules.post;
 import io.guessit.api.GuessResultBuilder;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.api.models.Country;
 import io.guessit.api.models.Language;
@@ -165,7 +166,7 @@ public final class OutputBuilder implements Consumer<ParseContext> {
     }
 
     private static Match maybePromoteSubtitleToLanguage(Match m, FilterState s) {
-        if (!s.subFilteredKeepLang || m.name() != MatchName.SUBTITLE_LANGUAGE || m.tags().contains("attached-affix")) {
+        if (!s.subFilteredKeepLang || m.name() != MatchName.SUBTITLE_LANGUAGE || m.hasTag(MatchTag.ATTACHED_AFFIX)) {
             return m;
         }
         return m.withName(MatchName.LANGUAGE);
@@ -184,8 +185,8 @@ public final class OutputBuilder implements Consumer<ParseContext> {
     }
 
     private static boolean isFilteredByCoexist(Match m, MatchName name, FilterState s) {
-        if (s.dropCoexistEpisode && name == MatchName.EPISODE && m.tags().contains("coexist")) return true;
-        return s.dropCoexistSeason && name == MatchName.SEASON && m.tags().contains("coexist");
+        if (s.dropCoexistEpisode && name == MatchName.EPISODE && m.hasTag(MatchTag.COEXIST)) return true;
+        return s.dropCoexistSeason && name == MatchName.SEASON && m.hasTag(MatchTag.COEXIST);
     }
 
     private static boolean isInDroppedGroup(Match m, FilterState s) {

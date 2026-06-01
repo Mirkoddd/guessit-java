@@ -1,10 +1,7 @@
 package io.guessit.rules.post;
 
 import io.guessit.core.pipeline.contracts.PostProcessor;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.ParseContext;
-import io.guessit.core.pipeline.state.Priority;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Span;
 import io.guessit.core.text.patterns.ProperCountPatterns;
 
@@ -67,7 +64,7 @@ public final class ProperCountRule implements PostProcessor {
         if (trailing > 0) {
             return trailing;
         }
-        return m.tags().contains("real") ? 2 : 1;
+        return m.hasTag(MatchTag.REAL) ? 2 : 1;
     }
 
     private static String rawCleanup(String raw) {

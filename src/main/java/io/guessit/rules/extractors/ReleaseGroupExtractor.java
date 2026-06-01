@@ -20,10 +20,6 @@ import java.util.regex.PatternSyntaxException;
 import static io.guessit.core.pipeline.state.MatchName.*;
 
 public final class ReleaseGroupExtractor implements Extractor {
-    private static final String EXPECTED_TAG = "expected";
-    private static final String EXTENSION_TAG = "extension";
-    private static final String SCENE_TAG = "scene";
-    private static final String NOT_A_RG_TAG = "not-a-release-group";
 
     public static final MatchName LANGUAGE = MatchName.LANGUAGE;
     public static final MatchName SUBTITLE_LANGUAGE = MatchName.SUBTITLE_LANGUAGE;
@@ -88,8 +84,9 @@ public final class ReleaseGroupExtractor implements Extractor {
         while ((idx = hay.indexOf(n, from)) >= 0) {
             int end = idx + name.length();
             var span = new Span(idx, end, input.substring(idx, end));
+            // FASE 3: Scrittura sicura con MatchTag
             var m = new Match(MatchName.RELEASE_GROUP, name, span,
-                    Priority.EXPECTED, Set.of(EXPECTED_TAG), false);
+                    Priority.EXPECTED, Set.of(MatchTag.EXPECTED.getYamlValue()), false);
 
             if (validator.test(m)) ctx.matches.add(m);
             from = idx + 1;
@@ -112,7 +109,8 @@ public final class ReleaseGroupExtractor implements Extractor {
                 .map(res -> {
                     var raw = input.substring(res.start(), res.end());
                     var span = new Span(res.start(), res.end(), raw);
-                    return new Match(MatchName.RELEASE_GROUP, raw, span, Priority.EXPECTED, Set.of(EXPECTED_TAG), false);
+                    // FASE 3: Scrittura sicura con MatchTag
+                    return new Match(MatchName.RELEASE_GROUP, raw, span, Priority.EXPECTED, Set.of(MatchTag.EXPECTED.getYamlValue()), false);
                 })
                 .filter(validator)
                 .forEach(ctx.matches::add);
@@ -176,13 +174,14 @@ public final class ReleaseGroupExtractor implements Extractor {
 
         removeOverlappingLanguages(env.ctx(), absStart, absDashEnd);
         var span = new Span(absStart, absDashEnd, rawCandidate);
-        env.ctx().matches.add(new Match(MatchName.RELEASE_GROUP, candidate, span, Priority.SCENE, Set.of(SCENE_TAG), false));
+        // FASE 3: Scrittura sicura con MatchTag
+        env.ctx().matches.add(new Match(MatchName.RELEASE_GROUP, candidate, span, Priority.SCENE, Set.of(MatchTag.SCENE.getYamlValue()), false));
         return true;
     }
 
     private int calculateEndBeforeTrim(FilePartEnv env) {
         return env.ctx().matches.named(MatchName.CONTAINER)
-                .filter(m -> env.filePart().covers(m.span()) && m.tags().contains(EXTENSION_TAG))
+                .filter(m -> env.filePart().covers(m.span()) && m.hasTag(MatchTag.EXTENSION))
                 .findFirst()
                 .map(m -> m.span().start())
                 .orElseGet(() -> trimKnownExtension(env.ctx(), env.filePart()));
@@ -220,7 +219,8 @@ public final class ReleaseGroupExtractor implements Extractor {
         dropHdInsideCandidate(ctx, s, e);
         removeOverlappingLanguages(ctx, s, e);
         var span = new Span(s, e, raw);
-        ctx.matches.add(new Match(MatchName.RELEASE_GROUP, candidate, span, Priority.SCENE, Set.of(SCENE_TAG), false));
+        // FASE 3: Scrittura sicura con MatchTag
+        ctx.matches.add(new Match(MatchName.RELEASE_GROUP, candidate, span, Priority.SCENE, Set.of(MatchTag.SCENE.getYamlValue()), false));
     }
 
     private boolean isValidLeadingDashPosition(String part, int firstDash) {
@@ -252,7 +252,7 @@ public final class ReleaseGroupExtractor implements Extractor {
         while (true) {
             int curBoundary = boundary;
             var prev = ctx.matches.all()
-                    .filter(m -> !m.isPrivate() && !m.tags().contains(EXPECTED_TAG))
+                    .filter(m -> !m.isPrivate() && !m.hasTag(MatchTag.EXPECTED))
                     .filter(m -> m.span().start() >= filePartStart && m.span().end() <= curBoundary)
                     .reduce((a, b) -> a.span().end() >= b.span().end() ? a : b)
                     .orElse(null);
@@ -324,7 +324,7 @@ public final class ReleaseGroupExtractor implements Extractor {
 
     private int calculateRangeEnd(FilePartEnv env) {
         var ext = env.ctx().matches.named(MatchName.CONTAINER)
-                .filter(m -> env.filePart().covers(m.span()) && m.tags().contains(EXTENSION_TAG))
+                .filter(m -> env.filePart().covers(m.span()) && m.hasTag(MatchTag.EXTENSION))
                 .findFirst().orElse(null);
         int rangeEnd = ext != null ? ext.span().start() : trimKnownExtension(env.ctx(), env.filePart());
         return trimNotAReleaseGroupTail(env, rangeEnd);
@@ -438,7 +438,8 @@ public final class ReleaseGroupExtractor implements Extractor {
         if (!validGroupName(rawPrev, false, true)) return null;
 
         env.ctx().matches.remove(prev);
-        return new Match(MatchName.RELEASE_GROUP, rawPrev, prev.span(), Priority.SCENE, Set.of(SCENE_TAG), false);
+        // FASE 3: Scrittura sicura con MatchTag
+        return new Match(MatchName.RELEASE_GROUP, rawPrev, prev.span(), Priority.SCENE, Set.of(MatchTag.SCENE.getYamlValue()), false);
     }
 
     private boolean canPromoteScenePrevToReleaseGroup(ParseContext ctx, String input, Marker filePart, Match prev, int rangeEnd) {
@@ -458,7 +459,8 @@ public final class ReleaseGroupExtractor implements Extractor {
         dropHdInsideCandidate(env.ctx(), span.start, span.end);
         removeOverlappingLanguages(env.ctx(), span.start, span.end);
         var outSpan = new Span(span.start, span.end, raw);
-        return new Match(MatchName.RELEASE_GROUP, candidate, outSpan, Priority.SCENE, Set.of(SCENE_TAG), false);
+        // FASE 3: Scrittura sicura con MatchTag
+        return new Match(MatchName.RELEASE_GROUP, candidate, outSpan, Priority.SCENE, Set.of(MatchTag.SCENE.getYamlValue()), false);
     }
 
     private boolean isValidSceneCandidate(ParseContext ctx, Marker filePart, Match prev, String candidate, CandidateSpan span) {
@@ -503,13 +505,14 @@ public final class ReleaseGroupExtractor implements Extractor {
         }
 
         var span = new Span(fInnerS, fInnerE, innerStr);
+        // FASE 3: Scrittura sicura con MatchTag
         return Optional.of(new Match(MatchName.RELEASE_GROUP, trimmed, span,
-                Priority.SCENE, Set.of("anime"), false));
+                Priority.SCENE, Set.of(MatchTag.ANIME.getYamlValue()), false));
     }
 
     private static boolean candidateIsLikelyTitle(ParseContext ctx, Marker filePart, Match prev, int candidateEnd) {
         var notRgAfter = ctx.matches.named(MatchName.OTHER)
-                .filter(m -> m.tags().contains(NOT_A_RG_TAG))
+                .filter(m -> m.hasTag(MatchTag.NOT_A_RELEASE_GROUP))
                 .filter(m -> m.span().start() >= candidateEnd && m.span().end() <= filePart.span().end())
                 .findFirst().orElse(null);
         return notRgAfter != null && noLeadingTitleHole(ctx, filePart, prev.span().start());
@@ -517,7 +520,7 @@ public final class ReleaseGroupExtractor implements Extractor {
 
     private static boolean filePartIsTitleOnly(ParseContext ctx, Marker filePart, int rightBoundary) {
         var notRgAfter = ctx.matches.named(MatchName.OTHER)
-                .filter(m -> m.tags().contains(NOT_A_RG_TAG))
+                .filter(m -> m.hasTag(MatchTag.NOT_A_RELEASE_GROUP))
                 .filter(m -> m.span().start() >= rightBoundary && m.span().end() <= filePart.span().end())
                 .findFirst().orElse(null);
         return notRgAfter != null && noLeadingTitleHole(ctx, filePart, rightBoundary);
@@ -576,7 +579,7 @@ public final class ReleaseGroupExtractor implements Extractor {
         return m -> !m.isPrivate()
                 && m.name() != MatchName.PROPER_COUNT
                 && m.name() != MatchName.TITLE
-                && !(m.name() == MatchName.CONTAINER && m.tags().contains(EXTENSION_TAG))
+                && !(m.name() == MatchName.CONTAINER && m.hasTag(MatchTag.EXTENSION))
                 && !(m.name() == MatchName.OTHER && "Rip".equals(m.value()));
     }
 
@@ -659,7 +662,7 @@ public final class ReleaseGroupExtractor implements Extractor {
 
     private static int trimNotReleaseGroupMatch(ParseContext ctx, Marker filePart, int rangeEnd) {
         return ctx.matches.named(MatchName.OTHER)
-                .filter(m -> m.tags().contains(NOT_A_RG_TAG))
+                .filter(m -> m.hasTag(MatchTag.NOT_A_RELEASE_GROUP))
                 .filter(m -> filePart.covers(m.span()))
                 .filter(m -> m.span().end() == rangeEnd)
                 .findFirst().map(m -> m.span().start()).orElse(rangeEnd);

@@ -11,7 +11,7 @@ import io.guessit.core.text.patterns.EpisodeFormatPatterns;
 import java.util.regex.Pattern;
 
 /**
- * Extracts {@code episode_format}. Currently only "Minisode(s)" is recognised
+ * Extracts {@code episode_format}. Currently only "Minisode(s)" is recognized
  * — guessit's catalogue here is small and stable; new formats can be added
  * by widening the pattern alternation.
  */

@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
  * ({@code guess_idnumber}).
  *
  * <p>Priority is 500 (lower than season/episode at 1000) so ConflictPhase will
- * favour season/episode over crc32 when they overlap. uuid uses the default
+ * favor season/episode over crc32 when they overlap. uuid uses the default
  * priority but its conflict_solver in python keeps the uuid; here we lower it
  * just enough to lose to strong matches but win against bare digit weak ones.
  */

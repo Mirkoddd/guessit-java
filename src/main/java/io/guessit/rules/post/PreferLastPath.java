@@ -3,6 +3,7 @@ package io.guessit.rules.post;
 import io.guessit.core.pipeline.state.Marker;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.pipeline.contracts.PostProcessor;
 
@@ -50,7 +51,7 @@ public final class PreferLastPath implements PostProcessor {
                 .filter(m -> !inLastValues.get(m.name()).contains(m.value()))
                 .filter(m -> shouldDropTitleFamilyDup(m, inLastValues))
                 // Preserve titles that survived preferTitleWithYear.
-                .filter(m -> !(m.name() == MatchName.TITLE && m.tags().contains("equivalent-ignore")))
+                .filter(m -> !(m.name() == MatchName.TITLE && m.hasTag(MatchTag.EQUIVALENT_IGNORE)))
                 .filter(m -> shouldDropSeasonEpisodeOuter(m, ctx, last))
                 .toList();
         for (var m : toDrop) ctx.matches.remove(m);
@@ -81,10 +82,10 @@ public final class PreferLastPath implements PostProcessor {
      * non-SxxExx matches for that name (palindrome-tail safety). */
     private static boolean shouldDropSeasonEpisodeOuter(Match m, ParseContext ctx, Marker last) {
         if (m.name() != MatchName.SEASON && m.name() != MatchName.EPISODE) return true;
-        if (!m.tags().contains("SxxExx")) return true;
+        if (!m.hasTag(MatchTag.SXX_EXX)) return true;
         return ctx.matches.inMarker(last)
                 .filter(s -> !s.isPrivate())
                 .filter(s -> m.name().equals(s.name()))
-                .anyMatch(s -> s.tags().contains("SxxExx"));
+                .anyMatch(s -> s.hasTag(MatchTag.SXX_EXX));
     }
 }

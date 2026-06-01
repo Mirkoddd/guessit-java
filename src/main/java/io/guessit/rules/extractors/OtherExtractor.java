@@ -4,6 +4,7 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Marker;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Validators;
@@ -37,7 +38,7 @@ import java.util.stream.Collectors;
  * {@link #emitSpec} flattens this shape into match emission calls. Tags drive
  * the post-process validators ({@code has-neighbor}, {@code at-end},
  * {@code other.validate.screener}, …) so most of the rules in this file are
- * tag-conditional clean-up passes.
+ * tag-conditional cleanup passes.
  *
  * <p>{@link #emitCompleteWords} is a special case: matching the bare word
  * "Complete" produces too much noise, so it is only emitted when adjacent to
@@ -223,9 +224,9 @@ public final class OtherExtractor implements Extractor {
 
     @Override
     public void postProcess(ParseContext ctx) {
-        removeUnlessNeighbor(ctx, MatchName.OTHER, "has-neighbor", true, true);
-        removeUnlessNeighbor(ctx, MatchName.OTHER, "has-neighbor-before", true, false);
-        removeUnlessNeighbor(ctx, MatchName.OTHER, "has-neighbor-after", false, true);
+        removeUnlessNeighbor(ctx, MatchName.OTHER, MatchTag.HAS_NEIGHBOR, true, true);
+        removeUnlessNeighbor(ctx, MatchName.OTHER, MatchTag.HAS_NEIGHBOR_BEFORE, true, false);
+        removeUnlessNeighbor(ctx, MatchName.OTHER, MatchTag.HAS_NEIGHBOR_AFTER, false, true);
         validateScreener(ctx);
         validateMux(ctx);
         validateStreamingServiceNeighbor(ctx);
@@ -260,8 +261,8 @@ public final class OtherExtractor implements Extractor {
     }
 
     private static boolean shouldRemoveStreamingServiceMatch(String input, Match m, List<Match> ssMatches) {
-        boolean hasPrefix = m.tags().contains("streaming_service.prefix");
-        boolean hasSuffix = m.tags().contains("streaming_service.suffix");
+        boolean hasPrefix = m.hasTag(MatchTag.STREAMING_SERVICE_PREFIX);
+        boolean hasSuffix = m.hasTag(MatchTag.STREAMING_SERVICE_SUFFIX);
 
         if (!hasPrefix && !hasSuffix) return false;
 
@@ -302,7 +303,7 @@ public final class OtherExtractor implements Extractor {
         var sources = ctx.matches.named(MatchName.SOURCE).toList();
 
         ctx.matches.named(MatchName.OTHER)
-                .filter(m -> m.tags().contains("other.validate.screener"))
+                .filter(m -> m.hasTag(MatchTag.OTHER_VALIDATE_SCREENER))
                 .filter(sc -> sources.stream()
                         .filter(s -> s.span().end() <= sc.span().start())
                         .max(Comparator.comparingInt(s -> s.span().end()))
@@ -316,7 +317,7 @@ public final class OtherExtractor implements Extractor {
         var sources = ctx.matches.named(MatchName.SOURCE).toList();
 
         ctx.matches.named(MatchName.OTHER)
-                .filter(m -> m.tags().contains("other.validate.mux"))
+                .filter(m -> m.hasTag(MatchTag.OTHER_VALIDATE_MUX))
                 .filter(mx -> sources.stream().noneMatch(s -> s.span().end() <= mx.span().start()))
                 .toList()
                 .forEach(ctx.matches::remove);
@@ -328,7 +329,7 @@ public final class OtherExtractor implements Extractor {
                 .toList();
 
         ctx.matches.named(MatchName.OTHER)
-                .filter(m -> m.tags().contains("at-end"))
+                .filter(m -> m.hasTag(MatchTag.AT_END))
                 .filter(m -> pathMarkers.stream()
                         .filter(fp -> fp.covers(m.span()))
                         .anyMatch(fp -> shouldRemoveAtEnd(ctx, ctx.input, fp, m)))

@@ -176,12 +176,14 @@ final class ConfigPatternHelpers {
      * Remove every {@code propName} match tagged with {@code tag} that lacks
      * the requested adjacency.
      */
-    static void removeUnlessNeighbor(ParseContext ctx, MatchName propName, String tag,
+    static void removeUnlessNeighbor(ParseContext ctx, MatchName propName, MatchTag tag,
                                      boolean checkBefore, boolean checkAfter) {
         var input = ctx.input;
         var toRemove = new ArrayList<Match>();
         var all = ctx.matches.all().filter(m -> !m.isPrivate()).toList();
-        var matches = ctx.matches.named(propName).filter(m -> m.tags().contains(tag)).toList();
+
+        var matches = ctx.matches.named(propName).filter(m -> m.hasTag(tag)).toList();
+
         for (var m : matches) {
             boolean ok = false;
             if (checkBefore) ok = hasAdjacentBefore(input, m, all, ctx.markers);

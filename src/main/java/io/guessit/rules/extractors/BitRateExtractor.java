@@ -1,9 +1,7 @@
 package io.guessit.rules.extractors;
 
 import io.guessit.core.pipeline.contracts.Extractor;
-import io.guessit.core.pipeline.state.Match;
-import io.guessit.core.pipeline.state.MatchName;
-import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
 import io.guessit.api.models.BitRate;
@@ -25,8 +23,6 @@ import java.util.regex.Pattern;
 public final class BitRateExtractor implements Extractor {
 
     private static final String GRP_RAW = "raw";
-    private static final String TAG_WEAK_AUDIO_CHANNELS = "weak-audio_channels";
-    private static final String TAG_RELEASE_GROUP_PREFIX = "release-group-prefix";
 
     private static final List<Pattern> PATTERNS = BitRatePatterns.buildPatterns(GRP_RAW);
 
@@ -46,7 +42,7 @@ public final class BitRateExtractor implements Extractor {
         var seps = Validators.sepsSurround(input);
 
         var channels = ctx.matches.named(MatchName.AUDIO_CHANNELS)
-                .filter(m -> !m.tags().contains(TAG_WEAK_AUDIO_CHANNELS))
+                .filter(m -> !m.hasTag(MatchTag.WEAK_AUDIO_CHANNELS))
                 .toList();
 
         for (var pattern : PATTERNS) {
@@ -66,7 +62,7 @@ public final class BitRateExtractor implements Extractor {
         if (overlapsAny(span.start(), span.end(), channels)) return;
 
         ctx.matches.add(new Match(MatchName.AUDIO_BIT_RATE, BitRate.fromString(span.raw()), span,
-                priority(), Set.of(TAG_RELEASE_GROUP_PREFIX), false));
+                priority(), Set.of(MatchTag.RELEASE_GROUP_PREFIX.getYamlValue()), false));
     }
 
     private static boolean overlapsAny(int start, int end, List<Match> spans) {
