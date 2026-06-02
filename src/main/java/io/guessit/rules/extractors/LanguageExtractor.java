@@ -465,7 +465,7 @@ public final class LanguageExtractor implements Extractor {
         if (enclosing == null) return;
 
         var sortedAfter = languages.stream()
-                .filter(l -> l.span().isInside(enclosing.span()) && l.span().start() > firstLanguage.span().start())
+                .filter(l -> l.span().isInside(enclosing.span()) && l.span().isAfter(firstLanguage.span()))
                 .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
 

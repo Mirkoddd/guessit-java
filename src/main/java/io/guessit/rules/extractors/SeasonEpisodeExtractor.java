@@ -22,19 +22,6 @@ import static io.guessit.core.pipeline.state.MatchName.*;
  * Extracts {@code season} and {@code episode} from compound forms:
  * {@code S01E02}, {@code 1x02}, {@code S01E02E03}, {@code S01-S03},
  * {@code Cap0102}, and the various separator/range expansions.
- *
- * <p>Implementation hinges on {@link Chain}: a head pattern matches the
- * first season+episode combo, then a star-repeated tail consumes any
- * adjacent additional episodes / seasons. Each emitted episode match is
- * tagged {@code "SxxExx"} so downstream rules
- * ({@link WeakEpisodeExtractor#postProcess},
- * {@link io.guessit.rules.post.AbsoluteEpisodePromoter}) can recognize the
- * canonical form and route leading/trailing numerics accordingly.
- *
- * <p>Range expansion ({@code S01E02-E04} → episodes [2, 3, 4]) and
- * separator-class classification ({@link #STRONG_SEPS} for additive,
- * {@link #RANGE_SEPS} for ranged) are kept in helper sets so the matching
- * code stays declarative.
  */
 public final class SeasonEpisodeExtractor implements Extractor {
 
@@ -522,10 +509,10 @@ public final class SeasonEpisodeExtractor implements Extractor {
 
         if (cur.span().overlaps(other.span()) || cur.span().distanceTo(other.span()) > 5) return false;
 
-        Span first = cur.span().isBefore(other.span()) ? cur.span() : other.span();
-        Span second = cur.span().isBefore(other.span()) ? other.span() : cur.span();
+        Match first = cur.span().isBefore(other.span()) ? cur : other;
+        Match second = first == cur ? other : cur;
 
-        String gap = input.substring(first.end(), second.start());
+        String gap = input.substring(first.span().end(), second.span().start());
         return isValidGap(gap);
     }
 

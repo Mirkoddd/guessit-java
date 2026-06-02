@@ -529,26 +529,9 @@ public final class ReleaseGroupExtractor implements Extractor {
         int hs = filePart.span().start();
         if (rightBoundary <= hs) return true;
 
-        var searchRange = new Span(hs, rightBoundary, "");
-        var prevMatches = ctx.matches.all()
-                .filter(m -> m.span().isInside(searchRange))
-                .sorted(Comparator.comparingInt(m -> m.span().start()))
-                .toList();
+        var holes = Holes.compute(ctx.input, hs, rightBoundary, ctx.matches.snapshot(), null, null, null);
 
-        int cursor = hs;
-        for (var m : prevMatches) {
-            if (m.span().start() > cursor) {
-                var gap = ctx.input.substring(cursor, m.span().start());
-                if (gap.chars().anyMatch(c -> !isGroupSep((char) c))) return false;
-            }
-            if (m.span().end() > cursor) cursor = m.span().end();
-        }
-
-        if (cursor < rightBoundary) {
-            var gap = ctx.input.substring(cursor, rightBoundary);
-            return gap.chars().noneMatch(Character::isLetter);
-        }
-        return true;
+        return holes.stream().noneMatch(h -> h.raw().chars().anyMatch(c -> !isGroupSep((char) c)));
     }
 
     private static boolean overlapsNonLanguage(ParseContext ctx, int s, int e) {

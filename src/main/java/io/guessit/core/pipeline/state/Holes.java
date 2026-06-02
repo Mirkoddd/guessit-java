@@ -16,7 +16,7 @@ public final class Holes {
         public String raw() { return span.raw(); }
         public String value() { return formatter == null ? raw() : formatter.apply(raw()); }
 
-        public boolean isEmpty() { var v = value(); return v != null && !v.isEmpty(); }
+        public boolean isNotEmpty() { var v = value(); return v != null && !v.isEmpty(); }
 
         public int start() { return span.start(); }
         public int end() { return span.end(); }
@@ -49,20 +49,20 @@ public final class Holes {
             if (h.span().contains(m.span())) {
                 var left = h.withBounds(h.span().start(), m.span().start());
                 var right = h.withBounds(m.span().end(), h.span().end());
-                if (!left.raw().isEmpty()) newRet.add(left);
-                if (!right.raw().isEmpty()) newRet.add(right);
+                if (left.isNotEmpty()) newRet.add(left);
+                if (right.isNotEmpty()) newRet.add(right);
                 return;
             }
 
             if (m.span().end() >= h.span().end() && m.span().start() < h.span().end()) {
                 var cropped = h.withBounds(h.span().start(), m.span().start());
-                if (!cropped.raw().isEmpty()) newRet.add(cropped);
+                if (cropped.isNotEmpty()) newRet.add(cropped);
                 return;
             }
 
             if (m.span().start() <= h.span().start() && m.span().end() > h.span().start()) {
                 var cropped = h.withBounds(m.span().end(), h.span().end());
-                if (!cropped.raw().isEmpty()) newRet.add(cropped);
+                if (cropped.isNotEmpty()) newRet.add(cropped);
                 return;
             }
 
@@ -70,6 +70,8 @@ public final class Holes {
         }
 
         public List<Hole> split(String seps) {
+            if (seps == null || seps.isEmpty()) return List.of(this);
+
             var ret = new ArrayList<Hole>();
             var rawStr = raw();
             int i = 0;
@@ -79,7 +81,7 @@ public final class Holes {
                 while (i < rawStr.length() && seps.indexOf(rawStr.charAt(i)) < 0) i++;
                 if (s < i) {
                     var sub = withBounds(span.start() + s, span.start() + i);
-                    if (sub.isEmpty()) ret.add(sub);
+                    if (sub.isNotEmpty()) ret.add(sub);
                 }
             }
             return ret;
@@ -91,30 +93,33 @@ public final class Holes {
                                      Predicate<Match> ignore,
                                      String seps,
                                      UnaryOperator<String> formatter) {
+
         var active = collectActiveMatches(allMatches, ignore, start, end);
         var ret = new ArrayList<Hole>();
 
-        int currentStart = -1;
+        int cursor = start;
 
-        for (var pos = start; pos < end; pos++) {
-            boolean inM = inMatch(active, pos);
-
-            if (currentStart != -1 && seps != null && pos < input.length() && seps.indexOf(input.charAt(pos)) >= 0) {
-                ret.add(new Hole(new Span(currentStart, pos, input.substring(currentStart, pos)), formatter));
-                currentStart = -1;
-            } else if (!inM && currentStart == -1) {
-                currentStart = pos;
-            } else if (inM && currentStart != -1) {
-                ret.add(new Hole(new Span(currentStart, pos, input.substring(currentStart, pos)), formatter));
-                currentStart = -1;
+        for (var m : active) {
+            int mStart = Math.max(cursor, m.span().start());
+            if (mStart > cursor) {
+                ret.add(new Hole(new Span(cursor, mStart, input.substring(cursor, mStart)), formatter));
             }
+            cursor = Math.max(cursor, m.span().end());
         }
 
-        if (currentStart != -1) {
-            ret.add(new Hole(new Span(currentStart, end, input.substring(currentStart, end)), formatter));
+        if (cursor < end) {
+            ret.add(new Hole(new Span(cursor, end, input.substring(cursor, end)), formatter));
         }
 
-        ret.removeIf(h -> { var v = h.value(); return v == null || v.isEmpty(); });
+        if (seps != null && !seps.isEmpty()) {
+            var splitRet = new ArrayList<Hole>();
+            for (var h : ret) {
+                splitRet.addAll(h.split(seps));
+            }
+            ret = splitRet;
+        }
+
+        ret.removeIf(h -> !h.isNotEmpty());
         return ret;
     }
 
@@ -131,12 +136,5 @@ public final class Holes {
             active.add(m);
         }
         return active;
-    }
-
-    private static boolean inMatch(List<Match> active, int pos) {
-        for (var m : active) {
-            if (m.span().start() <= pos && pos < m.span().end()) return true;
-        }
-        return false;
     }
 }

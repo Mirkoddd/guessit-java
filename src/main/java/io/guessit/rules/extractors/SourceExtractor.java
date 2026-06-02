@@ -126,8 +126,11 @@ public final class SourceExtractor implements Extractor {
         var sepsAfter = Validators.sepsAfter(ctx.input);
 
         ctx.matches.named(MatchName.SOURCE)
-                .filter(s -> (!sepsBefore.test(s) && noNeighborTag(ctx, s.span().start() - 1, MatchTag.SOURCE_PREFIX)) ||
-                        (!sepsAfter.test(s) && noNeighborTag(ctx, s.span().end(), MatchTag.SOURCE_SUFFIX)))
+                .filter(s -> {
+                    boolean missingPrefix = !sepsBefore.test(s) && ctx.matches.all().noneMatch(m -> m.hasTag(MatchTag.SOURCE_PREFIX) && m.span().abutsBefore(s.span()));
+                    boolean missingSuffix = !sepsAfter.test(s) && ctx.matches.all().noneMatch(m -> m.hasTag(MatchTag.SOURCE_SUFFIX) && m.span().abutsAfter(s.span()));
+                    return missingPrefix || missingSuffix;
+                })
                 .toList()
                 .forEach(ctx.matches::remove);
     }
@@ -224,26 +227,16 @@ public final class SourceExtractor implements Extractor {
     private static boolean hasNonSeparatorHoles(ParseContext ctx, Span gap) {
         if (gap.length() <= 0) return false;
 
-        int s = gap.start();
-        int e = gap.end();
-        boolean[] covered = new boolean[gap.length()];
+        var holes = Holes.compute(
+                ctx.input,
+                gap.start(),
+                gap.end(),
+                ctx.matches.snapshot(),
+                Match::isPrivate,
+                null,
+                null
+        );
 
-        ctx.matches.all()
-                .filter(m -> !m.isPrivate() && m.span().overlaps(gap))
-                .forEach(m -> {
-                    int from = Math.max(m.span().start(), s) - s;
-                    int to = Math.min(m.span().end(), e) - s;
-                    for (int i = from; i < to; i++) covered[i] = true;
-                });
-
-        for (int i = 0; i < covered.length; i++) {
-            if (!covered[i] && !Seps.isSep(ctx.input.charAt(s + i))) return true;
-        }
-
-        return false;
-    }
-
-    private static boolean noNeighborTag(ParseContext ctx, int pos, MatchTag tag) {
-        return ctx.matches.all().noneMatch(m -> m.hasTag(tag) && m.span().start() <= pos && pos <= m.span().end());
+        return holes.stream().anyMatch(h -> !h.raw().chars().allMatch(c -> Seps.isSep((char) c)));
     }
 }

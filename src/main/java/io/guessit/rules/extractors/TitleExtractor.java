@@ -19,19 +19,6 @@ import static io.guessit.core.pipeline.state.MatchName.EPISODE;
 /**
  * Port of Python {@code rules/properties/title.py}: emits {@code title} and
  * {@code alternative_title} matches.
- *
- * <p>Three sub-rules:
- * <ul>
- * <li><b>expected_title functional</b> in {@link #extract} — emits a {@code title}
- * match for each {@code Options#expectedTitle} substring found in the input.</li>
- * <li><b>TitleFromPosition</b> in {@link #postProcess} — for the highest-scoring path
- * marker, takes the cleaned hole as a {@code title} match. Splits the hole on
- * {@link Seps#TITLE_CHARS} to produce {@code alternative_title} matches. Routes
- * inner-filepart titles to {@code episode_title} when an outer "Show/Season N"
- * filepart shape is detected.</li>
- * <li><b>PreferTitleWithYear</b> in {@link #postProcess} — prefers titles in the
- * filepart containing a year; drops the others.</li>
- * </ul>
  */
 public final class TitleExtractor implements Extractor {
     static final Set<String> NON_SPECIFIC_LANGUAGES = Set.of("mul", "und");
@@ -48,15 +35,11 @@ public final class TitleExtractor implements Extractor {
     public void extract(ParseContext ctx) {
         var expected = ctx.options.expectedTitle();
         if (expected.isEmpty()) {
-            // Fall back to expected_title list from options.json so defaults
-            // like "This is Us" / "OSS 117" are applied automatically.
             expected = ctx.config.topLevelList("expected_title");
         }
         if (expected.isEmpty()) return;
         var input = ctx.input;
-        // Mirror python rules/common/expected.py: normalize seps in both input
-        // and search to a single space before substring scanning. Spans stay
-        // valid because replacement is 1:1 by char.
+
         var normalizedInput = normalizeSeps(input);
         var sepsSurround = Validators.sepsSurround(input);
         for (var entry : ExpectedTitleRegex.parse(expected)) {
@@ -116,13 +99,6 @@ public final class TitleExtractor implements Extractor {
         var hasExpected = ctx.matches.named(MatchName.TITLE).anyMatch(m -> m.hasTag(MatchTag.EXPECTED));
 
         if (!hasExpected) {
-            // Mirror python: Filepart3/2EpisodeTitle seed a title at the
-            // outer/subdir hole BEFORE TitleFromPosition runs. Without this,
-            // titleFromPosition would pick the directory's first hole as
-            // title and leave the filename without one — preventing
-            // EpisodeTitleExtractor.episodeTitleFromPosition from finding
-            // the post-episode hole as episode_title (e.g. "Psy Vs Psy" in
-            // "Psych.S02E03.Psy.Vs.Psy.Français.srt").
             EpisodeTitleExtractor.filePart3EpisodeTitleStatic(ctx);
             EpisodeTitleExtractor.filePart2EpisodeTitleStatic(ctx);
             titleFromPosition(ctx);
@@ -152,7 +128,6 @@ public final class TitleExtractor implements Extractor {
         for (var t : toAppend) ctx.matches.add(t);
     }
 
-    /** Returns true when the filename filepart provided the show title. */
     private boolean processSerieNameFilepart(ParseContext ctx, Marker serieNameFilepart,
                                              List<Match> toAppend, List<Match> toRemove) {
         int holeCount = countUsableHoles(ctx, serieNameFilepart, this::serieNameIgnored);
@@ -164,10 +139,6 @@ public final class TitleExtractor implements Extractor {
         return appendSingleHoleTitle(ctx, serieNameFilepart, titles, toAppend, toRemove);
     }
 
-    /**
-     * Filename has 2+ title-eligible holes around episode: title comes from
-     * the filename, not the outer dir (mirrors python rebulk behavior).
-     */
     private boolean appendMultiHoleTitles(TitlesInFilepart titles, List<Match> toAppend, List<Match> toRemove) {
         if (titles.titles.isEmpty()) return false;
         var first = titles.titles.getFirst();
@@ -184,12 +155,6 @@ public final class TitleExtractor implements Extractor {
         return true;
     }
 
-    /**
-     * Mirror python: a filename hole BEFORE the episode marker is the show
-     * title (e.g. "Show-E01.mkv"); a hole AFTER is the episode title (e.g.
-     * "E01-episode title.mkv"). Without this split, both shapes emit
-     * episode_title, leaving the show title from an outer generic dir.
-     */
     private boolean appendSingleHoleTitle(ParseContext ctx, Marker serieNameFilepart,
                                           TitlesInFilepart titles,
                                           List<Match> toAppend, List<Match> toRemove) {
@@ -261,11 +226,6 @@ public final class TitleExtractor implements Extractor {
             if (!keepValues.contains(t.value())) {
                 ctx.matches.remove(t);
             } else if (!t.hasTag(MatchTag.EQUIVALENT_IGNORE)) {
-                // Mirror python PreferTitleWithYear AppendTags: surviving
-                // titles get "equivalent-ignore" so EquivalentHoles doesn't
-                // overwrite their better-cased outer-folder value with a
-                // titlecased filename hole (e.g. "Comme une Image" must not
-                // be replaced by "Comme Une Image" from inner "Comme.Une.Image").
                 var withTag = new HashSet<>(t.tags());
 
                 withTag.add(MatchTag.EQUIVALENT_IGNORE.getYamlValue());
@@ -283,8 +243,9 @@ public final class TitleExtractor implements Extractor {
                 ctx.matches.snapshot(), ignore, null, Formatters::titleText);
         holes = holesProcess(ctx, holes);
         int n = 0;
+
         for (var h : holes) {
-            if (h != null && h.isEmpty() && !h.value().isEmpty()) n++;
+            if (h != null && h.isNotEmpty()) n++;
         }
         return n;
     }
@@ -304,8 +265,6 @@ public final class TitleExtractor implements Extractor {
                     && spansFilepartIgnoringSeps(inFp.getFirst(), fp, ctx.input)) {
                 return fileparts.get(index + 1);
             }
-            // The season head match is now private; check ALL matches (including private)
-            // for a full-span season head.
             var allInFp = ctx.matches.inMarker(fp).toList();
             var seasonHeads = allInFp.stream().filter(m -> m.name() == MatchName.SEASON && m.value() == null
                     && spansFilepartIgnoringSeps(m, fp, ctx.input)).toList();
@@ -316,8 +275,6 @@ public final class TitleExtractor implements Extractor {
         return null;
     }
 
-    /** True when {@code m} occupies {@code fp} except for separator padding —
-     * mirrors python's parent.span match-or-equals tolerance. */
     private static boolean spansFilepartIgnoringSeps(Match m, Marker fp, String input) {
         if (!fp.span().contains(m.span())) return false;
 
@@ -328,7 +285,6 @@ public final class TitleExtractor implements Extractor {
 
     record TitlesInFilepart(List<Match> titles, List<Match> toRemove) {}
 
-    /** Returns null when no usable hole was found. */
     TitlesInFilepart checkTitlesInFilepart(ParseContext ctx, Marker filepart,
                                            java.util.function.Predicate<Match> additionalIgnore) {
         var ignore = (java.util.function.Predicate<Match>) m ->
@@ -339,11 +295,6 @@ public final class TitleExtractor implements Extractor {
                 MatchName.ALTERNATIVE_TITLE, false);
     }
 
-    /**
-     * Shared implementation used by EpisodeTitleExtractor too; emits {@code matchName}-named
-     * matches and (when {@code alternativeMatchName != null}) splits the hole on title_seps
-     * to spawn alternative-title matches.
-     */
     TitlesInFilepart checkTitlesInFilepart(ParseContext ctx, Marker filepart,
                                            java.util.function.Predicate<Match> ignore,
                                            MatchName matchName, List<String> matchTags,
@@ -355,7 +306,7 @@ public final class TitleExtractor implements Extractor {
             if (hole == null) continue;
 
             var adjustedHole = adjustHoleAndCollectMatches(ctx, filepart, hole, episodeTitleContext);
-            if (adjustedHole.hole().span().length() <= 0 || adjustedHole.hole().value().isEmpty()) continue;
+            if (adjustedHole.hole().span().length() <= 0 || !adjustedHole.hole().isNotEmpty()) continue;
 
             var titles = createTitleMatches(ctx, adjustedHole.hole(), matchName, matchTags, alternativeMatchName);
             if (titles.isEmpty()) continue;
@@ -395,7 +346,6 @@ public final class TitleExtractor implements Extractor {
                                             List<Match> ignoredInHole, List<Match> toKeep) {
         var currentHole = hole;
 
-        // Process trailing matches (reversed)
         var reversed = new ArrayList<>(ignoredInHole).reversed();
         for (var m : reversed) {
             var trailing = ctx.matches.chainBefore(currentHole.span().end(), ctx.input, Seps.CHARS, x -> x == m).orElse(null);
@@ -405,7 +355,6 @@ public final class TitleExtractor implements Extractor {
             }
         }
 
-        // Process starting matches
         for (var m : ignoredInHole) {
             if (toKeep.contains(m)) continue;
             var starting = ctx.matches.chainAfter(currentHole.span().start(), ctx.input, Seps.CHARS, x -> x == m).orElse(null);
