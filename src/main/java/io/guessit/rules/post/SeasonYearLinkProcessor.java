@@ -18,7 +18,7 @@ import java.util.Set;
  * is outside the {@link #MIN_YEAR}..{@link #MAX_YEAR} window — small season
  * numbers ("S2" → 2) shouldn't masquerade as years.
  */
-public final class SeasonYearLink implements PostProcessor {
+public final class SeasonYearLinkProcessor implements PostProcessor {
     private static final int MIN_YEAR = 1900;
     private static final int MAX_YEAR = 2100;
     private static final String TAG_SEASON_DERIVED = "season-derived";
@@ -35,7 +35,7 @@ public final class SeasonYearLink implements PostProcessor {
         }
 
         ctx.matches.named(MatchName.SEASON)
-                .filter(SeasonYearLink::isValidYearSeason)
+                .filter(SeasonYearLinkProcessor::isValidYearSeason)
                 .findFirst()
                 .ifPresent(s -> promoteToYear(ctx, s));
     }

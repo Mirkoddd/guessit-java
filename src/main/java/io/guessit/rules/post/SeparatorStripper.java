@@ -13,7 +13,7 @@ import java.util.ArrayList;
  *
  * <p>This mirrors Python guessit's {@code strip_separators} post-processor.
  */
-public final class StripSeparators implements PostProcessor {
+public final class SeparatorStripper implements PostProcessor {
     @Override
     public String description() {
         return "trim leading/trailing separators on raw spans";

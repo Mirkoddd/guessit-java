@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.guessit.api.Guessit.parse;
 
-class YearSeasonTest {
+class YearSeasonLinkerTest {
     @Test
     void yearWithEpisodeNoSeasonAddsSeason() {
         var r = parse("Show.2014.E03.mkv");

@@ -17,10 +17,10 @@ import java.util.*;
  * that are NOT {@code SxxExx}-tagged. The outer filepart's real
  * {@code S01E07} pattern IS tagged, so it sorts first and its values win.
  */
-public final class RemoveLessSpecificSeasonEpisode implements PostProcessor {
+public final class RedundantEpisodeRemover implements PostProcessor {
     private final MatchName targetName;
 
-    public RemoveLessSpecificSeasonEpisode(MatchName name) {
+    public RedundantEpisodeRemover(MatchName name) {
         this.targetName = name;
     }
 
@@ -51,6 +51,6 @@ public final class RemoveLessSpecificSeasonEpisode implements PostProcessor {
                     .toList();
             perFilepart.add(inFp);
         }
-        RemoveAmbiguous.applyBucketDedup(ctx, perFilepart);
+        AmbiguousMatchRemover.applyBucketDedup(ctx, perFilepart);
     }
 }

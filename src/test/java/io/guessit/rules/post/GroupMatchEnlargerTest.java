@@ -13,7 +13,7 @@ import static io.guessit.core.pipeline.state.Match.of;
 import static io.guessit.core.pipeline.state.MatchName.TITLE;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class EnlargeGroupMatchesTest {
+class GroupMatchEnlargerTest {
 
     private static ParseContext ctx(String input) {
         return new ParseContext(input, Options.defaults(), OptionsConfig.empty());
@@ -29,7 +29,7 @@ class EnlargeGroupMatchesTest {
         ctx.markers.add(new Marker(MarkerType.GROUP, new Span(0, 11, "[abc value]")));
         ctx.matches.add(of(TITLE, "abc", new Span(1, 4, "abc")));
 
-        new EnlargeGroupMatches().process(ctx);
+        new GroupMatchEnlarger().process(ctx);
 
         var result = ctx.matches.named(TITLE).findFirst().orElseThrow();
         assertThat(result.span().start()).isZero();
@@ -46,7 +46,7 @@ class EnlargeGroupMatchesTest {
         ctx.markers.add(new Marker(MarkerType.GROUP, new Span(0, 11, "[abc value]")));
         ctx.matches.add(of(TITLE, "value", new Span(5, 10, "value")));
 
-        new EnlargeGroupMatches().process(ctx);
+        new GroupMatchEnlarger().process(ctx);
 
         var result = ctx.matches.named(TITLE).findFirst().orElseThrow();
         Assertions.assertThat(result.span().start()).isEqualTo(5);
@@ -63,7 +63,7 @@ class EnlargeGroupMatchesTest {
         ctx.markers.add(new Marker(MarkerType.GROUP, new Span(0, 7, "[value]")));
         ctx.matches.add(of(TITLE, "value", new Span(1, 6, "value")));
 
-        new EnlargeGroupMatches().process(ctx);
+        new GroupMatchEnlarger().process(ctx);
 
         var result = ctx.matches.named(TITLE).findFirst().orElseThrow();
         assertThat(result.span().start()).isZero();
@@ -77,7 +77,7 @@ class EnlargeGroupMatchesTest {
         ctx.markers.add(new Marker(MarkerType.PATH, new Span(0, 7, "[value]")));
         ctx.matches.add(of(TITLE, "value", new Span(1, 6, "value")));
 
-        new EnlargeGroupMatches().process(ctx);
+        new GroupMatchEnlarger().process(ctx);
 
         var result = ctx.matches.named(TITLE).findFirst().orElseThrow();
         Assertions.assertThat(result.span().start()).isEqualTo(1);
@@ -91,7 +91,7 @@ class EnlargeGroupMatchesTest {
         ctx.markers.add(new Marker(MarkerType.GROUP, new Span(0, 15, "[abc value xyz]")));
         ctx.matches.add(of(TITLE, "value", new Span(5, 10, "value")));
 
-        new EnlargeGroupMatches().process(ctx);
+        new GroupMatchEnlarger().process(ctx);
 
         var result = ctx.matches.named(TITLE).findFirst().orElseThrow();
         Assertions.assertThat(result.span().start()).isEqualTo(5);

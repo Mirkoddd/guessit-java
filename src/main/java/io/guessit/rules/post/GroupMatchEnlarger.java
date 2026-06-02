@@ -14,7 +14,7 @@ import io.guessit.core.text.Span;
  * extended rightward to {@code group.end}.  This ensures the surrounding bracket
  * characters are included in the matched span.
  */
-public final class EnlargeGroupMatches implements PostProcessor {
+public final class GroupMatchEnlarger implements PostProcessor {
     @Override
     public String description() {
         return "enlarge match span to cover its containing bracket group";

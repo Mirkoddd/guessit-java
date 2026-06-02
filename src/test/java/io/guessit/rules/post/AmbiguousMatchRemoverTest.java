@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import static io.guessit.api.Guessit.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class RemoveAmbiguousTest {
+class AmbiguousMatchRemoverTest {
     @Test void smokeTest() {
         // Verify that parsing a multi-filepart path doesn't throw; precise de-dup tested via YML
         var r = Guessit.parse("Show.S01.Group/Show.S01E01.OtherGroup.mkv");

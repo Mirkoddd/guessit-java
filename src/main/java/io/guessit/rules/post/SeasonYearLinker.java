@@ -12,11 +12,11 @@ import java.util.Set;
  * plausible year (1900..currentYear+1), emits a {@code year} match cloned from
  * the season match.
  *
- * <p>Runs after {@link SeasonYearLink} so that {@code SeasonYearLink}'s wider
+ * <p>Runs after {@link SeasonYearLinkProcessor} so that {@code SeasonYearLink}'s wider
  * 1900..2100 window already handled any prior promotion; this processor is a
  * tighter guard that uses the dynamic current-year bound.
  */
-public final class SeasonYear implements PostProcessor {
+public final class SeasonYearLinker implements PostProcessor {
     private static final int MIN_YEAR = 1900;
     private static final int CUR = java.time.Year.now().getValue();
 

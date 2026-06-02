@@ -18,7 +18,7 @@ import java.util.Set;
  * that are also encoded in the filename. The filename is the authoritative
  * source for the work itself, so let it win whenever it spoke up.
  */
-public final class PreferLastPath implements PostProcessor {
+public final class LastPathProcessor implements PostProcessor {
     private static final java.util.Set<MatchName> TITLE_FAMILY =
             java.util.Set.of(MatchName.TITLE, MatchName.ALTERNATIVE_TITLE, MatchName.EPISODE_TITLE);
 

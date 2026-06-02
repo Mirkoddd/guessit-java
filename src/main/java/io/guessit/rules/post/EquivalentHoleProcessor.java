@@ -15,7 +15,7 @@ import java.util.stream.Stream;
  * <p>Drives the {@code title.yml} dir-vs-filename casing fixtures
  * ({@code Some.title/SOME TITLE.mkv} → {@code Some title}, etc...).
  */
-public final class EquivalentHoles implements PostProcessor {
+public final class EquivalentHoleProcessor implements PostProcessor {
     @Override
     public String description() {
         return "merge equivalent leading/trailing holes";

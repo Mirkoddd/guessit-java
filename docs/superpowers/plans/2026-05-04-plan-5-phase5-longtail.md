@@ -1397,16 +1397,16 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class EnlargeGroupMatchesTest {
-  @Test
-  void enlargeBracketedMatchToIncludeBrackets() {
-    var ctx = new ParseContext("[XCT]Show", null, null);
-    ctx.markers.add(new Marker("group", 0, 5)); // includes [ and ]
-    ctx.matches.add(new Match("release_group", "XCT", 1, 4, "XCT", 1000, Set.of(), false));
-    new EnlargeGroupMatches().apply(ctx);
-    var m = ctx.matches.named("release_group").findFirst().orElseThrow();
-    assertThat(m.start()).isEqualTo(0);
-    assertThat(m.end()).isEqualTo(5);
-  }
+    @Test
+    void enlargeBracketedMatchToIncludeBrackets() {
+        var ctx = new ParseContext("[XCT]Show", null, null);
+        ctx.markers.add(new Marker("group", 0, 5)); // includes [ and ]
+        ctx.matches.add(new Match("release_group", "XCT", 1, 4, "XCT", 1000, Set.of(), false));
+        new GroupMatchEnlarger().apply(ctx);
+        var m = ctx.matches.named("release_group").findFirst().orElseThrow();
+        assertThat(m.start()).isEqualTo(0);
+        assertThat(m.end()).isEqualTo(5);
+    }
 }
 ```
 
@@ -1577,7 +1577,7 @@ import io.guessit.core.pipeline.state.Match;
 
 import java.util.Comparator;
 
-public final class RemoveLessSpecificSeasonEpisode extends RemoveAmbiguous {
+public final class RemoveLessSpecificSeasonEpisode extends AmbiguousMatchRemover {
   public RemoveLessSpecificSeasonEpisode(String name) {
     super(m -> m.name().equals(name),
             true,                                       // reverse fileparts
@@ -1742,7 +1742,7 @@ class StripSeparatorsTest {
   void trimsLeadingTrailingSeps() {
     var ctx = new ParseContext(".Show Name.", null, null);
     ctx.matches.add(new Match("title", "Show Name", 0, 11, ".Show Name.", 1000, java.util.Set.of(), false));
-    new StripSeparators().apply(ctx);
+    new SeparatorStripper().apply(ctx);
     var m = ctx.matches.named("title").findFirst().orElseThrow();
     assertThat(m.start()).isEqualTo(1);
     assertThat(m.end()).isEqualTo(10);

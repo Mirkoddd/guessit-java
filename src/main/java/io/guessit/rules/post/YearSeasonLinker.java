@@ -16,7 +16,7 @@ import java.util.Set;
  * {@code Show.2014.E03.mkv} should yield {@code season=2014} when there is no
  * explicit season marker.
  */
-public final class YearSeason implements PostProcessor {
+public final class YearSeasonLinker implements PostProcessor {
     @Override
     public String description() {
         return "promote leading numeric to season when adjacent to a year";

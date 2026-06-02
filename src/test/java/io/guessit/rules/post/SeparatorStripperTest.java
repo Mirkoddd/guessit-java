@@ -11,7 +11,7 @@ import static io.guessit.core.pipeline.state.Match.of;
 import static io.guessit.core.pipeline.state.MatchName.TITLE;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class StripSeparatorsTest {
+class SeparatorStripperTest {
 
     private static ParseContext ctx(String input) {
         return new ParseContext(input, Options.defaults(), OptionsConfig.empty());
@@ -22,7 +22,7 @@ class StripSeparatorsTest {
         var ctx = ctx(".Show.mkv");
 
         ctx.matches.add(of(TITLE, "Show", new Span(0, 5, ".Show")));
-        new StripSeparators().process(ctx);
+        new SeparatorStripper().process(ctx);
         var m = ctx.matches.named(TITLE).findFirst().orElseThrow();
 
         assertThat(m.span().start()).isEqualTo(1);
@@ -34,7 +34,7 @@ class StripSeparatorsTest {
         // "Show." — trailing dot at position 4
         var ctx = ctx("Show.mkv");
         ctx.matches.add(of(TITLE, "Show", new Span(0, 5, "Show.")));
-        new StripSeparators().process(ctx);
+        new SeparatorStripper().process(ctx);
         var m = ctx.matches.named(TITLE).findFirst().orElseThrow();
         assertThat(m.span().start()).isZero();
         assertThat(m.span().end()).isEqualTo(4);
@@ -44,7 +44,7 @@ class StripSeparatorsTest {
         // Single-char spans (e.g., 'S' in S.H.I.E.L.D.) must not be stripped
         var ctx = ctx("S.H.I.E.L.D.");
         ctx.matches.add(of(TITLE, "S", new Span(0, 1, "S")));
-        new StripSeparators().process(ctx);
+        new SeparatorStripper().process(ctx);
         var m = ctx.matches.named(TITLE).findFirst().orElseThrow();
         assertThat(m.span().start()).isZero();
         assertThat(m.span().end()).isEqualTo(1);
@@ -53,7 +53,7 @@ class StripSeparatorsTest {
     @Test void noOpWhenNoSurroundingSeps() {
         var ctx = ctx("ShowName");
         ctx.matches.add(of(TITLE, "ShowName", new Span(0, 8, "ShowName")));
-        new StripSeparators().process(ctx);
+        new SeparatorStripper().process(ctx);
         var m = ctx.matches.named(TITLE).findFirst().orElseThrow();
         assertThat(m.span().start()).isZero();
         assertThat(m.span().end()).isEqualTo(8);

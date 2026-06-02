@@ -12,16 +12,16 @@ import java.util.function.Predicate;
  *
  * <p>This is a port of Python guessit's {@code RemoveAmbiguous} post-processor.
  */
-public class RemoveAmbiguous implements PostProcessor {
+public class AmbiguousMatchRemover implements PostProcessor {
     protected final Predicate<Match> predicate;
     protected final boolean reverseFileparts;
     protected final Comparator<Match> tieBreak;
 
-    public RemoveAmbiguous() {
+    public AmbiguousMatchRemover() {
         this(_ -> true, false, (_, _) -> 0);
     }
 
-    public RemoveAmbiguous(Predicate<Match> predicate, boolean reverseFileparts, Comparator<Match> tieBreak) {
+    public AmbiguousMatchRemover(Predicate<Match> predicate, boolean reverseFileparts, Comparator<Match> tieBreak) {
         this.predicate = predicate;
         this.reverseFileparts = reverseFileparts;
         this.tieBreak = tieBreak;
@@ -58,8 +58,8 @@ public class RemoveAmbiguous implements PostProcessor {
     /**
      * For each filepart's sorted match list, the first filepart's values per
      * name win; later fileparts only retain matches whose value was already
-     * seen earlier. Shared between {@link RemoveAmbiguous} and
-     * {@link RemoveLessSpecificSeasonEpisode}.
+     * seen earlier. Shared between {@link AmbiguousMatchRemover} and
+     * {@link RedundantEpisodeRemover}.
      */
     protected static void applyBucketDedup(ParseContext ctx, List<List<Match>> perFilepart) {
         var seenNames = new HashSet<MatchName>();

@@ -33,30 +33,11 @@ public final class Rules {
     public static List<Phase> defaultPipeline() {
         var extractors = allInOrder();
         return List.of(
-            new MarkerPhase(List.of(new PathMarker(), new GroupMarker())),
+            new MarkerPhase(defaultMarkerProducers()),
             new ExtractorPhase(extractors),
             new ConflictPhase(),
             new ExtractorPostPhase(extractors),
-            new PostPhase(List.of(
-                new EnlargeGroupMatches(),
-                new BitRateTypeRule(),
-                new EquivalentHoles(),
-                new PreferLastPath(),
-                new RangeFiller(),
-                new EpisodeNumberSeparatorRange(),
-                new AbsoluteEpisodePromoter(),
-                new SeasonYearLink(),
-                new SeasonYear(),
-                new YearSeason(),
-                new RemoveLessSpecificSeasonEpisode(MatchName.SEASON),
-                new RemoveLessSpecificSeasonEpisode(MatchName.EPISODE),
-                new RemoveAmbiguous(),
-                new ProperCountRule(),
-                new TypeProcessor(),
-                new MimetypeProcessor(),
-                new StripSeparators(),
-                new PrivateRemover()
-            )),
+            new PostPhase(defaultPostProcessors()),
             new OutputPhase(new OutputBuilder())
         );
     }
@@ -68,23 +49,23 @@ public final class Rules {
      */
     public static List<PostProcessor> defaultPostProcessors() {
         return List.of(
-            new EnlargeGroupMatches(),
+            new GroupMatchEnlarger(),
             new BitRateTypeRule(),
-            new EquivalentHoles(),
-            new PreferLastPath(),
+            new EquivalentHoleProcessor(),
+            new LastPathProcessor(),
             new RangeFiller(),
             new EpisodeNumberSeparatorRange(),
             new AbsoluteEpisodePromoter(),
-            new SeasonYearLink(),
-            new SeasonYear(),
-            new YearSeason(),
-            new RemoveLessSpecificSeasonEpisode(MatchName.SEASON),
-            new RemoveLessSpecificSeasonEpisode(MatchName.EPISODE),
-            new RemoveAmbiguous(),
+            new SeasonYearLinkProcessor(),
+            new SeasonYearLinker(),
+            new YearSeasonLinker(),
+            new RedundantEpisodeRemover(MatchName.SEASON),
+            new RedundantEpisodeRemover(MatchName.EPISODE),
+            new AmbiguousMatchRemover(),
             new ProperCountRule(),
             new TypeProcessor(),
             new MimetypeProcessor(),
-            new StripSeparators(),
+            new SeparatorStripper(),
             new PrivateRemover()
         );
     }
