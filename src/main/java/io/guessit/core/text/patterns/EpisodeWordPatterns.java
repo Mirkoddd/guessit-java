@@ -21,6 +21,21 @@ public final class EpisodeWordPatterns {
     private EpisodeWordPatterns() {
     }
 
+    public static Pattern buildRedundantSeasonWordPattern(String groupName) {
+
+        var digitsGroup = capture(groupName, oneOrMore().digits());
+        var additional = anyOfStrings("serie", "series");
+        var allWords = anyOf(anyOfStringsInList(SEASON_WORDS), additional);
+
+        var basePattern = fromStart()
+                .of(allWords)
+                .followedBy(optionalSeparator())
+                .then().namedCapture(digitsGroup)
+                .andNothingElse();
+
+        return compileCaseInsensitive(basePattern);
+    }
+
     public static Pattern buildSeasonPattern(String wordGroupName, String valueGroupName, String countGroupName) {
         var seasonWordGroup = capture(wordGroupName, anyOfStringsInList(SEASON_WORDS));
         var seasonValueGroup = capture(valueGroupName, Numerals.NUMERAL_PATTERN);

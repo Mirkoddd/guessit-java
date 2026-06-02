@@ -6,6 +6,7 @@ import io.guessit.core.text.Formatters;
 import io.guessit.core.text.Seps;
 import io.guessit.core.text.Span;
 import io.guessit.core.text.Validators;
+import io.guessit.core.text.patterns.EpisodeWordPatterns;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -483,16 +484,15 @@ public final class TitleExtractor implements Extractor {
         return ret;
     }
 
-    private static final java.util.regex.Pattern SEASON_WORD_PATTERN = java.util.regex.Pattern.compile(
-            "(?i)^(?:season|seasons|saison|saisons|seizoen|serie|series|temp|temporada|temporadas|"
-                    + "staffel|staffeln|stagione|stagioni)[ ._-]*(\\d+)$");
+    private static final String GRP_SEASON_WORDS = "SeasonWords";
+    private static final Pattern SEASON_WORD_PATTERN = EpisodeWordPatterns.buildRedundantSeasonWordPattern(GRP_SEASON_WORDS);
 
     private static boolean isRedundantSeasonWord(String value, ParseContext ctx) {
         if (value == null || value.isEmpty()) return false;
         var m = SEASON_WORD_PATTERN.matcher(value.trim());
         if (!m.matches()) return false;
         int n;
-        try { n = Integer.parseInt(m.group(1)); } catch (NumberFormatException _) { return false; }
+        try { n = Integer.parseInt(m.group(GRP_SEASON_WORDS)); } catch (NumberFormatException _) { return false; }
         return ctx.matches.named(MatchName.SEASON)
                 .anyMatch(s -> Integer.valueOf(n).equals(s.value()));
     }
