@@ -83,8 +83,7 @@ public final class CountryExtractor implements Extractor {
 
         for (var countryMatch : countries) {
             languages.stream()
-                    .filter(langMatch -> countryMatch.span().start() == langMatch.span().start()
-                            && countryMatch.span().end() == langMatch.span().end())
+                    .filter(langMatch -> countryMatch.span().equals(langMatch.span()))
                     .forEach(langMatch -> resolveConflict(countryMatch, langMatch, toRemove));
         }
 
