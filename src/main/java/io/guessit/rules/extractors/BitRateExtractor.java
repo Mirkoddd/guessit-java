@@ -56,13 +56,13 @@ public final class BitRateExtractor implements Extractor {
     private void tryAddBitRate(ParseContext ctx, Matcher matcher, Predicate<Match> seps, List<Match> channels) {
         var span = new Span(matcher.start(GRP_RAW), matcher.end(GRP_RAW), matcher.group(GRP_RAW));
 
-        var head = new Match(MatchName.AUDIO_BIT_RATE, null, span, priority(), Set.of(), false);
+        var head = Match.string(MatchName.AUDIO_BIT_RATE, span.raw(), span, priority(), Set.of(), false);
         if (!seps.test(head)) return;
 
         if (overlapsAny(span.start(), span.end(), channels)) return;
 
-        ctx.matches.add(new Match(MatchName.AUDIO_BIT_RATE, BitRate.fromString(span.raw()), span,
-                priority(), Set.of(MatchTag.RELEASE_GROUP_PREFIX.getYamlValue()), false));
+        ctx.matches.add(Match.bitRate(MatchName.AUDIO_BIT_RATE, BitRate.fromString(span.raw()), span,
+                priority(), Set.of(MatchTag.RELEASE_GROUP_PREFIX.getValue()), false));
     }
 
     private static boolean overlapsAny(int start, int end, List<Match> spans) {

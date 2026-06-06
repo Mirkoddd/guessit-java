@@ -60,7 +60,7 @@ public final class PartExtractor implements Extractor {
 
     private Match mapToMatch(MatchResult matchResult, Integer partNumber) {
         var span = new Span(matchResult.start(), matchResult.end(), matchResult.group());
-        return new Match(
+        return Match.integer(
                 MatchName.PART,
                 partNumber,
                 span,

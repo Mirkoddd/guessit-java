@@ -123,7 +123,12 @@ public final class EpisodeTitleExtractor implements Extractor {
     private void titleToEpisodeTitle(ParseContext ctx) {
         var titles = ctx.matches.named(MatchName.TITLE).toList();
 
-        long distinctValues = titles.stream().map(Match::value).distinct().count();
+        long distinctValues = titles.stream()
+                .filter(m -> m instanceof Match.StringMatch)
+                .map(m -> ((Match.StringMatch) m).value())
+                .distinct()
+                .count();
+
         if (distinctValues < 2) return;
 
         for (var t : titles) {
@@ -170,7 +175,7 @@ public final class EpisodeTitleExtractor implements Extractor {
         }
 
         var titles = titleExtractor.checkTitlesInFilepart(ctx, fp, TitleExtractor::isIgnored,
-                MatchName.EPISODE_TITLE, List.of(MatchTag.TITLE.getYamlValue()), null, true);
+                MatchName.EPISODE_TITLE, List.of(MatchTag.TITLE.getValue()), null, true);
         if (titles == null) return false;
 
         var titlesToAdd = titles.titles().stream()
@@ -232,9 +237,12 @@ public final class EpisodeTitleExtractor implements Extractor {
 
         if (prev.isPresent() || hasCrc) {
             var newTags = new HashSet<>(alt.tags());
-            newTags.add(MatchTag.ALTERNATIVE_REPLACED.getYamlValue());
-            ctx.matches.replace(alt, new Match(MatchName.EPISODE_TITLE, alt.value(), alt.span(),
-                    alt.priority(), Set.copyOf(newTags), alt.isPrivate()));
+            newTags.add(MatchTag.ALTERNATIVE_REPLACED.getValue());
+
+            if (alt instanceof Match.StringMatch sm) {
+                ctx.matches.replace(alt, Match.string(MatchName.EPISODE_TITLE, sm.value(), sm.span(),
+                        sm.priority(), Set.copyOf(newTags), sm.isPrivate()));
+            }
         }
     }
 
@@ -265,7 +273,7 @@ public final class EpisodeTitleExtractor implements Extractor {
 
         var h = findEpisodeTitleHoles(ctx, subdirectory);
         if (h != null) {
-            ctx.matches.add(new Match(MatchName.TITLE, h.value(), h.span(), Priority.DEFAULT, Set.of(), false));
+            ctx.matches.add(Match.string(MatchName.TITLE, h.value(), h.span(), Priority.DEFAULT, Set.of(), false));
         }
     }
 
@@ -319,7 +327,7 @@ public final class EpisodeTitleExtractor implements Extractor {
 
         var h = findEpisodeTitleHoles(ctx, directory);
         if (h != null) {
-            ctx.matches.add(new Match(MatchName.TITLE, h.value(), h.span(), Priority.DEFAULT, Set.of(MatchTag.FILE_PART_TITLE.getYamlValue()), false));
+            ctx.matches.add(Match.string(MatchName.TITLE, h.value(), h.span(), Priority.DEFAULT, Set.of(MatchTag.FILE_PART_TITLE.getValue()), false));
         }
     }
 }

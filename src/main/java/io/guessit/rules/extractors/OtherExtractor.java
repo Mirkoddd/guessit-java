@@ -237,8 +237,7 @@ public final class OtherExtractor implements Extractor {
         var subtitlesLanguages = ctx.matches.named(MatchName.SUBTITLE_LANGUAGE).toList();
 
         ctx.matches.named(MatchName.OTHER)
-                .filter(m -> "Hardcoded Subtitles".equals(m.value()))
-                .filter(hc -> subtitlesLanguages.stream().noneMatch(sl -> isAdjacentSubtitle(input, hc, sl)))
+                .filter(m -> m instanceof Match.StringMatch sm && "Hardcoded Subtitles".equals(sm.value()))                .filter(hc -> subtitlesLanguages.stream().noneMatch(sl -> isAdjacentSubtitle(input, hc, sl)))
                 .toList()
                 .forEach(ctx.matches::remove);
     }
@@ -367,7 +366,10 @@ public final class OtherExtractor implements Extractor {
     private static void dedupSameSpan(ParseContext ctx) {
         var groups = ctx.matches.named(MatchName.OTHER)
                 .collect(Collectors.groupingBy(
-                        m -> m.span().start() + ":" + m.span().end() + ":" + m.value(),
+                        m -> {
+                            String val = m instanceof Match.StringMatch sm ? sm.value() : "";
+                            return m.span().start() + ":" + m.span().end() + ":" + val;
+                        },
                         LinkedHashMap::new,
                         Collectors.toList()
                 ));

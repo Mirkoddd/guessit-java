@@ -42,11 +42,12 @@ public final class SizeExtractor implements Extractor {
         while (m.find()) {
             var raw = m.group(GRP_SIZE);
             var span = new Span(m.start(GRP_SIZE), m.end(GRP_SIZE), raw);
-            var head = new Match(MatchName.SIZE, null, span, priority(), Set.of(), false);
+
+            var head = Match.string(MatchName.SIZE, raw, span, priority(), Set.of(), false);
 
             if (seps.test(head)) {
-                ctx.matches.add(new Match(MatchName.SIZE, Size.fromString(raw), span,
-                        priority(), Set.of(MatchTag.RELEASE_GROUP_PREFIX.getYamlValue()), false));
+                ctx.matches.add(Match.size(MatchName.SIZE, Size.fromString(raw), span,
+                        priority(), Set.of(MatchTag.RELEASE_GROUP_PREFIX.getValue()), false));
             }
         }
     }

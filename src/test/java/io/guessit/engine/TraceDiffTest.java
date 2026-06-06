@@ -1,6 +1,7 @@
 package io.guessit.engine;
 
 import io.guessit.core.pipeline.state.Match;
+import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Span;
 import io.guessit.core.trace.PrintTrace;
 import io.guessit.core.trace.Trace;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static io.guessit.core.pipeline.state.MatchName.SCREEN_SIZE;
 import static io.guessit.core.pipeline.state.MatchName.YEAR;
@@ -16,8 +18,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TraceDiffTest {
 
-    private static final Match YEAR_MATCH = Match.of(YEAR, 2020, new Span(11, 15, "2020"));
-    private static final Match SCREEN_MATCH = Match.of(SCREEN_SIZE, "1080p", new Span(16, 21, "1080p"));
+    private static final Match YEAR_MATCH = Match.integer(YEAR, 2020, new Span(11, 15, "2020"), Priority.DEFAULT, Set.of(), false);
+
+    private static final Match SCREEN_MATCH = Match.string(SCREEN_SIZE, "1080p", new Span(16, 21, "1080p"), Priority.DEFAULT, Set.of(), false);
 
     static class CapturingTrace implements Trace {
         final List<String> events = new ArrayList<>();

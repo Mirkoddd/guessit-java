@@ -56,6 +56,6 @@ public final class MimetypeProcessor implements PostProcessor {
 
         var zeroWidthSpan = new Span(pos, pos, "");
 
-        ctx.matches.add(new Match(MatchName.MIMETYPE, mime, zeroWidthSpan, Priority.DEFAULT, Collections.emptySet(), false));
+        ctx.matches.add(Match.string(MatchName.MIMETYPE, mime, zeroWidthSpan, Priority.DEFAULT, Collections.emptySet(), false));
     }
 }

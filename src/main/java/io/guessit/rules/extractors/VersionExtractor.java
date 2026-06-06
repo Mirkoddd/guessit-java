@@ -49,11 +49,13 @@ public final class VersionExtractor implements Extractor {
             var span = new Span(m.start(), m.end(), m.group());
             int start = span.start();
 
-            boolean isValidPrefix = (start == 0) || Seps.isSep(input.charAt(start - 1)) || Character.isDigit(input.charAt(start - 1));
+            boolean isValidPrefix = (start == 0) ||
+                    Seps.isSep(input.charAt(start - 1)) ||
+                    Character.isDigit(input.charAt(start - 1));
 
             if (isValidPrefix) {
                 int val = Integer.parseInt(m.group(GRP_VAL));
-                ctx.matches.add(new Match(MatchName.VERSION, val, span, priority(), Set.of(), false));
+                ctx.matches.add(Match.integer(MatchName.VERSION, val, span, priority(), Set.of(), false));
             }
         }
     }

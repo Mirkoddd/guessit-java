@@ -40,7 +40,7 @@ public final class AbsoluteEpisodePromoter implements PostProcessor {
      */
     private static void absoluteRangeFill(ParseContext ctx) {
         var absEps = ctx.matches.named(MatchName.ABSOLUTE_EPISODE)
-                .filter(m -> m.value() instanceof Integer)
+                .filter(m -> m instanceof Match.IntegerMatch)
                 .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
 
@@ -53,9 +53,12 @@ public final class AbsoluteEpisodePromoter implements PostProcessor {
     }
 
     private static List<Match> generateFillsIfValid(ParseContext ctx, Match a, Match b) {
-        if (!(a.value() instanceof Integer va) || !(b.value() instanceof Integer vb)) {
+        if (!(a instanceof Match.IntegerMatch ia) || !(b instanceof Match.IntegerMatch ib)) {
             return List.of();
         }
+
+        int va = ia.value();
+        int vb = ib.value();
 
         if (!isFillableGap(ctx.input, a, b, va, vb)) {
             return List.of();
@@ -77,12 +80,12 @@ public final class AbsoluteEpisodePromoter implements PostProcessor {
     private static List<Match> createMissingMatches(Match a, Match b, int va, int vb) {
         var fills = new ArrayList<Match>();
         for (int v = va + 1; v < vb; v++) {
-            fills.add(new Match(
+            fills.add(Match.integer(
                     MatchName.ABSOLUTE_EPISODE,
                     v,
                     new Span(b.span().start(), b.span().start(), ""),
                     a.priority(),
-                    Set.of(MatchTag.RANGE_FILL.getYamlValue()),
+                    Set.of(MatchTag.RANGE_FILL.getValue()),
                     false
             ));
         }

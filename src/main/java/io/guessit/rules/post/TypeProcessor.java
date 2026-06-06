@@ -31,7 +31,7 @@ public final class TypeProcessor implements PostProcessor {
         var len = ctx.input.length();
 
         var zeroWidthSpan = new Span(len, len, "");
-        ctx.matches.add(new Match(MatchName.TYPE, type, zeroWidthSpan, Priority.DEFAULT, Collections.emptySet(), false));
+        ctx.matches.add(Match.string(MatchName.TYPE, type, zeroWidthSpan, Priority.DEFAULT, Collections.emptySet(), false));
 
         ctx.trace.subStep("Stage 2: demote episode_title to alternative_title when type is not episode");
         if (!EPISODE_TYPE.equals(type)) {

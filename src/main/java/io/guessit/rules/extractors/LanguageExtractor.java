@@ -107,7 +107,7 @@ public final class LanguageExtractor implements Extractor {
 
             if (pairLang != null && isAllowed(pairLang, env.allowedLc())) {
                 var span = new Span(w1.start(), w2.end(), input.substring(w1.start(), w2.end()));
-                env.ctx().matches.add(new Match(MatchName.LANGUAGE, pairLang, span, Priority.DEFAULT, Set.of(), false));
+                env.ctx().matches.add(Match.language(MatchName.LANGUAGE, pairLang, span, Priority.DEFAULT, Set.of(), false));
 
                 env.pairConsumed().add(i);
                 env.pairConsumed().add(i + 1);
@@ -134,7 +134,7 @@ public final class LanguageExtractor implements Extractor {
                 if (matchesAny(combined, env.affixes().subtitlePrefixes()) || matchesAny(combined, env.affixes().subtitleSuffixes())) {
                     String substring = input.substring(w1.start(), w2.end());
                     var span = new Span(w1.start(), w2.end(), substring);
-                    env.ctx().matches.add(new Match(MARKER_PREFIX, substring, span, Priority.DEFAULT, Set.of(), true));
+                    env.ctx().matches.add(Match.string(MARKER_PREFIX, substring, span, Priority.DEFAULT, Set.of(), true));
 
                     env.pairConsumed().add(i);
                     env.pairConsumed().add(i + 1);
@@ -167,7 +167,7 @@ public final class LanguageExtractor implements Extractor {
     private boolean tryProcessSubtitleAffix(ExtractionEnv env, Words.Word word, String lower) {
         if (matchesAny(lower, env.affixes().subtitlePrefixes()) || matchesAny(lower, env.affixes().subtitleSuffixes())) {
             var span = new Span(word.start(), word.end(), word.value());
-            env.ctx().matches.add(new Match(MARKER_PREFIX, word.value(), span, Priority.DEFAULT, Set.of(), true));
+            env.ctx().matches.add(Match.string(MARKER_PREFIX, word.value(), span, Priority.DEFAULT, Set.of(), true));
             return true;
         }
         return false;
@@ -178,7 +178,7 @@ public final class LanguageExtractor implements Extractor {
             var und = env.registry().find("und").orElse(null);
             if (und != null && isAllowed(und, env.allowedLc())) {
                 var span = new Span(word.start(), word.end(), word.value());
-                env.ctx().matches.add(new Match(MatchName.LANGUAGE, und, span, Priority.DEFAULT, Set.of(), false));
+                env.ctx().matches.add(Match.language(MatchName.LANGUAGE, und, span, Priority.DEFAULT, Set.of(), false));
                 return true;
             }
         }
@@ -198,12 +198,12 @@ public final class LanguageExtractor implements Extractor {
             Language langWithCountry = new Language(lang.alpha2(), lang.alpha3(), lang.name(), cc.country());
 
             var span = new Span(word.start(), cc.end(), env.ctx().input.substring(word.start(), cc.end()));
-            env.ctx().matches.add(new Match(MatchName.LANGUAGE, langWithCountry, span, Priority.DEFAULT, Set.of(), false));
+            env.ctx().matches.add(Match.language(MatchName.LANGUAGE, langWithCountry, span, Priority.DEFAULT, Set.of(), false));
 
             markCountryWordAsConsumedIfPresent(env, wi, cc.end());
         } else {
             var span = new Span(word.start(), word.end(), env.ctx().input.substring(word.start(), word.end()));
-            env.ctx().matches.add(new Match(MatchName.LANGUAGE, lang, span, Priority.DEFAULT, Set.of(), false));
+            env.ctx().matches.add(Match.language(MatchName.LANGUAGE, lang, span, Priority.DEFAULT, Set.of(), false));
         }
 
         return true;
@@ -260,7 +260,7 @@ public final class LanguageExtractor implements Extractor {
                     .max(Comparator.comparingInt(m -> m.span().end()))
                     .ifPresent(_ -> {
                         var span = new Span(word.start(), word.end(), word.value());
-                        env.ctx().matches.add(new Match(MatchName.LANGUAGE_SUFFIX,
+                        env.ctx().matches.add(Match.string(MatchName.LANGUAGE_SUFFIX,
                                 word.value(), span, Priority.DEFAULT, Set.of(), true));
                     });
         }
@@ -284,10 +284,10 @@ public final class LanguageExtractor implements Extractor {
 
         foundLang.ifPresent(lang -> {
             Set<String> tags = MatchName.SUBTITLE_LANGUAGE.equals(name)
-                    ? Set.of(MatchTag.ATTACHED_AFFIX.getYamlValue())
+                    ? Set.of(MatchTag.ATTACHED_AFFIX.getValue())
                     : Set.of();
             var span = new Span(word.start(), word.end(), word.value());
-            env.ctx().matches.add(new Match(name, lang, span, Priority.DEFAULT, tags, false));
+            env.ctx().matches.add(Match.language(name, lang, span, Priority.DEFAULT, tags, false));
         });
 
         return foundLang.isPresent();
@@ -399,7 +399,7 @@ public final class LanguageExtractor implements Extractor {
             if (renamed) continue;
 
             if (isStandaloneAffix(ctx, marker) && und != null) {
-                ctx.matches.add(new Match(MatchName.SUBTITLE_LANGUAGE, und, marker.span(),
+                ctx.matches.add(Match.language(MatchName.SUBTITLE_LANGUAGE, und, marker.span(),
                         Priority.DEFAULT, Set.of(), false));
             }
             toDropMarker.add(marker);
@@ -597,12 +597,13 @@ public final class LanguageExtractor implements Extractor {
     private void dropUndeterminedWhenRealLangPresent(ParseContext ctx) {
         Stream.of(LANGUAGE, SUBTITLE_LANGUAGE).forEach(prop -> {
             var matches = ctx.matches.named(prop).toList();
-            boolean hasReal = matches.stream().anyMatch(m -> m.value() instanceof Language l
-                    && !UND_NAME.equals(l.name()) && !MUL_NAME.equals(l.name()));
+
+            boolean hasReal = matches.stream().anyMatch(m -> m instanceof Match.LanguageMatch lm
+                    && !UND_NAME.equals(lm.value().name()) && !MUL_NAME.equals(lm.value().name()));
 
             if (hasReal) {
                 matches.stream()
-                        .filter(m -> m.value() instanceof Language l && UND_NAME.equals(l.name()))
+                        .filter(m -> m instanceof Match.LanguageMatch lm && UND_NAME.equals(lm.value().name()))
                         .forEach(ctx.matches::remove);
             }
         });

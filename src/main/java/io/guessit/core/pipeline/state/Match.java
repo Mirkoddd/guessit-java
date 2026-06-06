@@ -1,88 +1,155 @@
 package io.guessit.core.pipeline.state;
 
 import io.guessit.core.text.Span;
+import io.guessit.api.models.*;
+import java.time.LocalDate;
 import java.util.Set;
 
 /**
- * Represents a single extracted property (a "match") found within the input text.
- *
- * <p>A match ties a strongly-typed or semantic value to a specific spatial region
- * ({@link Span}) of the original filename or release string. Matches are produced
- * by Extractors and refined by Post-Processors before final output generation.
- *
- * @param name      The semantic property name (e.g., SEASON, EPISODE, YEAR).
- * @param value     The parsed value of the match (temporarily an Object pending generic migration).
- * @param span      The exact spatial boundaries and raw text of this match.
- * @param priority  The resolution priority used by the ConflictSolver during overlapping matches.
- * @param tags      A set of semantic tags used to carry contextual state (e.g., "range-fill", "weak").
- * @param isPrivate If {@code true}, this match is used for internal logic and will not be
- * serialized in the final output.
+ * Represents a single extracted property found within the input text.
+ * Implemented as a sealed interface to guarantee 100% Type Safety over the
+ * 8 supported domain types of GuessIt.
  */
-public record Match(
-        MatchName name,
-        Object value,
-        Span span,
-        Priority priority,
-        Set<String> tags,
-        boolean isPrivate
-) {
+public sealed interface Match permits
+        Match.StringMatch, Match.IntegerMatch, Match.DoubleMatch, Match.LanguageMatch,
+        Match.CountryMatch, Match.SizeMatch, Match.BitRateMatch, Match.DateMatch {
 
-    /**
-     * Creates a copy of this match with a new name.
-     *
-     * @param newName The new semantic property name.
-     * @return a new Match instance with the updated name.
-     */
-    public Match withName(MatchName newName) {
-        return new Match(newName, this.value, this.span, this.priority, this.tags, this.isPrivate);
-    }
+    MatchName name();
+    Span span();
+    Priority priority();
+    Set<String> tags();
+    boolean isPrivate();
 
-    /**
-     * Creates a copy of this match with a new spatial span.
-     *
-     * @param newSpan The new spatial interval.
-     * @return a new Match instance with the updated span.
-     */
-    public Match withSpan(Span newSpan) {
-        return new Match(this.name, this.value, newSpan, this.priority, this.tags, this.isPrivate);
-    }
+    Match withName(MatchName newName);
+    Match withSpan(Span newSpan);
+    Match withPriority(Priority newPriority);
+    Match withTags(Set<String> newTags);
 
-    /**
-     * Match with default values.
-     */
-    public static Match of(MatchName name, Object value, Span span) {
-        return new Match(name, value, span, Priority.DEFAULT, java.util.Set.of(), false);
-    }
+    default boolean hasTag(MatchTag tag) {
+        if (tags() == null || tags().isEmpty() || tag == null) return false;
 
-    /**
-     * Creates a copy of this match with a new priority.
-     */
-    public Match withPriority(Priority newPriority) {
-        return new Match(this.name, this.value, this.span, newPriority, this.tags, this.isPrivate);
-    }
+        String expectedValue = tag.getValue();
 
-    /**
-     * Creates a copy of this match with a new set of tags.
-     */
-    public Match withTags(Set<String> newTags) {
-        return new Match(this.name, this.value, this.span, this.priority, newTags, this.isPrivate);
-    }
-
-    public boolean hasTag(MatchTag tag) {
-        if (tags == null || tags.isEmpty() || tag == null) return false;
-
-        String yamlValue = tag.getYamlValue();
-
-        if (tags.contains(yamlValue)) {
+        if (tags().contains(expectedValue)) {
             return true;
         }
-
-        for (String t : tags) {
-            if (t.equalsIgnoreCase(yamlValue)) {
+        for (String t : tags()) {
+            if (t.equalsIgnoreCase(expectedValue)) {
                 return true;
             }
         }
-
         return false;
+    }
+
+    static StringMatch string(MatchName name, String value, Span span) {
+        return new StringMatch(name, value, span, Priority.DEFAULT, Set.of(), false);
+    }
+    static StringMatch string(MatchName name, String value, Span span, Priority priority, Set<String> tags, boolean isPrivate) {
+        return new StringMatch(name, value, span, priority, tags, isPrivate);
+    }
+
+    static IntegerMatch integer(MatchName name, Integer value, Span span) {
+        return new IntegerMatch(name, value, span, Priority.DEFAULT, Set.of(), false);
+    }
+    static IntegerMatch integer(MatchName name, Integer value, Span span, Priority priority, Set<String> tags, boolean isPrivate) {
+        return new IntegerMatch(name, value, span, priority, tags, isPrivate);
+    }
+
+    static DoubleMatch decimal(MatchName name, Double value, Span span) {
+        return new DoubleMatch(name, value, span, Priority.DEFAULT, Set.of(), false);
+    }
+    static DoubleMatch decimal(MatchName name, Double value, Span span, Priority priority, Set<String> tags, boolean isPrivate) {
+        return new DoubleMatch(name, value, span, priority, tags, isPrivate);
+    }
+
+    static LanguageMatch language(MatchName name, Language value, Span span) {
+        return new LanguageMatch(name, value, span, Priority.DEFAULT, Set.of(), false);
+    }
+    static LanguageMatch language(MatchName name, Language value, Span span, Priority priority, Set<String> tags, boolean isPrivate) {
+        return new LanguageMatch(name, value, span, priority, tags, isPrivate);
+    }
+
+    static CountryMatch country(MatchName name, Country value, Span span) {
+        return new CountryMatch(name, value, span, Priority.DEFAULT, Set.of(), false);
+    }
+    static CountryMatch country(MatchName name, Country value, Span span, Priority priority, Set<String> tags, boolean isPrivate) {
+        return new CountryMatch(name, value, span, priority, tags, isPrivate);
+    }
+
+    static SizeMatch size(MatchName name, Size value, Span span) {
+        return new SizeMatch(name, value, span, Priority.DEFAULT, Set.of(), false);
+    }
+    static SizeMatch size(MatchName name, Size value, Span span, Priority priority, Set<String> tags, boolean isPrivate) {
+        return new SizeMatch(name, value, span, priority, tags, isPrivate);
+    }
+
+    static BitRateMatch bitRate(MatchName name, BitRate value, Span span) {
+        return new BitRateMatch(name, value, span, Priority.DEFAULT, Set.of(), false);
+    }
+    static BitRateMatch bitRate(MatchName name, BitRate value, Span span, Priority priority, Set<String> tags, boolean isPrivate) {
+        return new BitRateMatch(name, value, span, priority, tags, isPrivate);
+    }
+
+    static DateMatch date(MatchName name, LocalDate value, Span span) {
+        return new DateMatch(name, value, span, Priority.DEFAULT, Set.of(), false);
+    }
+    static DateMatch date(MatchName name, LocalDate value, Span span, Priority priority, Set<String> tags, boolean isPrivate) {
+        return new DateMatch(name, value, span, priority, tags, isPrivate);
+    }
+
+    record StringMatch(MatchName name, String value, Span span, Priority priority, Set<String> tags, boolean isPrivate) implements Match {
+        @Override public Match withName(MatchName newName) { return new StringMatch(newName, value, span, priority, tags, isPrivate); }
+        @Override public Match withSpan(Span newSpan) { return new StringMatch(name, value, newSpan, priority, tags, isPrivate); }
+        @Override public Match withPriority(Priority newPriority) { return new StringMatch(name, value, span, newPriority, tags, isPrivate); }
+        @Override public Match withTags(Set<String> newTags) { return new StringMatch(name, value, span, priority, newTags, isPrivate); }
+    }
+
+    record IntegerMatch(MatchName name, Integer value, Span span, Priority priority, Set<String> tags, boolean isPrivate) implements Match {
+        @Override public Match withName(MatchName newName) { return new IntegerMatch(newName, value, span, priority, tags, isPrivate); }
+        @Override public Match withSpan(Span newSpan) { return new IntegerMatch(name, value, newSpan, priority, tags, isPrivate); }
+        @Override public Match withPriority(Priority newPriority) { return new IntegerMatch(name, value, span, newPriority, tags, isPrivate); }
+        @Override public Match withTags(Set<String> newTags) { return new IntegerMatch(name, value, span, priority, newTags, isPrivate); }
+    }
+
+    record DoubleMatch(MatchName name, Double value, Span span, Priority priority, Set<String> tags, boolean isPrivate) implements Match {
+        @Override public Match withName(MatchName newName) { return new DoubleMatch(newName, value, span, priority, tags, isPrivate); }
+        @Override public Match withSpan(Span newSpan) { return new DoubleMatch(name, value, newSpan, priority, tags, isPrivate); }
+        @Override public Match withPriority(Priority newPriority) { return new DoubleMatch(name, value, span, newPriority, tags, isPrivate); }
+        @Override public Match withTags(Set<String> newTags) { return new DoubleMatch(name, value, span, priority, newTags, isPrivate); }
+    }
+
+    record LanguageMatch(MatchName name, Language value, Span span, Priority priority, Set<String> tags, boolean isPrivate) implements Match {
+        @Override public Match withName(MatchName newName) { return new LanguageMatch(newName, value, span, priority, tags, isPrivate); }
+        @Override public Match withSpan(Span newSpan) { return new LanguageMatch(name, value, newSpan, priority, tags, isPrivate); }
+        @Override public Match withPriority(Priority newPriority) { return new LanguageMatch(name, value, span, newPriority, tags, isPrivate); }
+        @Override public Match withTags(Set<String> newTags) { return new LanguageMatch(name, value, span, priority, newTags, isPrivate); }
+    }
+
+    record CountryMatch(MatchName name, Country value, Span span, Priority priority, Set<String> tags, boolean isPrivate) implements Match {
+        @Override public Match withName(MatchName newName) { return new CountryMatch(newName, value, span, priority, tags, isPrivate); }
+        @Override public Match withSpan(Span newSpan) { return new CountryMatch(name, value, newSpan, priority, tags, isPrivate); }
+        @Override public Match withPriority(Priority newPriority) { return new CountryMatch(name, value, span, newPriority, tags, isPrivate); }
+        @Override public Match withTags(Set<String> newTags) { return new CountryMatch(name, value, span, priority, newTags, isPrivate); }
+    }
+
+    record SizeMatch(MatchName name, Size value, Span span, Priority priority, Set<String> tags, boolean isPrivate) implements Match {
+        @Override public Match withName(MatchName newName) { return new SizeMatch(newName, value, span, priority, tags, isPrivate); }
+        @Override public Match withSpan(Span newSpan) { return new SizeMatch(name, value, newSpan, priority, tags, isPrivate); }
+        @Override public Match withPriority(Priority newPriority) { return new SizeMatch(name, value, span, newPriority, tags, isPrivate); }
+        @Override public Match withTags(Set<String> newTags) { return new SizeMatch(name, value, span, priority, newTags, isPrivate); }
+    }
+
+    record BitRateMatch(MatchName name, BitRate value, Span span, Priority priority, Set<String> tags, boolean isPrivate) implements Match {
+        @Override public Match withName(MatchName newName) { return new BitRateMatch(newName, value, span, priority, tags, isPrivate); }
+        @Override public Match withSpan(Span newSpan) { return new BitRateMatch(name, value, newSpan, priority, tags, isPrivate); }
+        @Override public Match withPriority(Priority newPriority) { return new BitRateMatch(name, value, span, newPriority, tags, isPrivate); }
+        @Override public Match withTags(Set<String> newTags) { return new BitRateMatch(name, value, span, priority, newTags, isPrivate); }
+    }
+
+    record DateMatch(MatchName name, LocalDate value, Span span, Priority priority, Set<String> tags, boolean isPrivate) implements Match {
+        @Override public Match withName(MatchName newName) { return new DateMatch(newName, value, span, priority, tags, isPrivate); }
+        @Override public Match withSpan(Span newSpan) { return new DateMatch(name, value, newSpan, priority, tags, isPrivate); }
+        @Override public Match withPriority(Priority newPriority) { return new DateMatch(name, value, span, newPriority, tags, isPrivate); }
+        @Override public Match withTags(Set<String> newTags) { return new DateMatch(name, value, span, priority, newTags, isPrivate); }
     }
 }

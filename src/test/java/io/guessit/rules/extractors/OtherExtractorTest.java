@@ -1,6 +1,7 @@
 package io.guessit.rules.extractors;
 
 import io.guessit.config.OptionsConfig;
+import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.ParseContext;
 import org.junit.jupiter.api.Test;
 
@@ -16,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OtherExtractorTest {
     private static OptionsConfig cfg(Map<String, Object> entries) {
         return new OptionsConfig(Map.of("advanced_config",
-            Map.of("other", Map.of("other", entries))));
+                Map.of("other", Map.of("other", entries))));
     }
 
     @Test void extractsString3dPattern() {
@@ -24,7 +25,7 @@ class OtherExtractorTest {
                 defaults(),
                 cfg(of("3D", "3D")));
         new OtherExtractor().extract(ctx);
-        var values = ctx.matches.named(OTHER).map(m -> m.value().toString()).toList();
+        var values = ctx.matches.named(OTHER).map(m -> ((Match.StringMatch) m).value()).toList();
         assertThat(values).isEqualTo(List.of("3D"));
     }
 
@@ -33,7 +34,7 @@ class OtherExtractorTest {
                 defaults(),
                 cfg(of("Rip", of("regex", List.of("(?:HD)Rip")))));
         new OtherExtractor().extract(ctx);
-        var values = ctx.matches.named(OTHER).map(m -> m.value().toString()).toList();
+        var values = ctx.matches.named(OTHER).map(m -> ((Match.StringMatch) m).value()).toList();
         assertThat(values).isEqualTo(List.of("Rip"));
     }
 
@@ -43,7 +44,7 @@ class OtherExtractorTest {
                 cfg(of("Proper", List.of("Proper", "Repack"))));
         new OtherExtractor().extract(ctx);
         solve(ctx.matches);
-        var values = ctx.matches.named(OTHER).map(m -> m.value().toString()).sorted().toList();
+        var values = ctx.matches.named(OTHER).map(m -> ((Match.StringMatch) m).value()).sorted().toList();
         assertThat(values).isEqualTo(List.of("Proper", "Proper"));
     }
 }

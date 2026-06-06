@@ -28,11 +28,17 @@ public final class SeasonYearLinker implements PostProcessor {
     @Override
     public void process(ParseContext ctx) {
         if (ctx.matches.named(MatchName.YEAR).findAny().isPresent()) return;
-        ctx.matches.named(MatchName.SEASON).toList().forEach(season -> {
-            if (!(season.value() instanceof Integer v)) return;
-            if (v < MIN_YEAR || v > CUR + 1) return;
-            ctx.matches.add(new Match(MatchName.YEAR, v, season.span(),
-                    season.priority(), Set.copyOf(season.tags()), false));
-        });
+
+        ctx.matches.named(MatchName.SEASON)
+                .filter(m -> m instanceof Match.IntegerMatch)
+                .map(m -> (Match.IntegerMatch) m)
+                .toList()
+                .forEach(season -> {
+                    int v = season.value();
+                    if (v < MIN_YEAR || v > CUR + 1) return;
+
+                    ctx.matches.add(Match.integer(MatchName.YEAR, v, season.span(),
+                            season.priority(), Set.copyOf(season.tags()), false));
+                });
     }
 }

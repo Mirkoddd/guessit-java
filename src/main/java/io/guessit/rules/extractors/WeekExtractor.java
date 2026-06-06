@@ -42,14 +42,14 @@ public final class WeekExtractor implements Extractor {
 
         while (m.find()) {
             var headSpan = new Span(m.start(), m.end(), m.group());
-            var head = new Match(MatchName.WEEK, null, headSpan, Priority.DEFAULT, Set.of(), false);
+            var head = Match.string(MatchName.WEEK, m.group(), headSpan, Priority.DEFAULT, Set.of(), false);
 
             if (seps.test(head)) {
                 int v = Integer.parseInt(m.group(GRP_WEEK));
 
                 if (DateOrchestrator.validWeek(v)) {
                     var weekSpan = new Span(m.start(GRP_WEEK), m.end(GRP_WEEK), m.group(GRP_WEEK));
-                    ctx.matches.add(new Match(MatchName.WEEK, v, weekSpan, Priority.DEFAULT, Set.of(), false));
+                    ctx.matches.add(Match.integer(MatchName.WEEK, v, weekSpan, Priority.DEFAULT, Set.of(), false));
                 }
             }
         }

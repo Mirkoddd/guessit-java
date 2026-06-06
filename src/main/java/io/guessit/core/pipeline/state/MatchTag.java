@@ -106,7 +106,7 @@ public enum MatchTag {
     /**
      * @return The raw string value as defined in the YAML configuration or old extractors.
      */
-    public String getYamlValue() {
+    public String getValue() {
         return yamlValue;
     }
 

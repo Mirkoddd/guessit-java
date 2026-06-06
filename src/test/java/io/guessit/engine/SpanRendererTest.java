@@ -6,6 +6,7 @@ import io.guessit.core.trace.SpanRenderer;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -13,8 +14,8 @@ class SpanRendererTest {
 
     @Test
     void rendersDisjointMatches() {
-        var year      = match(MatchName.YEAR,        2020, 4, 8,  "2020");
-        var container = match(MatchName.CONTAINER,   "mkv", 9, 12, "mkv");
+        var year      = matchInt(MatchName.YEAR,        2020, 4, 8,  "2020");
+        var container = matchStr(MatchName.CONTAINER,   "mkv", 9, 12, "mkv");
         String out = SpanRenderer.render("XxX.2020.mkv", List.of(year, container), List.of());
         assertThat(out).startsWith("XxX.2020.mkv\n");
         assertThat(out).contains("─"); // ─
@@ -24,9 +25,9 @@ class SpanRendererTest {
 
     @Test
     void stacksOverlappingLabelsOnSeparateRows() {
-        var year      = match(MatchName.YEAR,        2024, 4, 8,  "2024");
-        var screen    = match(MatchName.SCREEN_SIZE, "1080p", 9, 14, "1080p");
-        var src       = match(MatchName.SOURCE,      "WEB-DL", 15, 21, "WEB-DL");
+        var year      = matchInt(MatchName.YEAR,        2024, 4, 8,  "2024");
+        var screen    = matchStr(MatchName.SCREEN_SIZE, "1080p", 9, 14, "1080p");
+        var src       = matchStr(MatchName.SOURCE,      "WEB-DL", 15, 21, "WEB-DL");
         String out = SpanRenderer.render("XxX.2024.1080p.WEB-DL", List.of(year, screen, src), List.of());
         assertThat(out).startsWith("XxX.2024.1080p.WEB-DL\n");
         assertThat(out).contains("year");
@@ -45,8 +46,8 @@ class SpanRendererTest {
 
     @Test
     void skipsPrivateMatches() {
-        var visible = new Match(MatchName.YEAR, 2020, new Span(0, 4, "2020"), Priority.DEFAULT, java.util.Set.of(), false);
-        var hidden  = new Match(MatchName.YEAR, 2020, new Span(0, 4, "2020"), Priority.DEFAULT, java.util.Set.of(), true);
+        var visible = Match.integer(MatchName.YEAR, 2020, new Span(0, 4, "2020"), Priority.DEFAULT, Set.of(), false);
+        var hidden  = Match.integer(MatchName.YEAR, 2020, new Span(0, 4, "2020"), Priority.DEFAULT, Set.of(), true);
         String out = SpanRenderer.render("2020", List.of(visible, hidden), List.of());
         long yearLines = out.lines().filter(l -> l.contains("year")).count();
         assertThat(yearLines).isEqualTo(1L);
@@ -61,7 +62,7 @@ class SpanRendererTest {
     @Test
     void singleCharSpanRendersAsPipe() {
         String out = SpanRenderer.render("ab.X.cd",
-                List.of(Match.of(MatchName.PART, 1, new Span(3, 4, "X"))), List.of());
+                List.of(Match.integer(MatchName.PART, 1, new Span(3, 4, "X"), Priority.DEFAULT, Set.of(), false)), List.of());
         assertThat(out).contains("│"); // │
         assertThat(out).contains("part");
         // Box-drawing horizontal (─ U+2500) must not appear for single-char span
@@ -70,8 +71,8 @@ class SpanRendererTest {
 
     @Test
     void overlappingSameSpanMatchesEachGetOwnRow() {
-        var year   = Match.of(MatchName.YEAR,   2024, new Span(6, 10, "2024"));
-        var season = Match.of(MatchName.SEASON, 20,   new Span(6, 10, "2024"));
+        var year   = Match.integer(MatchName.YEAR,   2024, new Span(6, 10, "2024"), Priority.DEFAULT, Set.of(), false);
+        var season = Match.integer(MatchName.SEASON, 20,   new Span(6, 10, "2024"), Priority.DEFAULT, Set.of(), false);
         String out = SpanRenderer.render("Movie.2024.mkv", List.of(year, season), List.of());
         assertThat(out).contains("year");
         assertThat(out).contains("season");
@@ -94,11 +95,11 @@ class SpanRendererTest {
 
     @Test
     void rendersComplexLayoutVerbatim() {
-        var title     = match(MatchName.TITLE,     "Show", 0,  4,  "Show");
-        var season    = match(MatchName.SEASON,    1,      6,  8,  "01");
-        var episode   = match(MatchName.EPISODE,   2,      9,  11, "02");
-        var year      = match(MatchName.YEAR,      2024,   12, 16, "2024");
-        var container = match(MatchName.CONTAINER, "mkv",  17, 20, "mkv");
+        var title     = matchStr(MatchName.TITLE,     "Show", 0,  4,  "Show");
+        var season    = matchInt(MatchName.SEASON,    1,      6,  8,  "01");
+        var episode   = matchInt(MatchName.EPISODE,   2,      9,  11, "02");
+        var year      = matchInt(MatchName.YEAR,      2024,   12, 16, "2024");
+        var container = matchStr(MatchName.CONTAINER, "mkv",  17, 20, "mkv");
         String out = SpanRenderer.render("Show.S01E02.2024.mkv",
                 List.of(title, season, episode, year, container), List.of());
         String expected =
@@ -127,13 +128,13 @@ class SpanRendererTest {
         int parenOpen      = input.indexOf('(');
         int parenClose     = input.indexOf(')');
 
-        var title     = match(MatchName.TITLE,       "Shōgun", 0,              6,                    "Shōgun");
-        var year      = match(MatchName.YEAR,        2024,     yearStart,      yearStart + 4,        "2024");
-        var season    = match(MatchName.SEASON,      1,        seasonTokStart + 1, seasonTokStart + 3, "01");
-        var episode   = match(MatchName.EPISODE,     7,        episodeTokStart + 1, episodeTokStart + 3, "07");
-        var source    = match(MatchName.SOURCE,      "WEBDL",  sourceStart,    sourceStart + 5,      "WEBDL");
-        var screen    = match(MatchName.SCREEN_SIZE, "2160p",  screenStart,    screenStart + 5,      "2160p");
-        var container = match(MatchName.CONTAINER,   "mkv",    containerStart, containerStart + 3,   "mkv");
+        var title     = matchStr(MatchName.TITLE,       "Shōgun", 0,              6,                    "Shōgun");
+        var year      = matchInt(MatchName.YEAR,        2024,     yearStart,      yearStart + 4,        "2024");
+        var season    = matchInt(MatchName.SEASON,      1,        seasonTokStart + 1, seasonTokStart + 3, "01");
+        var episode   = matchInt(MatchName.EPISODE,     7,        episodeTokStart + 1, episodeTokStart + 3, "07");
+        var source    = matchStr(MatchName.SOURCE,      "WEBDL",  sourceStart,    sourceStart + 5,      "WEBDL");
+        var screen    = matchStr(MatchName.SCREEN_SIZE, "2160p",  screenStart,    screenStart + 5,      "2160p");
+        var container = matchStr(MatchName.CONTAINER,   "mkv",    containerStart, containerStart + 3,   "mkv");
 
         var whole     = new Marker(MarkerType.WHOLE, new Span(0, input.length(), input));
         var path1     = new Marker(MarkerType.PATH, new Span(0, firstSlash,  input.substring(0, firstSlash)));
@@ -159,14 +160,18 @@ class SpanRendererTest {
 
     @Test
     void privateMatchesAreSkipped() {
-        var publicMatch  = Match.of(MatchName.YEAR, 2020, new Span(0, 4, "2020"));
-        var privateMatch = new Match(MatchName.SEASON, 1, new Span(5, 7, "01"), Priority.DEFAULT, java.util.Set.of(), true);
+        var publicMatch  = Match.integer(MatchName.YEAR, 2020, new Span(0, 4, "2020"), Priority.DEFAULT, Set.of(), false);
+        var privateMatch = Match.integer(MatchName.SEASON, 1, new Span(5, 7, "01"), Priority.DEFAULT, Set.of(), true);
         String out = SpanRenderer.render("2020 01 mkv", List.of(publicMatch, privateMatch), List.of());
         assertThat(out).contains("year");
         assertThat(out).doesNotContain("season");
     }
 
-    private static Match match(MatchName name, Object value, int start, int end, String raw) {
-        return Match.of(name, value, new Span(start, end, raw));
+    private static Match matchInt(MatchName name, int value, int start, int end, String raw) {
+        return Match.integer(name, value, new Span(start, end, raw), Priority.DEFAULT, Set.of(), false);
+    }
+
+    private static Match matchStr(MatchName name, String value, int start, int end, String raw) {
+        return Match.string(name, value, new Span(start, end, raw), Priority.DEFAULT, Set.of(), false);
     }
 }

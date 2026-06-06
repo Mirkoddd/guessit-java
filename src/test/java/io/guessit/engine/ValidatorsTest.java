@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ValidatorsTest {
     private static Match m(int s, int e, String input) {
         var span = new Span(s, e, input.substring(s, e));
-        return new Match(G, null, span, Priority.DEFAULT, java.util.Set.of(), false);
+        return Match.string(G, span.raw(), span, Priority.DEFAULT, java.util.Set.of(), false);
     }
 
     @Test void sepsSurround_atStartOfString() {

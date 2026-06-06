@@ -108,7 +108,7 @@ public final class ScreenSizeExtractor implements Extractor {
 
             var weakOpts = RegexOpts.defaults()
                     .withValidator(validator)
-                    .withTags(Set.of(MatchTag.WEAK_SCREEN_SIZE.getYamlValue()));
+                    .withTags(Set.of(MatchTag.WEAK_SCREEN_SIZE.getValue()));
 
             Pattern pWeak = patternCache.computeIfAbsent(new PatternCacheKey(CACHE_TYPE_PROGRESSIVE_WEAK, progressive, List.of()),
                     k -> ScreenSizePatterns.buildProgressiveWeakPattern(k.list1(), GRP_WIDTH, GRP_HEIGHT));
@@ -119,8 +119,8 @@ public final class ScreenSizeExtractor implements Extractor {
     private void extract4kLiteral(ParseContext ctx, java.util.function.Predicate<Match> validator) {
         var fourK = StringOpts.defaults().withValidator(validator);
         for (var m : PatternMatcher.string(ctx.input, Set.of(VALUE_4K_LITERAL), MatchName.SCREEN_SIZE, fourK, ctx.trace)) {
-            ctx.matches.add(new Match(MatchName.SCREEN_SIZE, VALUE_2160P_NORMALIZED, m.span(),
-                    m.priority(), Set.of(MatchTag.NORMALIZED.getYamlValue()), false));
+            ctx.matches.add(Match.string(MatchName.SCREEN_SIZE, VALUE_2160P_NORMALIZED, m.span(),
+                    m.priority(), Set.of(MatchTag.NORMALIZED.getValue()), false));
         }
     }
 
@@ -133,7 +133,7 @@ public final class ScreenSizeExtractor implements Extractor {
                     int dotIdx = s.indexOf('.');
                     return Integer.valueOf(dotIdx == -1 ? s : s.substring(0, dotIdx));
                 })
-                .withTags(Set.of(MatchTag.COEXIST.getYamlValue()))
+                .withTags(Set.of(MatchTag.COEXIST.getValue()))
                 .withValidator(validator);
 
         Pattern p = patternCache.computeIfAbsent(new PatternCacheKey(CACHE_TYPE_STANDALONE_FR, frameRates, List.of()),
@@ -184,17 +184,17 @@ public final class ScreenSizeExtractor implements Extractor {
         String scan = wh.group(GRP_SCAN) == null ? SCAN_PROGRESSIVE : wh.group(GRP_SCAN).toLowerCase(Locale.ROOT);
         double ar = (double) w / h;
 
-        ctx.matches.add(new Match(MatchName.ASPECT_RATIO, Math.round(ar * 1000.0) / 1000.0,
-                m.span(), m.priority(), Set.of(MatchTag.DERIVED_SCREEN_SIZE.getYamlValue()), false));
+        ctx.matches.add(Match.decimal(MatchName.ASPECT_RATIO, Math.round(ar * 1000.0) / 1000.0,
+                m.span(), m.priority(), Set.of(MatchTag.DERIVED_SCREEN_SIZE.getValue()), false));
 
         String value = (standardHeights.contains(String.valueOf(h)) && minAr < ar && ar < maxAr)
                 ? h + scan : w + "x" + h;
 
         Set<String> tags = m.hasTag(MatchTag.WEAK_SCREEN_SIZE)
-                ? Set.of(MatchTag.NORMALIZED.getYamlValue(), MatchTag.WEAK_SCREEN_SIZE.getYamlValue())
-                : Set.of(MatchTag.NORMALIZED.getYamlValue());
+                ? Set.of(MatchTag.NORMALIZED.getValue(), MatchTag.WEAK_SCREEN_SIZE.getValue())
+                : Set.of(MatchTag.NORMALIZED.getValue());
 
-        ctx.matches.replace(m, new Match(MatchName.SCREEN_SIZE, value, m.span(),
+        ctx.matches.replace(m, Match.string(MatchName.SCREEN_SIZE, value, m.span(),
                 m.priority(), tags, false));
     }
 
@@ -203,10 +203,10 @@ public final class ScreenSizeExtractor implements Extractor {
         String scan = hs.group(GRP_SCAN) == null ? SCAN_PROGRESSIVE : hs.group(GRP_SCAN).toLowerCase(Locale.ROOT);
 
         Set<String> tags = m.hasTag(MatchTag.WEAK_SCREEN_SIZE)
-                ? Set.of(MatchTag.NORMALIZED.getYamlValue(), MatchTag.WEAK_SCREEN_SIZE.getYamlValue())
-                : Set.of(MatchTag.NORMALIZED.getYamlValue());
+                ? Set.of(MatchTag.NORMALIZED.getValue(), MatchTag.WEAK_SCREEN_SIZE.getValue())
+                : Set.of(MatchTag.NORMALIZED.getValue());
 
-        ctx.matches.replace(m, new Match(MatchName.SCREEN_SIZE, h + scan, m.span(),
+        ctx.matches.replace(m, Match.string(MatchName.SCREEN_SIZE, h + scan, m.span(),
                 m.priority(), tags, false));
     }
 
@@ -254,8 +254,9 @@ public final class ScreenSizeExtractor implements Extractor {
                 int v = Integer.parseInt(raw);
                 if (v >= 100 || io.guessit.rules.extractors.WeakEpisodeExtractor.EPISODE.equals(ctx.options.type())
                         || ctx.options.episodePreferNumber() != null) {
-                    ctx.matches.add(new Match(MatchName.EPISODE, v, ws.span(),
-                            Priority.PROBABLE, Set.of(MatchTag.WEAK_EPISODE.getYamlValue()), false));
+
+                    ctx.matches.add(Match.integer(MatchName.EPISODE, v, ws.span(),
+                            Priority.PROBABLE, Set.of(MatchTag.WEAK_EPISODE.getValue()), false));
                 }
             }
         }
@@ -279,8 +280,8 @@ public final class ScreenSizeExtractor implements Extractor {
                         rawFr
                 );
 
-                ctx.matches.add(new Match(MatchName.FRAME_RATE, val, frSpan,
-                        m.priority(), Set.of(MatchTag.COEXIST.getYamlValue(), MatchTag.DERIVED_SCREEN_SIZE.getYamlValue()), false));
+                ctx.matches.add(Match.integer(MatchName.FRAME_RATE, val, frSpan,
+                        m.priority(), Set.of(MatchTag.COEXIST.getValue(), MatchTag.DERIVED_SCREEN_SIZE.getValue()), false));
             }
         }
     }
@@ -297,7 +298,8 @@ public final class ScreenSizeExtractor implements Extractor {
                     .toList();
 
             if (inPart.size() > 1) {
-                long distinct = inPart.stream().map(m -> String.valueOf(m.value())).distinct().count();
+                long distinct = inPart.stream().map(m -> m instanceof Match.StringMatch sm ? sm.value() : "").distinct().count();
+
                 if (distinct > 1) {
                     inPart.subList(1, inPart.size()).forEach(ctx.matches::remove);
                 }

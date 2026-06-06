@@ -82,7 +82,8 @@ public final class SeasonEpisodeExtractor implements Extractor {
 
         while (m.find()) {
             var headSpan = new Span(m.start(), m.end(), m.group());
-            var head = new Match(MatchName.SEASON, null, headSpan, Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getYamlValue()), false);
+
+            var head = Match.string(MatchName.SEASON, m.group(), headSpan, Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getValue()), false);
 
             if (seps.test(head)) {
                 String cg = ctx.nextCoexistGroupTag();
@@ -90,13 +91,13 @@ public final class SeasonEpisodeExtractor implements Extractor {
                 var sSpan = new Span(m.start(SEASON_GROUP), m.end(SEASON_GROUP), m.group(SEASON_GROUP));
                 var aSpan = new Span(m.start(ALL_GROUP), m.end(ALL_GROUP), m.group(ALL_GROUP));
 
-                ctx.matches.add(new Match(MatchName.SEASON, Integer.parseInt(m.group(SEASON_GROUP)),
+                ctx.matches.add(Match.integer(MatchName.SEASON, Integer.parseInt(m.group(SEASON_GROUP)),
                         sSpan, Priority.DEFAULT,
-                        Set.of(MatchTag.SXX_EXX.getYamlValue(), MatchTag.COEXIST.getYamlValue(), cg), false));
+                        Set.of(MatchTag.SXX_EXX.getValue(), MatchTag.COEXIST.getValue(), cg), false));
 
-                ctx.matches.add(new Match(MatchName.OTHER, "Complete",
+                ctx.matches.add(Match.string(MatchName.OTHER, "Complete",
                         aSpan, Priority.DEFAULT,
-                        Set.of(MatchTag.SXX_EXX.getYamlValue(), MatchTag.COEXIST.getYamlValue(), cg), false));
+                        Set.of(MatchTag.SXX_EXX.getValue(), MatchTag.COEXIST.getValue(), cg), false));
             }
         }
     }
@@ -107,22 +108,23 @@ public final class SeasonEpisodeExtractor implements Extractor {
 
         while (m.find()) {
             var headSpan = new Span(m.start(), m.end(), m.group());
-            var head = new Match(MatchName.SEASON, null, headSpan, Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getYamlValue()), false);
+
+            var head = Match.string(MatchName.SEASON, m.group(), headSpan, Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getValue()), false);
 
             if (seps.test(head)) {
                 String cg = ctx.nextCoexistGroupTag();
 
-                ctx.matches.add(new Match(MatchName.SEASON_HEAD, null, headSpan, Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getYamlValue()), true));
+                ctx.matches.add(Match.string(MatchName.SEASON_HEAD, m.group(), headSpan, Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getValue()), true));
 
                 var sSpan = new Span(m.start(SEASON_GROUP), m.end(SEASON_GROUP), m.group(SEASON_GROUP));
-                ctx.matches.add(new Match(MatchName.SEASON, Integer.parseInt(m.group(SEASON_GROUP)),
+                ctx.matches.add(Match.integer(MatchName.SEASON, Integer.parseInt(m.group(SEASON_GROUP)),
                         sSpan, Priority.DEFAULT,
-                        Set.of(MatchTag.SXX_EXX.getYamlValue(), MatchTag.COEXIST.getYamlValue(), cg), false));
+                        Set.of(MatchTag.SXX_EXX.getValue(), MatchTag.COEXIST.getValue(), cg), false));
 
                 var eSpan = new Span(m.start(EXTRAS_GROUP), m.end(EXTRAS_GROUP), m.group(EXTRAS_GROUP));
-                ctx.matches.add(new Match(MatchName.OTHER, "Extras",
+                ctx.matches.add(Match.string(MatchName.OTHER, "Extras",
                         eSpan, Priority.DEFAULT,
-                        Set.of(MatchTag.SXX_EXX.getYamlValue(), MatchTag.COEXIST.getYamlValue(), cg, MatchTag.NO_RELEASE_GROUP_PREFIX.getYamlValue()), false));
+                        Set.of(MatchTag.SXX_EXX.getValue(), MatchTag.COEXIST.getValue(), cg, MatchTag.NO_RELEASE_GROUP_PREFIX.getValue()), false));
             }
         }
     }
@@ -137,8 +139,10 @@ public final class SeasonEpisodeExtractor implements Extractor {
                 var trimmedRun = trimRunToValidTails(run);
                 int runEnd = calculateRunEnd(run, trimmedRun.episodeSpans, trimmedRun.seasonSpans);
 
-                var headSpan = new Span(run.start(), runEnd, input.substring(run.start(), runEnd));
-                var headMatch = new Match(MatchName.SEASON_HEAD, null, headSpan, Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getYamlValue()), true);
+                String rawHead = input.substring(run.start(), runEnd);
+                var headSpan = new Span(run.start(), runEnd, rawHead);
+
+                var headMatch = Match.string(MatchName.SEASON_HEAD, rawHead, headSpan, Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getValue()), true);
 
                 if (seps.test(headMatch)) {
                     ctx.matches.add(headMatch);
@@ -230,19 +234,19 @@ public final class SeasonEpisodeExtractor implements Extractor {
                                    List<int[]> seasonSpans, String cg) {
         for (int i = 0; i < seasonValues.size(); i++) {
             int[] sp = seasonSpans.get(i);
-            var stags = cg != null ? Set.of(MatchTag.SXX_EXX.getYamlValue(), MatchTag.COEXIST.getYamlValue(), cg) : Set.of(MatchTag.SXX_EXX.getYamlValue(), MatchTag.COEXIST.getYamlValue());
+            var stags = cg != null ? Set.of(MatchTag.SXX_EXX.getValue(), MatchTag.COEXIST.getValue(), cg) : Set.of(MatchTag.SXX_EXX.getValue(), MatchTag.COEXIST.getValue());
 
             var span = new Span(sp[0], sp[1], input.substring(sp[0], sp[1]));
-            ctx.matches.add(new Match(MatchName.SEASON, Integer.valueOf(seasonValues.get(i)),
+            ctx.matches.add(Match.integer(MatchName.SEASON, Integer.parseInt(seasonValues.get(i)),
                     span, Priority.DEFAULT, stags, false));
         }
     }
 
     private void emitEpisodeMatches(ParseContext ctx, String input, List<String> episodeValues,
                                     List<int[]> episodeSpans, String cg, boolean discRun) {
-        Set<String> baseTags = cg != null ? Set.of(MatchTag.SXX_EXX.getYamlValue(), MatchTag.COEXIST.getYamlValue(), cg) : Set.of(MatchTag.SXX_EXX.getYamlValue(), MatchTag.COEXIST.getYamlValue());
+        Set<String> baseTags = cg != null ? Set.of(MatchTag.SXX_EXX.getValue(), MatchTag.COEXIST.getValue(), cg) : Set.of(MatchTag.SXX_EXX.getValue(), MatchTag.COEXIST.getValue());
         Set<String> tags = discRun
-                ? java.util.stream.Stream.concat(baseTags.stream(), java.util.stream.Stream.of(MatchTag.DISC_MARKER.getYamlValue()))
+                ? java.util.stream.Stream.concat(baseTags.stream(), java.util.stream.Stream.of(MatchTag.DISC_MARKER.getValue()))
                   .collect(java.util.stream.Collectors.toUnmodifiableSet())
                 : baseTags;
 
@@ -250,7 +254,7 @@ public final class SeasonEpisodeExtractor implements Extractor {
             int[] ep = episodeSpans.get(i);
 
             var span = new Span(ep[0], ep[1], input.substring(ep[0], ep[1]));
-            ctx.matches.add(new Match(MatchName.EPISODE, Integer.valueOf(episodeValues.get(i)),
+            ctx.matches.add(Match.integer(MatchName.EPISODE, Integer.parseInt(episodeValues.get(i)),
                     span, Priority.DEFAULT, tags, false));
         }
     }
@@ -322,7 +326,8 @@ public final class SeasonEpisodeExtractor implements Extractor {
 
         while (matcher.find()) {
             var headSpan = new Span(matcher.start(), matcher.end(), matcher.group());
-            var head = new Match(MatchName.SEASON, null, headSpan, Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getYamlValue(), MatchTag.SEE_PATTERN.getYamlValue()), false);
+
+            var head = Match.string(MatchName.SEASON, matcher.group(), headSpan, Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getValue(), MatchTag.SEE_PATTERN.getValue()), false);
 
             if (seps.test(head)) {
                 extractCapMatchAndExtensions(ctx, matcher);
@@ -334,14 +339,14 @@ public final class SeasonEpisodeExtractor implements Extractor {
         String cg = ctx.nextCoexistGroupTag();
 
         var sSpan = new Span(matcher.start(SEASON_GROUP), matcher.end(SEASON_GROUP), matcher.group(SEASON_GROUP));
-        ctx.matches.add(new Match(MatchName.SEASON, Integer.parseInt(matcher.group(SEASON_GROUP)),
+        ctx.matches.add(Match.integer(MatchName.SEASON, Integer.parseInt(matcher.group(SEASON_GROUP)),
                 sSpan,
-                Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getYamlValue(), MatchTag.COEXIST.getYamlValue(), MatchTag.SEE_PATTERN.getYamlValue(), cg), false));
+                Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getValue(), MatchTag.COEXIST.getValue(), MatchTag.SEE_PATTERN.getValue(), cg), false));
 
         var eSpan = new Span(matcher.start(EPISODE_GROUP), matcher.end(EPISODE_GROUP), matcher.group(EPISODE_GROUP));
-        ctx.matches.add(new Match(MatchName.EPISODE, Integer.parseInt(matcher.group(EPISODE_GROUP)),
+        ctx.matches.add(Match.integer(MatchName.EPISODE, Integer.parseInt(matcher.group(EPISODE_GROUP)),
                 eSpan,
-                Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getYamlValue(), MatchTag.COEXIST.getYamlValue(), MatchTag.SEE_PATTERN.getYamlValue(), cg), false));
+                Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getValue(), MatchTag.COEXIST.getValue(), MatchTag.SEE_PATTERN.getValue(), cg), false));
 
         if (matcher.group(SEASON2_GROUP) != null) {
             extractCapSecondaryEpisode(ctx, matcher, cg);
@@ -355,13 +360,13 @@ public final class SeasonEpisodeExtractor implements Extractor {
         int e2 = Integer.parseInt(matcher.group(EPISODE2_GROUP));
 
         var e2Span = new Span(matcher.start(EPISODE2_GROUP), matcher.end(EPISODE2_GROUP), matcher.group(EPISODE2_GROUP));
-        ctx.matches.add(new Match(MatchName.EPISODE, e2, e2Span, Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getYamlValue(), MatchTag.COEXIST.getYamlValue(), MatchTag.SEE_PATTERN.getYamlValue(), cg), false));
+        ctx.matches.add(Match.integer(MatchName.EPISODE, e2, e2Span, Priority.DEFAULT, Set.of(MatchTag.SXX_EXX.getValue(), MatchTag.COEXIST.getValue(), MatchTag.SEE_PATTERN.getValue(), cg), false));
 
         if (s2 == s1 && e2 > e1) {
             for (int v = e1 + 1; v < e2; v++) {
                 var fillSpan = new Span(matcher.end(EPISODE_GROUP), matcher.start(EPISODE2_GROUP), String.valueOf(v));
-                ctx.matches.add(new Match(MatchName.EPISODE, v, fillSpan, Priority.DEFAULT,
-                        Set.of(MatchTag.SXX_EXX.getYamlValue(), MatchTag.COEXIST.getYamlValue(), MatchTag.SEE_PATTERN.getYamlValue(), MatchTag.RANGE_FILL.getYamlValue(), cg), false));
+                ctx.matches.add(Match.integer(MatchName.EPISODE, v, fillSpan, Priority.DEFAULT,
+                        Set.of(MatchTag.SXX_EXX.getValue(), MatchTag.COEXIST.getValue(), MatchTag.SEE_PATTERN.getValue(), MatchTag.RANGE_FILL.getValue(), cg), false));
             }
         }
     }
@@ -407,8 +412,11 @@ public final class SeasonEpisodeExtractor implements Extractor {
 
     private void expandRanges(ParseContext ctx) {
         var input = ctx.input;
+
         var episodes = ctx.matches.named(MatchName.EPISODE)
                 .filter(m -> m.hasTag(MatchTag.SXX_EXX))
+                .filter(m -> m instanceof Match.IntegerMatch)
+                .map(m -> (Match.IntegerMatch) m)
                 .sorted(java.util.Comparator.comparingInt(m -> m.span().start()))
                 .toList();
 
@@ -417,26 +425,26 @@ public final class SeasonEpisodeExtractor implements Extractor {
         }
     }
 
-    private void processRangeExpansion(ParseContext ctx, String input, Match prev, Match next) {
+    private void processRangeExpansion(ParseContext ctx, String input, Match.IntegerMatch prev, Match.IntegerMatch next) {
         if (!prev.span().isBefore(next.span()) || prev.span().distanceTo(next.span()) > 3) return;
 
         var gap = input.substring(prev.span().end(), next.span().start());
         if (!containsRange(gap)) return;
 
-        int prevVal = (Integer) prev.value();
-        int nextVal = (Integer) next.value();
+        int prevVal = prev.value();
+        int nextVal = next.value();
 
         if (nextVal - prevVal > MAX_EXPAND_JUMP) return;
 
         boolean disc = prev.hasTag(MatchTag.DISC_MARKER) && next.hasTag(MatchTag.DISC_MARKER);
 
         var fillTags = disc
-                ? Set.of(MatchTag.SXX_EXX.getYamlValue(), MatchTag.COEXIST.getYamlValue(), MatchTag.RANGE_FILL.getYamlValue(), MatchTag.DISC_MARKER.getYamlValue())
-                : Set.of(MatchTag.SXX_EXX.getYamlValue(), MatchTag.COEXIST.getYamlValue(), MatchTag.RANGE_FILL.getYamlValue());
+                ? Set.of(MatchTag.SXX_EXX.getValue(), MatchTag.COEXIST.getValue(), MatchTag.RANGE_FILL.getValue(), MatchTag.DISC_MARKER.getValue())
+                : Set.of(MatchTag.SXX_EXX.getValue(), MatchTag.COEXIST.getValue(), MatchTag.RANGE_FILL.getValue());
 
         for (int v = prevVal + 1; v < nextVal; v++) {
             var span = new Span(prev.span().end(), next.span().start(), String.valueOf(v));
-            ctx.matches.add(new Match(MatchName.EPISODE, v, span, Priority.DEFAULT, fillTags, false));
+            ctx.matches.add(Match.integer(MatchName.EPISODE, v, span, Priority.DEFAULT, fillTags, false));
         }
     }
 
@@ -491,13 +499,10 @@ public final class SeasonEpisodeExtractor implements Extractor {
         return !isHighValueRangePaired(m, allMatches, input);
     }
 
-    private boolean hasMediaAfter(Match weak, List<Match> mediaSpans) {
-        return mediaSpans.stream().anyMatch(media -> media.span().isAfter(weak.span()));
-    }
-
     private boolean isHighValueRangePaired(Match m, List<Match> matches, String input) {
         boolean isWeak = m.hasTag(MatchTag.WEAK_EPISODE) || m.hasTag(MatchTag.WEAK_DUPLICATE);
-        if (!isWeak || !(m.value() instanceof Integer iv) || iv < 100) return false;
+
+        if (!isWeak || !(m instanceof Match.IntegerMatch im) || im.value() < 100) return false;
 
         return matches.stream().anyMatch(other -> isValidRangePair(m, other, input));
     }
@@ -505,7 +510,8 @@ public final class SeasonEpisodeExtractor implements Extractor {
     private boolean isValidRangePair(Match cur, Match other, String input) {
         if (other == cur || !other.hasTag(MatchTag.WEAK_EPISODE) || other.hasTag(MatchTag.WEAK_DUPLICATE))
             return false;
-        if (!(other.value() instanceof Integer ov) || ov < 100) return false;
+
+        if (!(other instanceof Match.IntegerMatch om) || om.value() < 100) return false;
 
         if (cur.span().overlaps(other.span()) || cur.span().distanceTo(other.span()) > 5) return false;
 
@@ -531,5 +537,9 @@ public final class SeasonEpisodeExtractor implements Extractor {
         }
 
         return foundRangeSeparator;
+    }
+
+    private boolean hasMediaAfter(Match weak, List<Match> mediaSpans) {
+        return mediaSpans.stream().anyMatch(media -> media.span().isAfter(weak.span()));
     }
 }

@@ -45,11 +45,12 @@ public final class FilmExtractor implements Extractor {
 
         while (m.find()) {
             var span = new Span(m.start(), m.end(), m.group());
-            var head = new Match(MatchName.FILM, null, span, priority(), Set.of(), false);
+
+            var head = Match.string(MatchName.FILM, m.group(), span, priority(), Set.of(), false);
 
             if (seps.test(head)) {
                 int v = Integer.parseInt(m.group(GRP_N));
-                ctx.matches.add(new Match(MatchName.FILM, v, span, priority(), Set.of(), false));
+                ctx.matches.add(Match.integer(MatchName.FILM, v, span, priority(), Set.of(), false));
             }
         }
     }
@@ -93,7 +94,7 @@ public final class FilmExtractor implements Extractor {
                         return Optional.empty();
                     }
 
-                    return Optional.of(new Match(MatchName.FILM_TITLE, title,
+                    return Optional.of(Match.string(MatchName.FILM_TITLE, title,
                             hole.span(), priority(), Set.of(), false));
                 });
     }

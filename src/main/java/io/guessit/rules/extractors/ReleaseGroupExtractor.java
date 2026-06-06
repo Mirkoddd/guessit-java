@@ -83,8 +83,8 @@ public final class ReleaseGroupExtractor implements Extractor {
         while ((idx = hay.indexOf(n, from)) >= 0) {
             int end = idx + name.length();
             var span = new Span(idx, end, input.substring(idx, end));
-            var m = new Match(MatchName.RELEASE_GROUP, name, span,
-                    Priority.EXPECTED, Set.of(MatchTag.EXPECTED.getYamlValue()), false);
+            var m = Match.string(MatchName.RELEASE_GROUP, name, span,
+                    Priority.EXPECTED, Set.of(MatchTag.EXPECTED.getValue()), false);
 
             if (validator.test(m)) ctx.matches.add(m);
             from = idx + 1;
@@ -107,7 +107,7 @@ public final class ReleaseGroupExtractor implements Extractor {
                 .map(res -> {
                     var raw = input.substring(res.start(), res.end());
                     var span = new Span(res.start(), res.end(), raw);
-                    return new Match(MatchName.RELEASE_GROUP, raw, span, Priority.EXPECTED, Set.of(MatchTag.EXPECTED.getYamlValue()), false);
+                    return Match.string(MatchName.RELEASE_GROUP, raw, span, Priority.EXPECTED, Set.of(MatchTag.EXPECTED.getValue()), false);
                 })
                 .filter(validator)
                 .forEach(ctx.matches::add);
@@ -171,7 +171,7 @@ public final class ReleaseGroupExtractor implements Extractor {
 
         removeOverlappingLanguages(env.ctx(), absStart, absDashEnd);
         var span = new Span(absStart, absDashEnd, rawCandidate);
-        env.ctx().matches.add(new Match(MatchName.RELEASE_GROUP, candidate, span, Priority.SCENE, Set.of(MatchTag.SCENE.getYamlValue()), false));
+        env.ctx().matches.add(Match.string(MatchName.RELEASE_GROUP, candidate, span, Priority.SCENE, Set.of(MatchTag.SCENE.getValue()), false));
         return true;
     }
 
@@ -215,7 +215,7 @@ public final class ReleaseGroupExtractor implements Extractor {
         dropHdInsideCandidate(ctx, s, e);
         removeOverlappingLanguages(ctx, s, e);
         var span = new Span(s, e, raw);
-        ctx.matches.add(new Match(MatchName.RELEASE_GROUP, candidate, span, Priority.SCENE, Set.of(MatchTag.SCENE.getYamlValue()), false));
+        ctx.matches.add(Match.string(MatchName.RELEASE_GROUP, candidate, span, Priority.SCENE, Set.of(MatchTag.SCENE.getValue()), false));
     }
 
     private boolean isValidLeadingDashPosition(String part, int firstDash) {
@@ -440,7 +440,7 @@ public final class ReleaseGroupExtractor implements Extractor {
         if (!validGroupName(rawPrev, false, true)) return null;
 
         env.ctx().matches.remove(prev);
-        return new Match(MatchName.RELEASE_GROUP, rawPrev, prev.span(), Priority.SCENE, Set.of(MatchTag.SCENE.getYamlValue()), false);
+        return Match.string(MatchName.RELEASE_GROUP, rawPrev, prev.span(), Priority.SCENE, Set.of(MatchTag.SCENE.getValue()), false);
     }
 
     private boolean canPromoteScenePrevToReleaseGroup(ParseContext ctx, String input, Marker filePart, Match prev, int rangeEnd) {
@@ -460,7 +460,7 @@ public final class ReleaseGroupExtractor implements Extractor {
         dropHdInsideCandidate(env.ctx(), span.start, span.end);
         removeOverlappingLanguages(env.ctx(), span.start, span.end);
         var outSpan = new Span(span.start, span.end, raw);
-        return new Match(MatchName.RELEASE_GROUP, candidate, outSpan, Priority.SCENE, Set.of(MatchTag.SCENE.getYamlValue()), false);
+        return Match.string(MatchName.RELEASE_GROUP, candidate, outSpan, Priority.SCENE, Set.of(MatchTag.SCENE.getValue()), false);
     }
 
     private boolean isValidSceneCandidate(ParseContext ctx, Marker filePart, Match prev, String candidate, CandidateSpan span) {
@@ -503,8 +503,8 @@ public final class ReleaseGroupExtractor implements Extractor {
             return Optional.empty();
         }
 
-        return Optional.of(new Match(MatchName.RELEASE_GROUP, trimmed, span,
-                Priority.SCENE, Set.of(MatchTag.ANIME.getYamlValue()), false));
+        return Optional.of(Match.string(MatchName.RELEASE_GROUP, trimmed, span,
+                Priority.SCENE, Set.of(MatchTag.ANIME.getValue()), false));
     }
 
     private static boolean candidateIsLikelyTitle(ParseContext ctx, Marker filePart, Match prev, int candidateEnd) {
@@ -547,7 +547,7 @@ public final class ReleaseGroupExtractor implements Extractor {
         return ctx.matches.all()
                 .filter(m -> !m.isPrivate())
                 .filter(m -> m.name() != MatchName.LANGUAGE && m.name() != MatchName.SUBTITLE_LANGUAGE)
-                .filter(m -> !(m.name() == MatchName.OTHER && RG_INTERIOR_OTHER.contains(m.value().toString())))
+                .filter(m -> !(m instanceof Match.StringMatch sm && sm.name() == MatchName.OTHER && RG_INTERIOR_OTHER.contains(sm.value())))
                 .anyMatch(m -> m.span().overlaps(target));
     }
 
@@ -565,7 +565,7 @@ public final class ReleaseGroupExtractor implements Extractor {
                 && m.name() != MatchName.PROPER_COUNT
                 && m.name() != MatchName.TITLE
                 && !(m.name() == MatchName.CONTAINER && m.hasTag(MatchTag.EXTENSION))
-                && !(m.name() == MatchName.OTHER && "Rip".equals(m.value()));
+                && !(m instanceof Match.StringMatch sm && sm.name() == MatchName.OTHER && "Rip".equals(sm.value()));
     }
 
     private static int filePartWeight(Marker fp, ParseContext ctx) {
@@ -674,8 +674,8 @@ public final class ReleaseGroupExtractor implements Extractor {
 
     private static boolean isLanguageOrAudioMatch(Match m) {
         if (m.name() == MatchName.SUBTITLE_LANGUAGE || m.name() == MatchName.LANGUAGE) return true;
-        if (m.name() == MatchName.OTHER && m.value() != null) {
-            String vs = m.value().toString();
+        if (m instanceof Match.StringMatch sm && sm.name() == MatchName.OTHER) {
+            String vs = sm.value();
             return vs.contains("Audio") || "Dual Audio".equals(vs);
         }
         return false;
@@ -715,7 +715,7 @@ public final class ReleaseGroupExtractor implements Extractor {
     private static void dropHdInsideCandidate(ParseContext ctx, int s, int e) {
         var target = new Span(s, e, "");
         ctx.matches.all()
-                .filter(m -> m.name() == MatchName.OTHER && RG_INTERIOR_OTHER.contains(String.valueOf(m.value())))
+                .filter(m -> m instanceof Match.StringMatch sm && sm.name() == MatchName.OTHER && RG_INTERIOR_OTHER.contains(sm.value()))
                 .filter(m -> m.span().isInside(target))
                 .toList()
                 .forEach(ctx.matches::remove);

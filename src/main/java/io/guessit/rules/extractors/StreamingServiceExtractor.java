@@ -109,7 +109,7 @@ public final class StreamingServiceExtractor implements Extractor {
             int e = i + n.length();
             if (boundsOk(ctx, input, i, e)) {
                 var span = new Span(i, e, input.substring(i, e));
-                ctx.matches.add(new Match(MatchName.STREAMING_SERVICE, value, span, Priority.DEFAULT, Set.of(MatchTag.SOURCE_PREFIX.getYamlValue()), false));
+                ctx.matches.add(Match.string(MatchName.STREAMING_SERVICE, value, span, Priority.DEFAULT, Set.of(MatchTag.SOURCE_PREFIX.getValue()), false));
             }
             from = i + 1;
         }
@@ -128,7 +128,7 @@ public final class StreamingServiceExtractor implements Extractor {
             int e = matchResult.end();
             if (boundsOk(ctx, input, s, e)) {
                 var span = new Span(s, e, input.substring(s, e));
-                ctx.matches.add(new Match(MatchName.STREAMING_SERVICE, value, span, Priority.DEFAULT, Set.of(MatchTag.SOURCE_PREFIX.getYamlValue()), false));
+                ctx.matches.add(Match.string(MatchName.STREAMING_SERVICE, value, span, Priority.DEFAULT, Set.of(MatchTag.SOURCE_PREFIX.getValue()), false));
             }
         });
     }

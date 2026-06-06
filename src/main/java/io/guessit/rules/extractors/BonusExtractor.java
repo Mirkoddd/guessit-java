@@ -49,14 +49,13 @@ public final class BonusExtractor implements Extractor {
 
         while (m.find()) {
             var span = new Span(m.start(), m.end(), m.group());
-
-            var head = new Match(MatchName.BONUS, null, span, priority(), Set.of(), false);
+            var head = Match.string(MatchName.BONUS, m.group(), span, priority(), Set.of(), false);
 
             boolean hasConflict = potentialConflicts.stream()
                     .anyMatch(x -> x.span().overlaps(span));
 
             if (seps.test(head) && !hasConflict) {
-                ctx.matches.add(new Match(MatchName.BONUS, Integer.parseInt(m.group(GRP_NAME)),
+                ctx.matches.add(Match.integer(MatchName.BONUS, Integer.parseInt(m.group(GRP_NAME)),
                         span, priority(), Set.of(), false));
             }
         }
@@ -104,7 +103,7 @@ public final class BonusExtractor implements Extractor {
                         return Optional.empty();
                     }
 
-                    return Optional.of(new Match(MatchName.BONUS_TITLE, title,
+                    return Optional.of(Match.string(MatchName.BONUS_TITLE, title,
                             hole.span(), priority(), Set.of(), false));
                 });
     }

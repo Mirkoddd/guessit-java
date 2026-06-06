@@ -19,7 +19,7 @@ class TitleExtractorTest {
                 ? r.alternativeTitleList().getFirst()
                 : null).isEqualTo("Alt Title");
     }
-    @Test void serieNameFilepartRoutesInnerToEpisodeTitle() {
+    @Test void seriesNameFilePartRoutesInnerToEpisodeTitle() {
         var r = parse("Caprica/Season 1/Apotheosis.mkv");
         Assertions.assertThat(r.title()).isEqualTo("Caprica");
         Assertions.assertThat(r.episodeTitle()).isEqualTo("Apotheosis");

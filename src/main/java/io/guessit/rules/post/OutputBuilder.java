@@ -7,10 +7,8 @@ import io.guessit.core.pipeline.state.MatchTag;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.api.models.Country;
 import io.guessit.api.models.Language;
-import io.guessit.api.models.Quantity;
 import io.guessit.core.trace.Trace;
 
-import java.time.LocalDate;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -64,17 +62,17 @@ public final class OutputBuilder implements Consumer<ParseContext> {
         DISPATCHER.put(MatchName.VIDEO_API, (b, ms) -> b.videoApi(dedupedStringList(ms)));
         DISPATCHER.put(MatchName.EDITION, (b, ms) -> b.edition(dedupedStringList(ms)));
 
-        DISPATCHER.put(MatchName.DATE, (b, ms) -> { if (ms.getFirst().value() instanceof LocalDate d) b.date(d); });
+        DISPATCHER.put(MatchName.DATE, (b, ms) -> { if (ms.getFirst() instanceof Match.DateMatch dm) b.date(dm.value()); });
         DISPATCHER.put(MatchName.LANGUAGE, (b, ms) -> b.language(asLangList(ms)));
         DISPATCHER.put(MatchName.SUBTITLE_LANGUAGE, (b, ms) -> b.subtitleLanguage(asLangList(ms)));
         DISPATCHER.put(MatchName.COUNTRY, (b, ms) -> b.country(asCountryList(ms)));
         DISPATCHER.put(MatchName.ASPECT_RATIO, (b, ms) -> b.aspectRatio(asDouble(ms.getFirst())));
         DISPATCHER.put(MatchName.FRAME_RATE, (b, ms) -> b.frameRate(asFrameRate(ms.getFirst())));
 
-        DISPATCHER.put(MatchName.BIT_RATE, (b, ms) -> b.bitRate((Quantity) ms.getFirst().value()));
-        DISPATCHER.put(MatchName.AUDIO_BIT_RATE, (b, ms) -> b.audioBitRate((Quantity) ms.getFirst().value()));
-        DISPATCHER.put(MatchName.VIDEO_BIT_RATE, (b, ms) -> b.videoBitRate((Quantity) ms.getFirst().value()));
-        DISPATCHER.put(MatchName.SIZE, (b, ms) -> b.size((Quantity) ms.getFirst().value()));
+        DISPATCHER.put(MatchName.BIT_RATE, (b, ms) -> { if (ms.getFirst() instanceof Match.BitRateMatch bm) b.bitRate(bm.value()); });
+        DISPATCHER.put(MatchName.AUDIO_BIT_RATE, (b, ms) -> { if (ms.getFirst() instanceof Match.BitRateMatch bm) b.audioBitRate(bm.value()); });
+        DISPATCHER.put(MatchName.VIDEO_BIT_RATE, (b, ms) -> { if (ms.getFirst() instanceof Match.BitRateMatch bm) b.videoBitRate(bm.value()); });
+        DISPATCHER.put(MatchName.SIZE, (b, ms) -> { if (ms.getFirst() instanceof Match.SizeMatch sm) b.size(sm.value()); });
 
         DISPATCHER.put(MatchName.SEASON, (b, ms) -> applyIntList(ms, b::season, b::seasonList));
         DISPATCHER.put(MatchName.EPISODE, (b, ms) -> applyIntList(ms, b::episode, b::episodeList));
@@ -130,16 +128,17 @@ public final class OutputBuilder implements Consumer<ParseContext> {
         var names = new HashSet<MatchName>();
 
         ctx.matches.all().forEach(m -> {
-            var name = m.name();
-            var nameStr = name.name().toLowerCase();
-            boolean filtered = (!excludes.isEmpty() && excludes.contains(nameStr))
-                    || (!includes.isEmpty() && !includes.contains(nameStr));
+                    var name = m.name();
+                    var nameStr = name.name().toLowerCase();
+                    boolean filtered = (!excludes.isEmpty() && excludes.contains(nameStr))
+                            || (!includes.isEmpty() && !includes.contains(nameStr));
 
-            if (filtered) {
-                names.add(name);
-                m.tags().stream().filter(t -> t.startsWith("cg:")).forEach(groups::add);
-            }
-        });
+                    if (filtered) {
+                        names.add(name);
+                        m.tags().stream().filter(t -> t.startsWith("cg:")).forEach(groups::add);
+                    }
+                }
+        );
 
         return new DroppedSet(groups, names);
     }
@@ -221,7 +220,9 @@ public final class OutputBuilder implements Consumer<ParseContext> {
             if (action != null) {
                 action.accept(b, matches);
             } else {
-                extras.put(matchName.name().toLowerCase(), matches.size() == 1 ? matches.getFirst().value() : matches.stream().map(Match::value).toList());
+                extras.put(matchName.name().toLowerCase(), matches.size() == 1
+                        ? extractRawValue(matches.getFirst())
+                        : matches.stream().map(OutputBuilder::extractRawValue).toList());
             }
         }
         return extras;
@@ -231,24 +232,41 @@ public final class OutputBuilder implements Consumer<ParseContext> {
         var key = name.name().toLowerCase();
         if (ms.size() == 1) {
             var m = ms.getFirst();
-            trace.subStep("Set " + key + " ← " + renderValue(m.value()) + " from match at " + m.span().start() + "-" + m.span().end());
+            trace.subStep("Set " + key + " ← " + renderValue(extractRawValue(m)) + " from match at " + m.span().start() + "-" + m.span().end());
         } else {
-            var values = ms.stream().map(m -> renderValue(m.value())).toList();
+            var values = ms.stream().map(m -> renderValue(extractRawValue(m))).toList();
             var first = ms.getFirst();
             var last = ms.getLast();
             trace.subStep("Set " + key + " ← " + values + " from " + ms.size() + " matches at " + first.span().start() + "-" + last.span().end());
         }
     }
 
+    private static Object extractRawValue(Match m) {
+        return switch (m) {
+            case Match.StringMatch sm -> sm.value();
+            case Match.IntegerMatch im -> im.value();
+            case Match.DoubleMatch dm -> dm.value();
+            case Match.LanguageMatch lm -> lm.value();
+            case Match.CountryMatch cm -> cm.value();
+            case Match.SizeMatch sm -> sm.value();
+            case Match.BitRateMatch bm -> bm.value();
+            case Match.DateMatch dm -> dm.value();
+        };
+    }
+
     private static String renderValue(Object v) {
         return v == null ? "null" : String.valueOf(v);
     }
 
-    private static String asString(Match m) { return m.value() == null ? null : m.value().toString(); }
+    private static String asString(Match m) {
+        Object v = extractRawValue(m);
+        return v == null ? null : v.toString();
+    }
 
     private static Integer asInt(Match m) {
-        var v = m.value();
-        if (v instanceof Integer i) return i;
+        if (m instanceof Match.IntegerMatch im) return im.value();
+
+        Object v = extractRawValue(m);
         if (v instanceof Number n) return n.intValue();
         if (v instanceof String s) {
             try { return Integer.parseInt(s); } catch (NumberFormatException _) { return null; }
@@ -256,20 +274,10 @@ public final class OutputBuilder implements Consumer<ParseContext> {
         return null;
     }
 
-    private static List<String> dedupedStringList(List<Match> ms) {
-        return ms.stream().map(OutputBuilder::asString).distinct().toList();
-    }
-
-    private static String asFrameRate(Match m) {
-        var v = m.value();
-        if (v == null) return null;
-        if (v instanceof String s && s.endsWith("fps")) return s;
-        return v + "fps";
-    }
-
     private static Double asDouble(Match m) {
-        var v = m.value();
-        if (v instanceof Double d) return d;
+        if (m instanceof Match.DoubleMatch dm) return dm.value();
+
+        Object v = extractRawValue(m);
         if (v instanceof Number n) return n.doubleValue();
         if (v instanceof String s) {
             try { return Double.parseDouble(s); } catch (NumberFormatException _) { return null; }
@@ -277,12 +285,31 @@ public final class OutputBuilder implements Consumer<ParseContext> {
         return null;
     }
 
+    private static String asFrameRate(Match m) {
+        Object v = extractRawValue(m);
+        if (v == null) return null;
+        if (v instanceof String s && s.endsWith("fps")) return s;
+        return v + "fps";
+    }
+
+    private static List<String> dedupedStringList(List<Match> ms) {
+        return ms.stream().map(OutputBuilder::asString).distinct().toList();
+    }
+
     private static List<Language> asLangList(List<Match> ms) {
-        return ms.stream().map(m -> (Language) m.value()).distinct().toList();
+        return ms.stream()
+                .filter(m -> m instanceof Match.LanguageMatch)
+                .map(m -> ((Match.LanguageMatch) m).value())
+                .distinct()
+                .toList();
     }
 
     private static List<Country> asCountryList(List<Match> ms) {
-        return ms.stream().map(m -> (Country) m.value()).distinct().toList();
+        return ms.stream()
+                .filter(m -> m instanceof Match.CountryMatch)
+                .map(m -> ((Match.CountryMatch) m).value())
+                .distinct()
+                .toList();
     }
 
     private static void applyIntList(List<Match> ms, IntConsumer single, Consumer<List<Integer>> list) {

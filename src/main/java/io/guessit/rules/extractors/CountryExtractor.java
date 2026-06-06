@@ -59,7 +59,7 @@ public final class CountryExtractor implements Extractor {
                     .filter(country -> isCountryAllowed(country, allowedLc))
                     .ifPresent(country -> {
                         var span = new Span(word.start(), word.end(), input.substring(word.start(), word.end()));
-                        ctx.matches.add(new Match(MatchName.COUNTRY, country, span, Priority.DEFAULT, Set.of(), false));
+                        ctx.matches.add(Match.country(MatchName.COUNTRY, country, span, Priority.DEFAULT, Set.of(), false));
                     });
         }
     }
@@ -91,8 +91,8 @@ public final class CountryExtractor implements Extractor {
     }
 
     private void resolveConflict(Match countryMatch, Match langMatch, List<Match> toRemove) {
-        if (countryMatch.value() instanceof Country cc
-                && ("US".equals(cc.alpha2()) || "GB".equals(cc.alpha2()))) {
+        if (countryMatch instanceof Match.CountryMatch cm
+                && ("US".equals(cm.value().alpha2()) || "GB".equals(cm.value().alpha2()))) {
             toRemove.add(langMatch);
         } else {
             toRemove.add(countryMatch);

@@ -1,11 +1,16 @@
 package io.guessit.core.text;
 
+import io.guessit.api.models.BitRate;
+import io.guessit.api.models.Country;
+import io.guessit.api.models.Language;
+import io.guessit.api.models.Size;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.MatchSet;
 import io.guessit.core.trace.Trace;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -62,7 +67,19 @@ public final class PatternMatcher {
             Object formatted = opts.valueFormatter().apply(extracted);
 
             var span = new Span(start, end, raw);
-            var match = new Match(name, formatted, span, opts.priority(), opts.tags(), opts.isPrivate());
+
+            Match match = switch (formatted) {
+                case String s -> Match.string(name, s, span, opts.priority(), opts.tags(), opts.isPrivate());
+                case Integer i -> Match.integer(name, i, span, opts.priority(), opts.tags(), opts.isPrivate());
+                case Double d -> Match.decimal(name, d, span, opts.priority(), opts.tags(), opts.isPrivate());
+                case Language l -> Match.language(name, l, span, opts.priority(), opts.tags(), opts.isPrivate());
+                case Country c -> Match.country(name, c, span, opts.priority(), opts.tags(), opts.isPrivate());
+                case Size s -> Match.size(name, s, span, opts.priority(), opts.tags(), opts.isPrivate());
+                case BitRate b -> Match.bitRate(name, b, span, opts.priority(), opts.tags(), opts.isPrivate());
+                case LocalDate d -> Match.date(name, d, span, opts.priority(), opts.tags(), opts.isPrivate());
+                case null -> Match.string(name, raw, span, opts.priority(), opts.tags(), opts.isPrivate());
+                default -> Match.string(name, formatted.toString(), span, opts.priority(), opts.tags(), opts.isPrivate());
+            };
 
             if (opts.validator().test(match)) {
                 out.add(match);
@@ -100,7 +117,8 @@ public final class PatternMatcher {
             if (wordOk) {
                 var rawInput = input.substring(idx, end);
                 var span = new Span(idx, end, rawInput);
-                var match = new Match(name, raw, span, opts.priority(), opts.tags(), opts.isPrivate());
+
+                var match = Match.string(name, raw, span, opts.priority(), opts.tags(), opts.isPrivate());
 
                 if (opts.validator().test(match)) {
                     matches.add(match);

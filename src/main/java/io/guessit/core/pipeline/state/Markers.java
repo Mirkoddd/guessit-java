@@ -32,7 +32,7 @@ public final class Markers {
                         && m.name() != MatchName.PROPER_COUNT
                         && m.name() != MatchName.TITLE
                         && !(m.name() == MatchName.CONTAINER && m.hasTag(MatchTag.EXTENSION))
-                        && !(m.name() == MatchName.OTHER && "Rip".equals(m.value())));
+                        && !(m instanceof Match.StringMatch sm && sm.name() == MatchName.OTHER && "Rip".equals(sm.value())));
     }
 
     /** Like {@link #markerSorted(List, MatchSet)} but with a custom counting

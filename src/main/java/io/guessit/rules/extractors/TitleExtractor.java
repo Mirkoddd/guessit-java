@@ -63,8 +63,8 @@ public final class TitleExtractor implements Extractor {
             var formatted = Formatters.titleText(raw);
             var span = new Span(idx, idx + search.length(), raw);
 
-            var m = new Match(MatchName.TITLE, formatted, span, Priority.DEFAULT,
-                    Set.of(MatchTag.EXPECTED.getYamlValue(), MatchTag.TITLE.getYamlValue()), false);
+            var m = Match.string(MatchName.TITLE, formatted, span, Priority.DEFAULT,
+                    Set.of(MatchTag.EXPECTED.getValue(), MatchTag.TITLE.getValue()), false);
 
             if (sepsSurround.test(m)) ctx.matches.add(m);
             idx += search.length();
@@ -79,8 +79,8 @@ public final class TitleExtractor implements Extractor {
             var formatted = Formatters.titleText(raw);
             var span = new Span(matcher.start(), matcher.end(), raw);
 
-            var m = new Match(MatchName.TITLE, formatted, span, Priority.DEFAULT,
-                    Set.of(MatchTag.EXPECTED.getYamlValue(), MatchTag.TITLE.getYamlValue()), false);
+            var m = Match.string(MatchName.TITLE, formatted, span, Priority.DEFAULT,
+                    Set.of(MatchTag.EXPECTED.getValue(), MatchTag.TITLE.getValue()), false);
 
             if (sepsSurround.test(m)) ctx.matches.add(m);
         }
@@ -111,77 +111,80 @@ public final class TitleExtractor implements Extractor {
         var paths = ctx.markers.stream().filter(m -> m.type() == MarkerType.PATH).toList();
         if (paths.isEmpty()) return;
         var sorted = Markers.markerSorted(paths, ctx.matches);
-        var serieNameFilepart = serieNameFilepart(ctx, paths);
+        var seriesNameFilePart = seriesNameFilePart(ctx, paths);
         var toAppend = new ArrayList<Match>();
         var toRemove = new ArrayList<Match>();
 
-        boolean filenameProvidesTitle = serieNameFilepart != null
-                && processSerieNameFilepart(ctx, serieNameFilepart, toAppend, toRemove);
+        boolean filenameProvidesTitle = seriesNameFilePart != null
+                && processSeriesNameFilePart(ctx, seriesNameFilePart, toAppend, toRemove);
 
-        var consumedYearFileparts = new HashSet<Marker>();
+        var consumedYearFileParts = new HashSet<Marker>();
         if (!filenameProvidesTitle) {
-            selectFirstNonSerieFilepart(ctx, sorted, serieNameFilepart, consumedYearFileparts,
+            selectFirstNonSeriesFilePart(ctx, sorted, seriesNameFilePart, consumedYearFileParts,
                     toAppend, toRemove);
         }
-        appendYearFilepartTitles(ctx, paths, consumedYearFileparts, toAppend, toRemove);
+        appendYearFilePartTitles(ctx, paths, consumedYearFileParts, toAppend, toRemove);
 
         for (var r : toRemove) ctx.matches.remove(r);
         for (var t : toAppend) ctx.matches.add(t);
     }
 
-    private boolean processSerieNameFilepart(ParseContext ctx, Marker serieNameFilepart,
-                                             List<Match> toAppend, List<Match> toRemove) {
-        int holeCount = countUsableHoles(ctx, serieNameFilepart, this::serieNameIgnored);
-        var titles = checkTitlesInFilepart(ctx, serieNameFilepart, this::serieNameIgnored);
+    private boolean processSeriesNameFilePart(ParseContext ctx, Marker seriesNameFilePart,
+                                              List<Match> toAppend, List<Match> toRemove) {
+        int holeCount = countUsableHoles(ctx, seriesNameFilePart, this::seriesNameIgnored);
+        var titles = checkTitlesInFilepart(ctx, seriesNameFilePart, this::seriesNameIgnored);
         if (titles == null) return false;
         if (holeCount >= 2) {
             return appendMultiHoleTitles(titles, toAppend, toRemove);
         }
-        return appendSingleHoleTitle(ctx, serieNameFilepart, titles, toAppend, toRemove);
+        return appendSingleHoleTitle(ctx, seriesNameFilePart, titles, toAppend, toRemove);
     }
 
-    private boolean appendMultiHoleTitles(TitlesInFilepart titles, List<Match> toAppend, List<Match> toRemove) {
+    private boolean appendMultiHoleTitles(TitlesInFilePart titles, List<Match> toAppend, List<Match> toRemove) {
         if (titles.titles.isEmpty()) return false;
         var first = titles.titles.getFirst();
 
-        toAppend.add(new Match(MatchName.TITLE, first.value(), first.span(),
-                first.priority(), Set.of(MatchTag.TITLE.getYamlValue(), MatchTag.FILE_PART_TITLE.getYamlValue()), false));
+        String firstVal = first instanceof Match.StringMatch sm ? sm.value() : first.span().raw();
+        toAppend.add(Match.string(MatchName.TITLE, firstVal, first.span(),
+                first.priority(), Set.of(MatchTag.TITLE.getValue(), MatchTag.FILE_PART_TITLE.getValue()), false));
 
         for (int i = 1; i < titles.titles.size(); i++) {
             var t = titles.titles.get(i);
-            toAppend.add(new Match(MatchName.EPISODE_TITLE, t.value(), t.span(),
-                    t.priority(), Set.of(MatchTag.TITLE.getYamlValue()), false));
+            String val = t instanceof Match.StringMatch sm ? sm.value() : t.span().raw();
+            toAppend.add(Match.string(MatchName.EPISODE_TITLE, val, t.span(),
+                    t.priority(), Set.of(MatchTag.TITLE.getValue()), false));
         }
         toRemove.addAll(titles.toRemove);
         return true;
     }
 
-    private boolean appendSingleHoleTitle(ParseContext ctx, Marker serieNameFilepart,
-                                          TitlesInFilepart titles,
+    private boolean appendSingleHoleTitle(ParseContext ctx, Marker seriesNameFilePart,
+                                          TitlesInFilePart titles,
                                           List<Match> toAppend, List<Match> toRemove) {
         if (titles.titles.size() != 1) return false;
-        var ep = ctx.matches.inMarker(serieNameFilepart).filter(m -> m.name() == EPISODE).findFirst().orElse(null);
+        var ep = ctx.matches.inMarker(seriesNameFilePart).filter(m -> m.name() == EPISODE).findFirst().orElse(null);
         var t = titles.titles.getFirst();
+        String val = t instanceof Match.StringMatch sm ? sm.value() : t.span().raw();
 
         var holeBeforeEpisode = ep != null && t.span().isBefore(ep.span());
         toRemove.addAll(titles.toRemove);
 
         if (holeBeforeEpisode) {
-            toAppend.add(new Match(MatchName.TITLE, t.value(), t.span(),
-                    t.priority(), Set.of(MatchTag.TITLE.getYamlValue(), MatchTag.FILE_PART_TITLE.getYamlValue()), false));
+            toAppend.add(Match.string(MatchName.TITLE, val, t.span(),
+                    t.priority(), Set.of(MatchTag.TITLE.getValue(), MatchTag.FILE_PART_TITLE.getValue()), false));
             return true;
         }
-        toAppend.add(new Match(MatchName.EPISODE_TITLE, t.value(), t.span(),
-                t.priority(), Set.of(MatchTag.TITLE.getYamlValue()), false));
+        toAppend.add(Match.string(MatchName.EPISODE_TITLE, val, t.span(),
+                t.priority(), Set.of(MatchTag.TITLE.getValue()), false));
         return false;
     }
 
-    private void selectFirstNonSerieFilepart(ParseContext ctx, List<Marker> sorted, Marker serieNameFilepart,
-                                             Set<Marker> consumedYearFileparts,
-                                             List<Match> toAppend, List<Match> toRemove) {
+    private void selectFirstNonSeriesFilePart(ParseContext ctx, List<Marker> sorted, Marker seriesNameFilePart,
+                                              Set<Marker> consumedYearFileParts,
+                                              List<Match> toAppend, List<Match> toRemove) {
         for (var fp : sorted) {
-            if (fp == serieNameFilepart) continue;
-            consumedYearFileparts.add(fp);
+            if (fp == seriesNameFilePart) continue;
+            consumedYearFileParts.add(fp);
             var titles = checkTitlesInFilepart(ctx, fp, _ -> false);
             if (titles == null) continue;
             toAppend.addAll(titles.titles);
@@ -190,14 +193,14 @@ public final class TitleExtractor implements Extractor {
         }
     }
 
-    private void appendYearFilepartTitles(ParseContext ctx, List<Marker> paths,
-                                          Set<Marker> consumedYearFileparts,
+    private void appendYearFilePartTitles(ParseContext ctx, List<Marker> paths,
+                                          Set<Marker> consumedYearFileParts,
                                           List<Match> toAppend, List<Match> toRemove) {
-        var yearFileparts = paths.stream()
+        var yearFileParts = paths.stream()
                 .filter(fp -> ctx.matches.inMarker(fp).anyMatch(m -> m.name() == MatchName.YEAR))
                 .toList();
-        for (var fp : yearFileparts) {
-            if (consumedYearFileparts.contains(fp)) continue;
+        for (var fp : yearFileParts) {
+            if (consumedYearFileParts.contains(fp)) continue;
             var titles = checkTitlesInFilepart(ctx, fp, _ -> false);
             if (titles == null) continue;
             toAppend.addAll(titles.titles);
@@ -219,28 +222,29 @@ public final class TitleExtractor implements Extractor {
             (inGroup ? withYearInGroup : withYear).add(t);
         }
         Set<Object> keepValues;
-        if (!withYearInGroup.isEmpty()) keepValues = withYearInGroup.stream().map(Match::value).collect(java.util.stream.Collectors.toSet());
-        else if (!withYear.isEmpty()) keepValues = withYear.stream().map(Match::value).collect(java.util.stream.Collectors.toSet());
+        if (!withYearInGroup.isEmpty()) keepValues = withYearInGroup.stream().map(m -> m instanceof Match.StringMatch sm ? (Object) sm.value() : null).collect(java.util.stream.Collectors.toSet());
+        else if (!withYear.isEmpty()) keepValues = withYear.stream().map(m -> m instanceof Match.StringMatch sm ? (Object) sm.value() : null).collect(java.util.stream.Collectors.toSet());
         else return;
 
         for (var t : titles) {
-            if (!keepValues.contains(t.value())) {
+            Object val = t instanceof Match.StringMatch sm ? sm.value() : null;
+            if (!keepValues.contains(val)) {
                 ctx.matches.remove(t);
             } else if (!t.hasTag(MatchTag.EQUIVALENT_IGNORE)) {
                 var withTag = new HashSet<>(t.tags());
 
-                withTag.add(MatchTag.EQUIVALENT_IGNORE.getYamlValue());
-                ctx.matches.replace(t, new Match(t.name(), t.value(), t.span(),
+                withTag.add(MatchTag.EQUIVALENT_IGNORE.getValue());
+                ctx.matches.replace(t, Match.string(t.name(), (String) val, t.span(),
                         t.priority(), withTag, t.isPrivate()));
             }
         }
     }
 
-    private int countUsableHoles(ParseContext ctx, Marker filepart,
+    private int countUsableHoles(ParseContext ctx, Marker filePart,
                                  java.util.function.Predicate<Match> additionalIgnore) {
         java.util.function.Predicate<Match> ignore = m ->
                 isIgnored(m) || (additionalIgnore != null && additionalIgnore.test(m));
-        var holes = Holes.compute(ctx.input, filepart.span().start(), filepart.span().end(),
+        var holes = Holes.compute(ctx.input, filePart.span().start(), filePart.span().end(),
                 ctx.matches.snapshot(), ignore, null, Formatters::titleText);
         holes = holesProcess(ctx, holes);
         int n = 0;
@@ -251,32 +255,36 @@ public final class TitleExtractor implements Extractor {
         return n;
     }
 
-    private boolean serieNameIgnored(Match m) {
+    private boolean seriesNameIgnored(Match m) {
         for (var tag : m.tags()) {
             if ("weak".equals(tag) || tag.startsWith("weak-")) return true;
         }
         return false;
     }
 
-    private Marker serieNameFilepart(ParseContext ctx, List<Marker> fileparts) {
-        for (var index = 1; index < fileparts.size() - 1; index++) {
-            var fp = fileparts.get(index);
+    private Marker seriesNameFilePart(ParseContext ctx, List<Marker> fileParts) {
+        for (var index = 1; index < fileParts.size() - 1; index++) {
+            var fp = fileParts.get(index);
             var inFp = ctx.matches.inMarker(fp).filter(m -> !m.isPrivate()).toList();
             if (inFp.size() == 1 && inFp.getFirst().name() == MatchName.SEASON
-                    && spansFilepartIgnoringSeps(inFp.getFirst(), fp, ctx.input)) {
-                return fileparts.get(index + 1);
+                    && spansFilePartIgnoringSeps(inFp.getFirst(), fp, ctx.input)) {
+                return fileParts.get(index + 1);
             }
             var allInFp = ctx.matches.inMarker(fp).toList();
-            var seasonHeads = allInFp.stream().filter(m -> m.name() == MatchName.SEASON && m.value() == null
-                    && spansFilepartIgnoringSeps(m, fp, ctx.input)).toList();
+            var seasonHeads = allInFp.stream().filter(m -> m.name() == MatchName.SEASON && isDummySeasonMatch(m)
+                    && spansFilePartIgnoringSeps(m, fp, ctx.input)).toList();
             if (seasonHeads.size() == 1) {
-                return fileparts.get(index + 1);
+                return fileParts.get(index + 1);
             }
         }
         return null;
     }
 
-    private static boolean spansFilepartIgnoringSeps(Match m, Marker fp, String input) {
+    private boolean isDummySeasonMatch(Match m) {
+        return m instanceof Match.StringMatch;
+    }
+
+    private static boolean spansFilePartIgnoringSeps(Match m, Marker fp, String input) {
         if (!fp.span().contains(m.span())) return false;
 
         for (int i = fp.span().start(); i < m.span().start(); i++) if (!Seps.isSep(input.charAt(i))) return false;
@@ -284,43 +292,43 @@ public final class TitleExtractor implements Extractor {
         return true;
     }
 
-    record TitlesInFilepart(List<Match> titles, List<Match> toRemove) {}
+    record TitlesInFilePart(List<Match> titles, List<Match> toRemove) {}
 
-    TitlesInFilepart checkTitlesInFilepart(ParseContext ctx, Marker filepart,
+    TitlesInFilePart checkTitlesInFilepart(ParseContext ctx, Marker filePart,
                                            java.util.function.Predicate<Match> additionalIgnore) {
         var ignore = (java.util.function.Predicate<Match>) m ->
                 isIgnored(m) || (additionalIgnore != null && additionalIgnore.test(m));
 
-        return checkTitlesInFilepart(ctx, filepart, ignore, MatchName.TITLE,
-                List.of(MatchTag.TITLE.getYamlValue()),
+        return checkTitlesInFilepart(ctx, filePart, ignore, MatchName.TITLE,
+                List.of(MatchTag.TITLE.getValue()),
                 MatchName.ALTERNATIVE_TITLE, false);
     }
 
-    TitlesInFilepart checkTitlesInFilepart(ParseContext ctx, Marker filepart,
+    TitlesInFilePart checkTitlesInFilepart(ParseContext ctx, Marker filePart,
                                            java.util.function.Predicate<Match> ignore,
                                            MatchName matchName, List<String> matchTags,
                                            MatchName alternativeMatchName,
                                            boolean episodeTitleContext) {
-        var holes = computeProcessedHoles(ctx, filepart, ignore);
+        var holes = computeProcessedHoles(ctx, filePart, ignore);
 
         for (var hole : holes) {
             if (hole == null) continue;
 
-            var adjustedHole = adjustHoleAndCollectMatches(ctx, filepart, hole, episodeTitleContext);
+            var adjustedHole = adjustHoleAndCollectMatches(ctx, filePart, hole, episodeTitleContext);
             if (adjustedHole.hole().span().length() <= 0 || !adjustedHole.hole().isNotEmpty()) continue;
 
             var titles = createTitleMatches(ctx, adjustedHole.hole(), matchName, matchTags, alternativeMatchName);
             if (titles.isEmpty()) continue;
 
-            return new TitlesInFilepart(titles, adjustedHole.toRemove());
+            return new TitlesInFilePart(titles, adjustedHole.toRemove());
         }
         return null;
     }
 
-    private List<Holes.Hole> computeProcessedHoles(ParseContext ctx, Marker filepart,
+    private List<Holes.Hole> computeProcessedHoles(ParseContext ctx, Marker filePart,
                                                    java.util.function.Predicate<Match> ignore) {
         var allMatches = ctx.matches.snapshot();
-        var holes = Holes.compute(ctx.input, filepart.span().start(), filepart.span().end(),
+        var holes = Holes.compute(ctx.input, filePart.span().start(), filePart.span().end(),
                 allMatches, ignore, null, Formatters::titleText);
         return holesProcess(ctx, holes);
     }
@@ -328,7 +336,7 @@ public final class TitleExtractor implements Extractor {
     private record AdjustedHoleResult(Holes.Hole hole, List<Match> toRemove) {
     }
 
-    private AdjustedHoleResult adjustHoleAndCollectMatches(ParseContext ctx, Marker filepart,
+    private AdjustedHoleResult adjustHoleAndCollectMatches(ParseContext ctx, Marker filePart,
                                                            Holes.Hole hole, boolean episodeTitleContext) {
         var toRemove = new ArrayList<Match>();
         var toKeep = new ArrayList<Match>();
@@ -336,21 +344,21 @@ public final class TitleExtractor implements Extractor {
 
         var currentHole = hole;
         if (!ignoredInHole.isEmpty()) {
-            currentHole = adjustHoleBoundaries(ctx, filepart, currentHole, ignoredInHole, toKeep);
+            currentHole = adjustHoleBoundaries(ctx, filePart, currentHole, ignoredInHole, toKeep);
             collectMatchesToRemove(ctx, currentHole, ignoredInHole, toKeep, toRemove, episodeTitleContext);
         }
 
         return new AdjustedHoleResult(currentHole, toRemove);
     }
 
-    private Holes.Hole adjustHoleBoundaries(ParseContext ctx, Marker filepart, Holes.Hole hole,
+    private Holes.Hole adjustHoleBoundaries(ParseContext ctx, Marker filePart, Holes.Hole hole,
                                             List<Match> ignoredInHole, List<Match> toKeep) {
         var currentHole = hole;
 
         var reversed = new ArrayList<>(ignoredInHole).reversed();
         for (var m : reversed) {
             var trailing = ctx.matches.chainBefore(currentHole.span().end(), ctx.input, Seps.CHARS, x -> x == m).orElse(null);
-            if (trailing != null && shouldKeep(m, toKeep, ctx, filepart, currentHole, false)) {
+            if (trailing != null && shouldKeep(m, toKeep, ctx, filePart, currentHole, false)) {
                 toKeep.add(m);
                 currentHole = currentHole.withBounds(currentHole.span().start(), m.span().start());
             }
@@ -359,7 +367,7 @@ public final class TitleExtractor implements Extractor {
         for (var m : ignoredInHole) {
             if (toKeep.contains(m)) continue;
             var starting = ctx.matches.chainAfter(currentHole.span().start(), ctx.input, Seps.CHARS, x -> x == m).orElse(null);
-            if (starting != null && shouldKeep(m, toKeep, ctx, filepart, currentHole, true)) {
+            if (starting != null && shouldKeep(m, toKeep, ctx, filePart, currentHole, true)) {
                 toKeep.add(m);
                 currentHole = currentHole.withBounds(m.span().end(), currentHole.span().end());
             }
@@ -383,7 +391,7 @@ public final class TitleExtractor implements Extractor {
         if (isRedundantSeasonWord(hole.value(), ctx)) return List.of();
 
         var titles = new ArrayList<Match>();
-        titles.add(new Match(matchName, hole.value(), hole.span(),
+        titles.add(Match.string(matchName, hole.value(), hole.span(),
                 Priority.DEFAULT, Set.copyOf(matchTags), false));
 
         if (alternativeMatchName != null) {
@@ -444,22 +452,22 @@ public final class TitleExtractor implements Extractor {
                                                    ParseContext ctx) {
         var titles = new ArrayList<Match>();
         var first = split.getFirst();
-        titles.add(new Match(matchName, first.value(), first.span(),
+        titles.add(Match.string(matchName, first.value(), first.span(),
                 Priority.DEFAULT, Set.copyOf(matchTags), false));
 
         for (var i = 1; i < split.size(); i++) {
             var s = split.get(i);
             if (isRedundantSeasonWord(s.value(), ctx)) continue;
 
-            titles.add(new Match(alternativeMatchName, s.value(), s.span(),
-                    Priority.DEFAULT, Set.of(MatchTag.TITLE.getYamlValue()), false));
+            titles.add(Match.string(alternativeMatchName, s.value(), s.span(),
+                    Priority.DEFAULT, Set.of(MatchTag.TITLE.getValue()), false));
         }
         return titles;
     }
 
     private List<Match> createSingleAdjustedMatch(Holes.Hole hole, MatchName matchName, List<String> matchTags) {
         var titles = new ArrayList<Match>();
-        titles.add(new Match(matchName, hole.value(), hole.span(),
+        titles.add(Match.string(matchName, hole.value(), hole.span(),
                 Priority.DEFAULT, Set.copyOf(matchTags), false));
         return titles;
     }
@@ -469,7 +477,7 @@ public final class TitleExtractor implements Extractor {
         var iter = groupMarkers.iterator();
         while (iter.hasNext()) {
             var g = iter.next();
-            var groupMatch = new Match(MatchName.G, null, g.span(), Priority.DEFAULT, Set.of(), false);
+            var groupMatch = Match.string(MatchName.G, "", g.span(), Priority.DEFAULT, Set.of(), false);
 
             var path = Markers.atMatch(ctx.markers, groupMatch, m -> m.type() == MarkerType.PATH).orElse(null);
 
@@ -493,8 +501,9 @@ public final class TitleExtractor implements Extractor {
         if (!m.matches()) return false;
         int n;
         try { n = Integer.parseInt(m.group(GRP_SEASON_WORDS)); } catch (NumberFormatException _) { return false; }
+
         return ctx.matches.named(MatchName.SEASON)
-                .anyMatch(s -> Integer.valueOf(n).equals(s.value()));
+                .anyMatch(s -> s instanceof Match.IntegerMatch im && im.value() == n);
     }
 
     static boolean isIgnored(Match m) {
@@ -506,17 +515,24 @@ public final class TitleExtractor implements Extractor {
         return !(raw.length() > 3 && upper);
     }
 
-    private boolean shouldKeep(Match m, List<Match> toKeep, ParseContext ctx, Marker filepart,
+    private boolean shouldKeep(Match m, List<Match> toKeep, ParseContext ctx, Marker filePart,
                                Holes.Hole hole, boolean starting) {
         if (Set.of(MatchName.LANGUAGE, MatchName.COUNTRY).contains(m.name())) {
             if (hole.value().length() == m.span().raw().length()) return true;
 
-            var others = ctx.matches.inMarker(filepart).filter(
+            var others = ctx.matches.inMarker(filePart).filter(
                     x -> x.name() == m.name() && !toKeep.contains(x)
-                            && !NON_SPECIFIC_LANGUAGES.contains(String.valueOf(x.value()))
+                            && !isNonSpecificLanguage(x)
                             && !x.span().overlaps(hole.span()));
 
             return others.findAny().isEmpty() && (!starting || m.span().raw().length() <= 3);
+        }
+        return false;
+    }
+
+    private boolean isNonSpecificLanguage(Match x) {
+        if (x instanceof Match.LanguageMatch lm) {
+            return NON_SPECIFIC_LANGUAGES.contains(lm.value().alpha3());
         }
         return false;
     }

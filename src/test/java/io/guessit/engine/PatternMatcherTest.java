@@ -1,5 +1,6 @@
 package io.guessit.engine;
 
+import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.text.PatternMatcher;
 import io.guessit.core.text.RegexOpts;
 import io.guessit.core.text.StringOpts;
@@ -28,7 +29,8 @@ class PatternMatcherTest {
         var matches = regex("Movie 1999 Sequel 2020", p, YEAR, defaults());
         Assertions.assertThat(matches).hasSize(2);
         assertThat(matches.getFirst().span().raw()).isEqualTo("1999");
-        assertThat(matches.getFirst().value()).isEqualTo("1999");
+
+        assertThat(((Match.StringMatch) matches.getFirst()).value()).isEqualTo("1999");
     }
 
     @Test
@@ -37,7 +39,8 @@ class PatternMatcherTest {
         var opts = defaults().withValue(Integer::parseInt);
         var matches = regex("year 2020", p, YEAR, opts);
         Assertions.assertThat(matches).hasSize(1);
-        assertThat(matches.getFirst().value()).isEqualTo(2020);
+
+        assertThat(((Match.IntegerMatch) matches.getFirst()).value()).isEqualTo(2020);
     }
 
     @Test
@@ -46,7 +49,8 @@ class PatternMatcherTest {
         var matches = regex("ALPHA.BluRay.x264", p, SOURCE, defaults());
         Assertions.assertThat(matches).hasSize(1);
         assertThat(matches.getFirst().span().raw()).isEqualTo("BluRay");
-        assertThat(matches.getFirst().value()).isEqualTo("BluRay");
+
+        assertThat(((Match.StringMatch) matches.getFirst()).value()).isEqualTo("BluRay");
     }
 
     @Test

@@ -37,7 +37,8 @@ public final class RangeFiller implements PostProcessor {
 
     private static void fillProp(ParseContext ctx, MatchName prop) {
         var matches = ctx.matches.named(prop)
-                .filter(m -> m.value() instanceof Integer)
+                .filter(m -> m instanceof Match.IntegerMatch)
+                .map(m -> (Match.IntegerMatch) m)
                 .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
 
@@ -52,21 +53,21 @@ public final class RangeFiller implements PostProcessor {
 
             if (!isFillablePair(ctx, prop, input, prev, next)) continue;
 
-            int prevVal = (Integer) prev.value();
-            int nextVal = (Integer) next.value();
+            int prevVal = prev.value();
+            int nextVal = next.value();
 
             for (int v = prevVal + 1; v < nextVal; v++) {
                 var span = new Span(prev.span().end(), next.span().start(), String.valueOf(v));
-                fills.add(new Match(prop, v, span, Priority.DEFAULT, Set.of(MatchTag.RANGE_FILL.getYamlValue()), false));
+                fills.add(Match.integer(prop, v, span, Priority.DEFAULT, Set.of(MatchTag.RANGE_FILL.getValue()), false));
             }
         }
 
         fills.forEach(ctx.matches::add);
     }
 
-    private static boolean isFillablePair(ParseContext ctx, MatchName prop, String input, Match prev, Match next) {
-        int prevVal = (Integer) prev.value();
-        int nextVal = (Integer) next.value();
+    private static boolean isFillablePair(ParseContext ctx, MatchName prop, String input, Match.IntegerMatch prev, Match.IntegerMatch next) {
+        int prevVal = prev.value();
+        int nextVal = next.value();
 
         if (nextVal <= prevVal + 1) return false;
         if (nextVal - prevVal > MAX_JUMP) return false;

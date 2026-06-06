@@ -1,6 +1,7 @@
 package io.guessit.rules.extractors;
 
 import io.guessit.api.Options;
+import io.guessit.config.ConfigLoader;
 import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.state.*;
 import io.guessit.core.text.Seps;
@@ -79,7 +80,7 @@ public final class WebsiteExtractor implements Extractor {
             for (int i = hay.indexOf(needle); i >= 0; i = hay.indexOf(needle, i + 1)) {
                 int end = i + needle.length();
                 var span = new Span(i, end, input.substring(i, end));
-                var m = new Match(MatchName.WEBSITE, prefix, span, Priority.NONE, Set.of(MatchTag.WEBSITE_PREFIX.getYamlValue()), true);
+                var m = Match.string(MatchName.WEBSITE, prefix, span, Priority.NONE, Set.of(MatchTag.WEBSITE_PREFIX.getValue()), true);
                 if (validator.test(m)) ctx.matches.add(m);
             }
         }
@@ -99,7 +100,7 @@ public final class WebsiteExtractor implements Extractor {
             if (!isValidDomainChars(raw)) continue;
 
             var span = new Span(s, e, raw);
-            ctx.matches.add(new Match(MatchName.WEBSITE, raw, span, Priority.FALLBACK, Set.of(), false));
+            ctx.matches.add(Match.string(MatchName.WEBSITE, raw, span, Priority.FALLBACK, Set.of(), false));
         }
     }
 
@@ -131,7 +132,7 @@ public final class WebsiteExtractor implements Extractor {
     }
 
     private boolean isSafeWebsite(Match w) {
-        String val = w.value() instanceof String s ? s.toLowerCase(Locale.ROOT) : "";
+        String val = w instanceof Match.StringMatch sm ? sm.value().toLowerCase(Locale.ROOT) : "";
         return safeStarts.stream().anyMatch(p -> val.startsWith(p.toLowerCase(Locale.ROOT)));
     }
 
@@ -172,7 +173,7 @@ public final class WebsiteExtractor implements Extractor {
 
     private static class ConfigHolder {
         private static Map<String, Object> websiteConfig() {
-            var config = io.guessit.config.ConfigLoader.load(Options.defaults());
+            var config = ConfigLoader.load(Options.defaults());
             return config.section(WEBSITE);
         }
     }

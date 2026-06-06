@@ -52,19 +52,20 @@ public final class VideoCodecExtractor implements Extractor {
         // video_api
         var apiOpts = StringOpts.defaults().withValidator(sepsAround);
         for (var m : PatternMatcher.string(input, Set.of("DXVA"), VIDEO_API_NAME, apiOpts, ctx.trace)) {
-            ctx.matches.add(new Match(VIDEO_API_NAME, "DXVA", m.span(), m.priority(), m.tags(), false));
+            ctx.matches.add(Match.string(VIDEO_API_NAME, "DXVA", m.span(), m.priority(), m.tags(), false));
         }
     }
 
     private void extractCodecs(ParseContext ctx, Predicate<Match> validator) {
         var optsBase = RegexOpts.defaults().withValidator(validator);
 
-        var tags = Set.of(MatchTag.SOURCE_SUFFIX.getYamlValue(), MatchTag.STREAMING_SERVICE_SUFFIX.getYamlValue());
+        var tags = Set.of(MatchTag.SOURCE_SUFFIX.getValue(), MatchTag.STREAMING_SERVICE_SUFFIX.getValue());
 
         for (var rule : VideoCodecPatterns.CODEC_RULES) {
             var opts = optsBase.withValue(_ -> rule.value());
             for (var m : PatternMatcher.regex(ctx.input, rule.pattern(), VIDEO_CODEC_NAME, opts, ctx.trace)) {
-                ctx.matches.add(new Match(VIDEO_CODEC_NAME, m.value(), m.span(), m.priority(), tags, false));
+                String val = m instanceof Match.StringMatch sm ? sm.value() : rule.value();
+                ctx.matches.add(Match.string(VIDEO_CODEC_NAME, val, m.span(), m.priority(), tags, false));
             }
         }
     }
@@ -75,18 +76,18 @@ public final class VideoCodecExtractor implements Extractor {
             var cSpan = new Span(m.start(VideoCodecPatterns.GRP_C), m.end(VideoCodecPatterns.GRP_C), m.group(VideoCodecPatterns.GRP_C));
             var dSpan = new Span(m.start(VideoCodecPatterns.GRP_D), m.end(VideoCodecPatterns.GRP_D), m.group(VideoCodecPatterns.GRP_D));
 
-            var dummy = new Match(MatchName.DUMMY, "", cSpan, Priority.NONE, Set.of(), false);
+            var dummy = Match.string(MatchName.DUMMY, "", cSpan, Priority.NONE, Set.of(), false);
             if (Validators.sepsBefore(ctx.input).test(dummy)) {
                 ctx.matches.named(VIDEO_CODEC_NAME)
                         .filter(e -> cSpan.contains(e.span()) && !e.span().equals(cSpan))
                         .toList()
                         .forEach(ctx.matches::remove);
 
-                ctx.matches.add(new Match(VIDEO_CODEC_NAME, "H.265", cSpan, Priority.DEFAULT,
-                        Set.of(MatchTag.SOURCE_SUFFIX.getYamlValue(), MatchTag.STREAMING_SERVICE_SUFFIX.getYamlValue()), false));
+                ctx.matches.add(Match.string(VIDEO_CODEC_NAME, "H.265", cSpan, Priority.DEFAULT,
+                        Set.of(MatchTag.SOURCE_SUFFIX.getValue(), MatchTag.STREAMING_SERVICE_SUFFIX.getValue()), false));
 
-                ctx.matches.add(new Match(COLOR_DEPTH_NAME, "10-bit", dSpan, Priority.DEFAULT,
-                        Set.of(MatchTag.VIDEO_CODEC_SUFFIX.getYamlValue(), MatchTag.DERIVED_FROM_VIDEO_CODEC.getYamlValue()), false));
+                ctx.matches.add(Match.string(COLOR_DEPTH_NAME, "10-bit", dSpan, Priority.DEFAULT,
+                        Set.of(MatchTag.VIDEO_CODEC_SUFFIX.getValue(), MatchTag.DERIVED_FROM_VIDEO_CODEC.getValue()), false));
             }
         }
     }
@@ -94,11 +95,11 @@ public final class VideoCodecExtractor implements Extractor {
     private void extractProfiles(ParseContext ctx, Predicate<Match> validator) {
         var strOptsBase = StringOpts.defaults().withValidator(validator);
 
-        var tagsTagged = Set.of(MatchTag.VIDEO_PROFILE_RULE.getYamlValue());
+        var tagsTagged = Set.of(MatchTag.VIDEO_PROFILE_RULE.getValue());
 
         for (var rule : VideoCodecPatterns.PROFILE_STR_RULES) {
             for (var m : PatternMatcher.string(ctx.input, rule.aliases(), VIDEO_PROFILE_NAME, strOptsBase, ctx.trace)) {
-                ctx.matches.add(new Match(VIDEO_PROFILE_NAME, rule.value(), m.span(), m.priority(), tagsTagged, false));
+                ctx.matches.add(Match.string(VIDEO_PROFILE_NAME, rule.value(), m.span(), m.priority(), tagsTagged, false));
             }
         }
 
@@ -107,7 +108,7 @@ public final class VideoCodecExtractor implements Extractor {
             var opts = regexOptsBase.withValue(_ -> rule.value());
             for (var m : PatternMatcher.regex(ctx.input, rule.pattern(), VIDEO_PROFILE_NAME, opts, ctx.trace)) {
                 var tags = rule.isTagged() ? tagsTagged : Set.<String>of();
-                ctx.matches.add(new Match(VIDEO_PROFILE_NAME, rule.value(), m.span(), m.priority(), tags, false));
+                ctx.matches.add(Match.string(VIDEO_PROFILE_NAME, rule.value(), m.span(), m.priority(), tags, false));
             }
         }
     }

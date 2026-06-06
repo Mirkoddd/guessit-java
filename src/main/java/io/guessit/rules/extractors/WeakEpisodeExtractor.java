@@ -104,11 +104,11 @@ public final class WeakEpisodeExtractor implements Extractor {
             boolean isOverlapping = protectedEpisodes.stream()
                     .anyMatch(pe -> pe.span().overlaps(span));
 
-            var head = new Match(MatchName.EPISODE, null, headSpan, Priority.PROBABLE, Set.of(MatchTag.WEAK_EPISODE.getYamlValue()), false);
+            var head = Match.string(MatchName.EPISODE, m.group(GRP_EP), headSpan, Priority.PROBABLE, Set.of(MatchTag.WEAK_EPISODE.getValue()), false);
 
             if (!isOverlapping && seps.test(head)) {
                 int v = Integer.parseInt(m.group(GRP_EP));
-                ctx.matches.add(new Match(MatchName.EPISODE, v, span, Priority.PROBABLE, Set.of(MatchTag.WEAK_EPISODE.getYamlValue()), false));
+                ctx.matches.add(Match.integer(MatchName.EPISODE, v, span, Priority.PROBABLE, Set.of(MatchTag.WEAK_EPISODE.getValue()), false));
             }
         }
     }
@@ -194,8 +194,9 @@ public final class WeakEpisodeExtractor implements Extractor {
         var allEpisodes = ctx.matches.named(MatchName.EPISODE)
                 .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
+
         long highWeakCount = weakList.stream()
-                .filter(w -> w.span().start() != 0 && w.value() instanceof Integer i && i >= 100)
+                .filter(w -> w.span().start() != 0 && w instanceof Match.IntegerMatch im && im.value() >= 100)
                 .count();
 
         for (var weak : weakList) {
@@ -211,7 +212,7 @@ public final class WeakEpisodeExtractor implements Extractor {
         if (isLeadingInFilePart(weak, fileParts)) return;
         if (weak.span().start() == 0) return;
 
-        int v = weak.value() instanceof Integer i ? i : -1;
+        int v = weak instanceof Match.IntegerMatch im ? im.value() : -1;
         var prev = previousEpisode(allEpisodes, weak);
         var proximity = calculateProximity(ctx, weak, prev, fileParts);
 
@@ -220,7 +221,7 @@ public final class WeakEpisodeExtractor implements Extractor {
         }
 
         if (shouldConvertToAbsoluteEpisode(v, highWeakCount, proximity.contiguous())) {
-            ctx.matches.add(new Match(MatchName.ABSOLUTE_EPISODE, weak.value(), weak.span(),
+            ctx.matches.add(Match.integer(MatchName.ABSOLUTE_EPISODE, v, weak.span(),
                     weak.priority(), weak.tags(), weak.isPrivate()));
         }
         toRemove.add(weak);
@@ -245,7 +246,7 @@ public final class WeakEpisodeExtractor implements Extractor {
             return false;
         }
 
-        int prevVal = prev != null && prev.value() instanceof Integer pi ? pi : -1;
+        int prevVal = prev instanceof Match.IntegerMatch im ? im.value() : -1;
         if (prevVal > 0 && (v - prevVal) > 5) {
             toRemove.add(weak);
         }
@@ -284,7 +285,8 @@ public final class WeakEpisodeExtractor implements Extractor {
     private static boolean hasRangePairedWeakEpisodes(ParseContext ctx) {
         var weakList = ctx.matches.named(MatchName.EPISODE)
                 .filter(m -> m.hasTag(MatchTag.WEAK_EPISODE) && !m.hasTag(MatchTag.WEAK_DUPLICATE))
-                .filter(m -> m.value() instanceof Integer i && i >= 100)
+                .filter(m -> m instanceof Match.IntegerMatch im && im.value() >= 100)
+                .map(m -> (Match.IntegerMatch) m)
                 .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
 
@@ -292,8 +294,8 @@ public final class WeakEpisodeExtractor implements Extractor {
             var a = weakList.get(i);
             var b = weakList.get(i + 1);
 
-            int va = (Integer) a.value();
-            int vb = (Integer) b.value();
+            int va = a.value();
+            int vb = b.value();
             int gapLen = a.span().distanceTo(b.span());
 
             return vb > va

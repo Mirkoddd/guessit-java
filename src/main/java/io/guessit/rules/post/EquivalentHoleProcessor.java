@@ -41,16 +41,17 @@ public final class EquivalentHoleProcessor implements PostProcessor {
                             .stream()
                             .filter(hole -> hole != null && hole.value() != null && !hole.value().isEmpty())
                             .flatMap(hole -> ctx.matches.named(name)
-                                    .filter(m -> m.value() instanceof String)
+                                    .filter(m -> m instanceof Match.StringMatch)
+                                    .map(m -> (Match.StringMatch) m)
                                     .filter(m -> !m.hasTag(MatchTag.EQUIVALENT_IGNORE))
-                                    .filter(m -> hole.value().equalsIgnoreCase((String) m.value()))
+                                    .filter(m -> hole.value().equalsIgnoreCase(m.value()))
                                     .map(m -> {
-                                        var mv = (String) m.value();
+                                        var mv = m.value();
                                         var preferred = preferredString(hole.value(), mv);
                                         return preferred.equals(mv) ? null :
                                                 new Object[]{
                                                         m,
-                                                        new Match(
+                                                        Match.string(
                                                                 m.name(),
                                                                 preferred,
                                                                 m.span(),

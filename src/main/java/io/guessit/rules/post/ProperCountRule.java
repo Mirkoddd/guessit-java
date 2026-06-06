@@ -39,7 +39,7 @@ public final class ProperCountRule implements PostProcessor {
 
         var rawInput = ctx.input.substring(start, end);
 
-        ctx.matches.add(new Match(
+        ctx.matches.add(Match.integer(
                 MatchName.PROPER_COUNT,
                 total,
                 new Span(start, end, rawInput),
@@ -53,7 +53,7 @@ public final class ProperCountRule implements PostProcessor {
         var distinct = new LinkedHashMap<String, Match>();
 
         ctx.matches.named(MatchName.OTHER)
-                .filter(m -> "Proper".equals(m.value()))
+                .filter(m -> m instanceof Match.StringMatch sm && "Proper".equals(sm.value()))
                 .forEach(m -> distinct.putIfAbsent(rawCleanup(m.span().raw()), m));
 
         return distinct;

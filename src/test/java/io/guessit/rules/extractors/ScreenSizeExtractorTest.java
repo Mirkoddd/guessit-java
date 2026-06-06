@@ -3,6 +3,7 @@ package io.guessit.rules.extractors;
 import io.guessit.api.Options;
 import io.guessit.config.ConfigLoader;
 import io.guessit.core.pipeline.phases.ConflictSolver;
+import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.ParseContext;
 import io.guessit.rules.markers.GroupMarker;
 import io.guessit.rules.markers.PathMarker;
@@ -31,30 +32,35 @@ class ScreenSizeExtractorTest {
 
     @Test void progressive1080p() {
         var ctx = run("Movie.2015.1080p.BluRay.mkv");
-        assertThat(ctx.matches.named(SCREEN_SIZE).findFirst().get().value()).isEqualTo("1080p");
+        assertThat(((Match.StringMatch) ctx.matches.named(SCREEN_SIZE).findFirst().get()).value()).isEqualTo("1080p");
     }
+
     @Test void interlaced1080i() {
         var ctx = run("Show.2015.1080i.HDTV.mkv");
-        assertThat(ctx.matches.named(SCREEN_SIZE).findFirst().get().value()).isEqualTo("1080i");
+        assertThat(((Match.StringMatch) ctx.matches.named(SCREEN_SIZE).findFirst().get()).value()).isEqualTo("1080i");
     }
+
     @Test void widthByHeight() {
         var ctx = run("Movie.2015.1920x1080.mkv");
         // standard ar, width+height present → normalize to "1080p"
-        assertThat(ctx.matches.named(SCREEN_SIZE).findFirst().get().value()).isEqualTo("1080p");
-        assertEquals(1.778, ((Number) ctx.matches.named(ASPECT_RATIO).findFirst().get().value()).doubleValue(), 0.001);
+        assertThat(((Match.StringMatch) ctx.matches.named(SCREEN_SIZE).findFirst().get()).value()).isEqualTo("1080p");
+        assertEquals(1.778, ((Match.DoubleMatch) ctx.matches.named(ASPECT_RATIO).findFirst().get()).value(), 0.001);
     }
+
     @Test void fourK() {
         var ctx = run("Movie.4K.mkv");
-        assertThat(ctx.matches.named(SCREEN_SIZE).findFirst().get().value()).isEqualTo("2160p");
+        assertThat(((Match.StringMatch) ctx.matches.named(SCREEN_SIZE).findFirst().get()).value()).isEqualTo("2160p");
     }
+
     @Test void frameRate24p() {
         var ctx = run("Movie.2015.1080p24.mkv");
-        assertThat(ctx.matches.named(SCREEN_SIZE).findFirst().get().value()).isEqualTo("1080p");
+        assertThat(((Match.StringMatch) ctx.matches.named(SCREEN_SIZE).findFirst().get()).value()).isEqualTo("1080p");
         assertNotNull(ctx.matches.named(FRAME_RATE).findFirst().orElse(null));
     }
+
     @Test void rejectsLooseDigits() {
         var ctx = run("File.no.resolution.here.mkv");
-        assertThat(ctx.matches.named(SCREEN_SIZE).count()).isEqualTo(0L);
+        assertThat(ctx.matches.named(SCREEN_SIZE).count()).isZero();
     }
 
     @Test void widthHeightWithSpaces() {

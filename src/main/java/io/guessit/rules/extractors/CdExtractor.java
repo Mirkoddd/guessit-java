@@ -43,14 +43,15 @@ public final class CdExtractor implements Extractor {
         var m = CD_OF.matcher(input);
         while (m.find()) {
             var headSpan = new Span(m.start(), m.end(), m.group());
-            var head = new Match(MatchName.CD, null, headSpan, priority(), Set.of(), false);
+
+            var head = Match.string(MatchName.CD, m.group(), headSpan, priority(), Set.of(), false);
 
             if (seps.test(head)) {
                 int cd = Integer.parseInt(m.group(CD));
 
                 if (cd > 0 && cd < 100) {
                     var cdSpan = new Span(m.start(CD), m.end(CD), m.group(CD));
-                    ctx.matches.add(new Match(MatchName.CD, cd, cdSpan, priority(), Set.of(), false));
+                    ctx.matches.add(Match.integer(MatchName.CD, cd, cdSpan, priority(), Set.of(), false));
                     addCdCountIfPresent(ctx, m);
                 }
             }
@@ -65,7 +66,7 @@ public final class CdExtractor implements Extractor {
 
             if (c > 0 && c < 100) {
                 var countSpan = new Span(m.start(COUNT), m.end(COUNT), countGroup);
-                ctx.matches.add(new Match(MatchName.CD_COUNT, c, countSpan,
+                ctx.matches.add(Match.integer(MatchName.CD_COUNT, c, countSpan,
                         priority(), Set.of(), false));
             }
         }
@@ -75,14 +76,15 @@ public final class CdExtractor implements Extractor {
         var m = CD_COUNT.matcher(input);
         while (m.find()) {
             var headSpan = new Span(m.start(), m.end(), m.group());
-            var head = new Match(MatchName.CD_COUNT, null, headSpan, priority(), Set.of(), false);
+
+            var head = Match.string(MatchName.CD_COUNT, m.group(), headSpan, priority(), Set.of(), false);
 
             if (seps.test(head)) {
                 int c = Integer.parseInt(m.group(COUNT));
 
                 if (c > 0 && c < 100) {
                     var countSpan = new Span(m.start(COUNT), m.end(COUNT), m.group(COUNT));
-                    ctx.matches.add(new Match(MatchName.CD_COUNT, c, countSpan,
+                    ctx.matches.add(Match.integer(MatchName.CD_COUNT, c, countSpan,
                             priority(), Set.of(), false));
                     addCdLiteralMarker(ctx, input, m);
                 }
@@ -101,8 +103,10 @@ public final class CdExtractor implements Extractor {
         }
 
         if (litEnd > litStart) {
-            var markerSpan = new Span(litStart, litEnd, input.substring(litStart, litEnd));
-            ctx.matches.add(new Match(MatchName.CD_MARKER, null, markerSpan, priority(), Set.of(), true));
+            var raw = input.substring(litStart, litEnd);
+            var markerSpan = new Span(litStart, litEnd, raw);
+
+            ctx.matches.add(Match.string(MatchName.CD_MARKER, raw, markerSpan, priority(), Set.of(), true));
         }
     }
 }

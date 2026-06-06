@@ -32,11 +32,12 @@ public final class Validators {
     public static Predicate<Match> sepsSurround(String input) {
         return m -> {
             int start = m.span().start();
-            int end = m.span().end();
-            int len = input.length();
+            if (start != 0 && !Seps.isSep(input.charAt(start - 1))) {
+                return false;
+            }
 
-            boolean validBefore = start == 0 || Seps.isSep(input.charAt(start - 1));
-            return validBefore && (end == len || Seps.isSep(input.charAt(end)));
+            int end = m.span().end();
+            return end == input.length() || Seps.isSep(input.charAt(end));
         };
     }
 }

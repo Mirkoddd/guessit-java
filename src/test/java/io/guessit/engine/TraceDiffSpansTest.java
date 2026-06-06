@@ -5,6 +5,7 @@ import io.guessit.core.pipeline.state.Marker;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Span;
 import io.guessit.core.trace.Trace;
 import io.guessit.core.trace.TraceDiff;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,7 +30,7 @@ class TraceDiffSpansTest {
         };
         var ctx = new ParseContext("XxX.2020.mkv", Options.defaults(), null, tr);
 
-        var year = Match.of(MatchName.YEAR, 2020, new Span(4, 8, "2020"));
+        var year = Match.integer(MatchName.YEAR, 2020, new Span(4, 8, "2020"), Priority.DEFAULT, Set.of(), false);
         var before = ctx.matches.snapshot();
         ctx.matches.add(year);
         TraceDiff.emit(before, ctx.matches.snapshot(), ctx);
@@ -60,7 +62,7 @@ class TraceDiffSpansTest {
             @Override public void spans(String i, List<Match> ms, List<Marker> mk) { fired.add("spans"); }
         };
 
-        var year = Match.of(MatchName.YEAR, 2020, new Span(0, 4, "2020"));
+        var year = Match.integer(MatchName.YEAR, 2020, new Span(0, 4, "2020"), Priority.DEFAULT, Set.of(), false);
         TraceDiff.emit(List.of(), List.of(year), tr);
         assertThat(fired).containsExactly("+2020");
     }

@@ -89,8 +89,8 @@ public final class Holes {
     }
 
     public static List<Hole> compute(String input, int start, int end,
-                                     List<Match> allMatches,
-                                     Predicate<Match> ignore,
+                                     List<? extends Match> allMatches,
+                                     Predicate<? super Match> ignore,
                                      String seps,
                                      UnaryOperator<String> formatter) {
 
@@ -123,9 +123,9 @@ public final class Holes {
         return ret;
     }
 
-    private static List<Match> collectActiveMatches(List<Match> allMatches, Predicate<Match> ignore,
+    private static List<Match> collectActiveMatches(List<? extends Match> allMatches, Predicate<? super Match> ignore,
                                                     int start, int end) {
-        var matches = new ArrayList<>(allMatches);
+        var matches = new ArrayList<Match>(allMatches);
         matches.sort(Comparator.comparingInt(m -> m.span().start()));
         var active = new ArrayList<Match>();
         var target = new Span(start, end, "");

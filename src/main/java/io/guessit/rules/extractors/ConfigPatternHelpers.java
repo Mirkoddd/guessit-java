@@ -119,7 +119,7 @@ final class ConfigPatternHelpers {
     }
 
     static Match createMatch(MatchName name, String input, String value, Set<String> tags, int s, int e) {
-        return new Match(name, value, new Span(s, e, input.substring(s, e)), Priority.DEFAULT, tags, false);
+        return Match.string(name, value, new Span(s, e, input.substring(s, e)), Priority.DEFAULT, tags, false);
     }
 
     /**
@@ -212,7 +212,9 @@ final class ConfigPatternHelpers {
         var seen = new HashSet<String>();
         var toRemove = new ArrayList<Match>();
         for (var m : ctx.matches.named(MatchName.EDITION).toList()) {
-            var key = m.span().start() + ":" + m.span().end() + ":" + m.value();
+            String val = m instanceof Match.StringMatch sm ? sm.value() : "";
+
+            var key = m.span().start() + ":" + m.span().end() + ":" + val;
             if (!seen.add(key)) toRemove.add(m);
         }
         for (var m : toRemove) ctx.matches.remove(m);

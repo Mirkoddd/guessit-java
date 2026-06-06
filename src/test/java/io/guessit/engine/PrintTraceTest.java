@@ -10,14 +10,13 @@ import org.junit.jupiter.api.Test;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import static io.guessit.core.pipeline.state.Match.of;
 import static io.guessit.core.pipeline.state.MatchName.*;
 import static io.guessit.core.trace.PrintTrace.formatMatch;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class PrintTraceTest {
 
-    private static final Match YEAR_MATCH = of(YEAR, 2020, new Span(11, 15, "2020"));
+    private static final Match YEAR_MATCH = Match.integer(YEAR, 2020, new Span(11, 15, "2020"), Priority.DEFAULT, Set.of(), false);
 
     @Test
     void formatsBareMatchValueStartEndName() {
@@ -26,13 +25,13 @@ class PrintTraceTest {
 
     @Test
     void includesPrivateBeforeName() {
-        var m = new Match(WEAK, 2020, new Span(11, 15, "2020"), Priority.DEFAULT, Set.of(), true);
+        var m = Match.integer(WEAK, 2020, new Span(11, 15, "2020"), Priority.DEFAULT, Set.of(), true);
         Assertions.assertThat(formatMatch(m)).isEqualTo("2020:(11,15)+private+name=weak");
     }
 
     @Test
     void includesPriorityWhenNotDefault() {
-        var m = of(SOURCE, "Blu-ray", new Span(22, 28, "Blu-ray")).withPriority(Priority.EXPECTED);
+        var m = Match.string(SOURCE, "Blu-ray", new Span(22, 28, "Blu-ray"), Priority.EXPECTED, Set.of(), false);
         Assertions.assertThat(formatMatch(m)).isEqualTo("Blu-ray:(22,28)+name=source+priority=2000");
     }
 
@@ -46,7 +45,7 @@ class PrintTraceTest {
         var tags = new LinkedHashSet<String>();
         tags.add("weak-episode");
         tags.add("weak-duplicate");
-        var m = of(SEASON, 20, new Span(11, 13, "20")).withTags(tags);
+        var m = Match.integer(SEASON, 20, new Span(11, 13, "20"), Priority.DEFAULT, tags, false);
         Assertions.assertThat(formatMatch(m)).isEqualTo("20:(11,13)+name=season+tags=[weak-duplicate,weak-episode]");
     }
 

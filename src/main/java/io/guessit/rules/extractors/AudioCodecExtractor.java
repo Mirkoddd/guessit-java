@@ -14,19 +14,6 @@ import java.util.*;
 
 /**
  * Extracts {@code audio_codec}, {@code audio_profile}, and {@code audio_channels}.
- *
- * <p>Pattern definitions are not hardcoded — they are loaded from the
- * {@code audio_codec} section of the config so additions ride on options
- * updates rather than code changes. {@link #flattenPatterns} accepts a
- * flexible YAML/JSON shape (string, list, or map with {@code string} /
- * {@code regex} / {@code tags} keys) so config can express weighting and
- * tagging without inventing new schemas.
- *
- * <p>Edge validation is deferred to {@link #postProcess} rather than enforced
- * by per-match validators, because audio matches frequently sit flush against
- * each other (e.g. {@code "True-HD51"}, {@code "AAC2.0"}). The post-pass
- * accepts a non-separator on either side as long as another audio match is
- * abutted there.
  */
 public final class AudioCodecExtractor implements Extractor {
 
@@ -49,9 +36,6 @@ public final class AudioCodecExtractor implements Extractor {
         loadGroup(ctx, MatchName.AUDIO_CHANNELS, asMap(section.get("audio_channels")));
     }
 
-    /**
-     * AudioValidatorRule — drop audio matches not surrounded by seps unless touching another audio match.
-     */
     @Override
     public void postProcess(ParseContext ctx) {
         var audio = ctx.matches.all().filter(m -> AUDIO_PROPS.contains(m.name())).toList();
@@ -114,7 +98,7 @@ public final class AudioCodecExtractor implements Extractor {
 
     private String extractRequiredCodec(Match profile) {
         for (var t : profile.tags()) {
-            if (!MatchTag.AUDIO_PROFILE_RULE.getYamlValue().equals(t)) {
+            if (!MatchTag.AUDIO_PROFILE_RULE.getValue().equals(t)) {
                 return t;
             }
         }
@@ -129,7 +113,7 @@ public final class AudioCodecExtractor implements Extractor {
 
     private boolean codecAtSameSpan(Match prof, List<Match> codecMatches, String reqCodec) {
         return codecMatches.stream().anyMatch(c ->
-                c.span().equals(prof.span()) && reqCodec.equals(String.valueOf(c.value())));
+                c.span().equals(prof.span()) && c instanceof Match.StringMatch sm && reqCodec.equals(sm.value()));
     }
 
     private boolean codecAtPreviousPosition(ParseContext ctx, Match prof, List<Match> codecMatches, String reqCodec) {
@@ -139,7 +123,7 @@ public final class AudioCodecExtractor implements Extractor {
                 .max().orElse(-1);
 
         return prevIdx != -1 && codecMatches.stream().anyMatch(c ->
-                c.span().end() == prevIdx && reqCodec.equals(String.valueOf(c.value())));
+                c.span().end() == prevIdx && c instanceof Match.StringMatch sm && reqCodec.equals(sm.value()));
     }
 
     private boolean codecAtNextPosition(ParseContext ctx, Match prof, List<Match> codecMatches, String reqCodec) {
@@ -149,19 +133,19 @@ public final class AudioCodecExtractor implements Extractor {
                 .min().orElse(-1);
 
         return nextIdx != -1 && codecMatches.stream().anyMatch(c ->
-                c.span().start() == nextIdx && reqCodec.equals(String.valueOf(c.value())));
+                c.span().start() == nextIdx && c instanceof Match.StringMatch sm && reqCodec.equals(sm.value()));
     }
 
     private void removeConflictingHighQualityMatches(ParseContext ctx) {
         var hqProfileSpans = ctx.matches.named(MatchName.AUDIO_PROFILE)
-                .filter(m -> "High Quality".equals(m.value()))
+                .filter(m -> m instanceof Match.StringMatch sm && "High Quality".equals(sm.value()))
                 .map(Match::span)
                 .toList();
 
         if (hqProfileSpans.isEmpty()) return;
 
         var hqOthers = ctx.matches.named(MatchName.OTHER)
-                .filter(m -> "High Quality".equals(m.value()))
+                .filter(m -> m instanceof Match.StringMatch sm && "High Quality".equals(sm.value()))
                 .filter(m -> hqProfileSpans.stream().anyMatch(sp -> sp.equals(m.span())))
                 .toList();
 
@@ -174,13 +158,8 @@ public final class AudioCodecExtractor implements Extractor {
     }
 
     private void loadGroup(ParseContext ctx, MatchName propName, Map<String, Object> group) {
-        // No edge validator at extract time: AudioValidatorRule re-checks both sides in
-        // postProcess and allows audio matches to touch other audio matches
-        // (e.g. "True-HD51", "AAC2.0").
         for (var entry : group.entrySet()) {
             String value = entry.getKey();
-            // Entries that declare a `conflict_solver` in config (e.g. "DTS-HD") should
-            // win over generic audio_codec matches (e.g. "DTS") covering the same span.
             Priority priority = entryHasConflictSolver(entry.getValue()) ? Priority.OVERRIDE : Priority.DEFAULT;
             for (var pattern : flattenPatterns(entry.getValue())) {
                 addPatternMatches(ctx, propName, value, priority, pattern);
@@ -207,13 +186,11 @@ public final class AudioCodecExtractor implements Extractor {
         for (var m : PatternMatcher.regex(ctx.input, p, propName, opts, ctx.trace)) ctx.matches.add(m);
     }
 
-    /** Disable whole-word boundary; AudioValidatorRule checks edges later
-     * (allowing audio matches to touch other audio matches). */
     private void addStringMatches(ParseContext ctx, MatchName propName, String value,
                                   Priority priority, PatternEntry pattern, Set<String> tags) {
         var opts = StringOpts.defaults().wholeWord(false).withPriority(priority);
         for (var m : PatternMatcher.string(ctx.input, Set.of(pattern.source()), propName, opts, ctx.trace)) {
-            ctx.matches.add(new Match(propName, value, m.span(),
+            ctx.matches.add(Match.string(propName, value, m.span(),
                     m.priority(), mergeTags(m.tags(), tags), m.isPrivate()));
         }
     }
@@ -231,7 +208,6 @@ public final class AudioCodecExtractor implements Extractor {
         return false;
     }
 
-    /** Pattern config can be: String → string match, list of {String|Map}, Map with "string"/"regex" keys. */
     private record PatternEntry(String source, boolean regex, List<String> tags) {
         PatternEntry(String source, boolean regex) { this(source, regex, null); }
     }
@@ -246,7 +222,6 @@ public final class AudioCodecExtractor implements Extractor {
             for (var item : list) out.addAll(flattenPatterns(item));
         } else if (def instanceof Map<?, ?> map) {
             var m = (Map<String, Object>) map;
-            // Tags can be a String or a List<String>.
             List<String> tags = null;
             if (m.get("tags") instanceof String ts) tags = List.of(ts);
             else if (m.get("tags") instanceof List<?> tl) tags = (List<String>) tl;

@@ -42,8 +42,12 @@ public final class YearExtractor implements Extractor {
                 .withValue(Integer::valueOf)
                 .withValidator(m -> {
                     if (!Validators.sepsSurround(input).test(m)) return false;
-                    int v = (Integer) m.value();
-                    return 1920 <= v && v < 2030;
+
+                    if (m instanceof Match.IntegerMatch im) {
+                        int v = im.value();
+                        return 1920 <= v && v < 2030;
+                    }
+                    return false;
                 });
 
         PatternMatcher.regex(input, PATTERN, MatchName.YEAR, opts, ctx.trace)

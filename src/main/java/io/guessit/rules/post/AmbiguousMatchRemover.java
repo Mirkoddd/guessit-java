@@ -65,19 +65,36 @@ public class AmbiguousMatchRemover implements PostProcessor {
         var seenNames = new HashSet<MatchName>();
         var values = new EnumMap<MatchName, Set<Object>>(MatchName.class);
         var toRemove = new ArrayList<Match>();
+
         for (var inFp : perFilepart) {
             var fpNames = new HashSet<MatchName>();
             for (var m : inFp) {
                 fpNames.add(m.name());
                 var bucket = values.computeIfAbsent(m.name(), _ -> new LinkedHashSet<>());
+
+                Object val = extractRawValue(m);
+
                 if (seenNames.contains(m.name())) {
-                    if (!bucket.contains(m.value())) toRemove.add(m);
+                    if (!bucket.contains(val)) toRemove.add(m);
                 } else {
-                    bucket.add(m.value());
+                    bucket.add(val);
                 }
             }
             seenNames.addAll(fpNames);
         }
         for (var m : toRemove) ctx.matches.remove(m);
+    }
+
+    private static Object extractRawValue(Match match) {
+        return switch (match) {
+            case Match.StringMatch sm -> sm.value();
+            case Match.IntegerMatch im -> im.value();
+            case Match.DoubleMatch dm -> dm.value();
+            case Match.LanguageMatch lm -> lm.value();
+            case Match.CountryMatch cm -> cm.value();
+            case Match.SizeMatch sm -> sm.value();
+            case Match.BitRateMatch bm -> bm.value();
+            case Match.DateMatch dm -> dm.value();
+        };
     }
 }

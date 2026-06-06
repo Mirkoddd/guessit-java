@@ -79,10 +79,11 @@ public final class CrcExtractor implements Extractor {
         while (m.find()) {
             var val = m.group(GRP_VALUE);
             var span = new Span(m.start(GRP_VALUE), m.end(GRP_VALUE), val);
-            var head = new Match(MatchName.CRC32, null, span, priority(), Set.of(), false);
+
+            var head = Match.string(MatchName.CRC32, val, span, priority(), Set.of(), false);
 
             if (seps.test(head)) {
-                ctx.matches.add(new Match(MatchName.CRC32, val, span, priority(), Set.of(), false));
+                ctx.matches.add(Match.string(MatchName.CRC32, val, span, priority(), Set.of(), false));
             }
         }
     }
@@ -97,10 +98,11 @@ public final class CrcExtractor implements Extractor {
 
             if (isLikelyIdNumber(raw) && !SXX_EXX_INSIDE.matcher(raw).find()) {
                 var span = new Span(m.start(GRP_VALUE), m.end(GRP_VALUE), raw);
-                var head = new Match(MatchName.UUID, null, span, priority(), Set.of(), false);
+
+                var head = Match.string(MatchName.UUID, raw, span, priority(), Set.of(), false);
 
                 if (seps.test(head)) {
-                    ctx.matches.add(new Match(MatchName.UUID, raw, span, priority(), Set.of(), false));
+                    ctx.matches.add(Match.string(MatchName.UUID, raw, span, priority(), Set.of(), false));
                 }
             }
         }

@@ -16,28 +16,37 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ContainerExtractorTest {
 
-    private static List<Object> run(String input) {
+    private static List<String> run(String input) {
         var ctx = new ParseContext(input, Options.defaults(), ConfigLoader.load(Options.defaults()));
         new ContainerExtractor().extract(ctx);
-        return ctx.matches.named(MatchName.CONTAINER).map(Match::value).toList();
+        return ctx.matches.named(MatchName.CONTAINER)
+                .map(m -> ((Match.StringMatch) m).value())
+                .toList();
     }
 
     @Test void videoExtension() {
         assertThat(run("Movie.2015.mkv")).isEqualTo(of("mkv"));
     }
+
     @Test void subtitleExtension() {
         assertThat(run("Movie.2015.srt")).isEqualTo(of("srt"));
     }
+
     @Test void torrentExtension() {
         assertThat(run("Movie.2015.torrent")).isEqualTo(of("torrent"));
     }
+
     @Test void infoExtension() {
         assertThat(run("Movie.2015.nfo")).isEqualTo(of("nfo"));
     }
+
     @Test void noExtension_returnsBodyContainer() {
         // 'avi' appears in the body, no trailing extension.
         var values = run("Movie.avi.Title");
         assertTrue(values.contains("avi"));
     }
-    @Test void unknownExtensionDropped() {Assertions.assertThat(run("Movie.2015.exe")).isEmpty();}
+
+    @Test void unknownExtensionDropped() {
+        Assertions.assertThat(run("Movie.2015.exe")).isEmpty();
+    }
 }

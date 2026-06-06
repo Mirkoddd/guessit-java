@@ -44,7 +44,7 @@ public final class LastPathProcessor implements PostProcessor {
                 // Only drop when the inner filepart's same-named match has a
                 // DIFFERENT value. When values match, keep the outer match so
                 // marker_sorted still credits the outer filepart for that name.
-                .filter(m -> !inLastValues.get(m.name()).contains(m.value()))
+                .filter(m -> !inLastValues.get(m.name()).contains(extractRawValue(m)))
                 .filter(m -> shouldDropTitleFamilyDup(m, inLastValues))
                 // Preserve titles that survived preferTitleWithYear.
                 .filter(m -> !(m.name() == MatchName.TITLE && m.hasTag(MatchTag.EQUIVALENT_IGNORE)))
@@ -58,7 +58,7 @@ public final class LastPathProcessor implements PostProcessor {
         var values = new EnumMap<MatchName, Set<Object>>(MatchName.class);
         ctx.matches.inMarker(last)
                 .filter(m -> !m.isPrivate())
-                .forEach(m -> values.computeIfAbsent(m.name(), _ -> new HashSet<>()).add(m.value()));
+                .forEach(m -> values.computeIfAbsent(m.name(), _ -> new HashSet<>()).add(extractRawValue(m)));
         return values;
     }
 
@@ -66,7 +66,10 @@ public final class LastPathProcessor implements PostProcessor {
      * so the outer's titlecase variant survives over the inner's lowercase. */
     private static boolean shouldDropTitleFamilyDup(Match m, Map<MatchName, Set<Object>> inLastValues) {
         if (!TITLE_FAMILY.contains(m.name())) return true;
-        if (!(m.value() instanceof String mv)) return true;
+
+        if (!(m instanceof Match.StringMatch sm)) return true;
+        String mv = sm.value();
+
         var inLast = inLastValues.get(m.name());
         for (var v : inLast) {
             if (v instanceof String s && s.equalsIgnoreCase(mv)) return false;
@@ -83,5 +86,18 @@ public final class LastPathProcessor implements PostProcessor {
                 .filter(s -> !s.isPrivate())
                 .filter(s -> m.name().equals(s.name()))
                 .anyMatch(s -> s.hasTag(MatchTag.SXX_EXX));
+    }
+
+    private static Object extractRawValue(Match m) {
+        return switch (m) {
+            case Match.StringMatch sm -> sm.value();
+            case Match.IntegerMatch im -> im.value();
+            case Match.DoubleMatch dm -> dm.value();
+            case Match.LanguageMatch lm -> lm.value();
+            case Match.CountryMatch cm -> cm.value();
+            case Match.SizeMatch sm -> sm.value();
+            case Match.BitRateMatch bm -> bm.value();
+            case Match.DateMatch dm -> dm.value();
+        };
     }
 }

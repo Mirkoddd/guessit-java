@@ -73,7 +73,7 @@ public final class ContainerExtractor implements Extractor {
 
         var opts = StringOpts.defaults()
                 .withValidator(Validators.sepsSurround(input))
-                .withTags(Set.of(MatchTag.BODY.getYamlValue()));
+                .withTags(Set.of(MatchTag.BODY.getValue()));
 
         var potentialConflicts = ctx.matches.snapshot().stream()
                 .filter(x -> (x.name() == MatchName.CONTAINER && x.hasTag(MatchTag.EXTENSION)) ||
@@ -100,7 +100,7 @@ public final class ContainerExtractor implements Extractor {
 
         var opts = RegexOpts.defaults()
                 .withValue(s -> s.startsWith(".") ? s.substring(1).toLowerCase(Locale.ROOT) : s.toLowerCase(Locale.ROOT))
-                .withTags(Set.of(MatchTag.EXTENSION.getYamlValue(), kindTag.getYamlValue()));
+                .withTags(Set.of(MatchTag.EXTENSION.getValue(), kindTag.getValue()));
 
         for (var m : PatternMatcher.regex(input, p, MatchName.CONTAINER, opts, ctx.trace)) {
             ctx.matches.add(m);

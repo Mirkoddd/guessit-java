@@ -26,7 +26,13 @@ public final class YearSeasonLinker implements PostProcessor {
     public void process(ParseContext ctx) {
         if (ctx.matches.named(MatchName.SEASON).findAny().isPresent()) return;
         if (ctx.matches.named(MatchName.EPISODE).findAny().isEmpty()) return;
-        ctx.matches.named(MatchName.YEAR).toList().forEach(year ->
-            ctx.matches.add(new Match(MatchName.SEASON, year.value(), year.span(), year.priority(), Set.copyOf(year.tags()), false)));
+
+        ctx.matches.named(MatchName.YEAR)
+                .filter(m -> m instanceof Match.IntegerMatch)
+                .map(m -> (Match.IntegerMatch) m)
+                .toList()
+                .forEach(year ->
+                        ctx.matches.add(Match.integer(MatchName.SEASON, year.value(), year.span(), year.priority(), Set.copyOf(year.tags()), false))
+                );
     }
 }

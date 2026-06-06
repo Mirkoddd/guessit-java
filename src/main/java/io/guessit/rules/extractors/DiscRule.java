@@ -11,6 +11,7 @@ import io.guessit.core.text.Validators;
 import io.guessit.core.text.patterns.DiscPatterns;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -50,12 +51,14 @@ public final class DiscRule implements Extractor {
 
         while (m.find()) {
             var headSpan = new Span(m.start(), m.end(), m.group());
-            var head = new Match(MatchName.DISC, null, headSpan, Priority.DEFAULT, Set.of(), false);
+
+            var head = Match.string(MatchName.DISC, m.group(), headSpan, Priority.DEFAULT, Set.of(), false);
 
             if (seps.test(head)) {
                 int v = Integer.parseInt(m.group(GRP_VAL));
                 var valSpan = new Span(m.start(GRP_VAL), m.end(GRP_VAL), m.group(GRP_VAL));
-                ctx.matches.add(new Match(MatchName.DISC, v, valSpan, Priority.DEFAULT, Set.of(), false));
+
+                ctx.matches.add(Match.integer(MatchName.DISC, v, valSpan, Priority.DEFAULT, Set.of(), false));
             }
         }
     }
@@ -71,10 +74,14 @@ public final class DiscRule implements Extractor {
 
         var renamed = marked.stream()
                 .map(m -> {
-                    var newTags = new HashSet<>(m.tags());
-                    newTags.remove(MatchTag.DISC_MARKER.getYamlValue());
-                    return new Match(MatchName.DISC, m.value(), m.span(), m.priority(), newTags, m.isPrivate());
+                    if (m instanceof Match.IntegerMatch im) {
+                        var newTags = new HashSet<>(im.tags());
+                        newTags.remove(MatchTag.DISC_MARKER.getValue());
+                        return Match.integer(MatchName.DISC, im.value(), im.span(), im.priority(), newTags, im.isPrivate());
+                    }
+                    return null;
                 })
+                .filter(Objects::nonNull)
                 .toList();
 
         marked.forEach(ctx.matches::remove);

@@ -70,7 +70,7 @@ public final class SourceExtractor implements Extractor {
 
         var span = new Span(s, e, input.substring(s, e));
 
-        var sourceMatch = new Match(MatchName.SOURCE, rule.source(), span,
+        Match sourceMatch = new Match.StringMatch(MatchName.SOURCE, rule.source(), span,
                 Priority.DEFAULT, rule.tags(), false);
 
         if (!validator.test(sourceMatch) || overlapsExtension(ctx, span)) return;
@@ -79,7 +79,7 @@ public final class SourceExtractor implements Extractor {
                 .anyMatch(ss -> ss.span().contains(span) && !ss.span().equals(span));
 
         if (insideStream) {
-            sourceMatch = new Match(MatchName.SOURCE, rule.source(), span,
+            sourceMatch = new Match.StringMatch(MatchName.SOURCE, rule.source(), span,
                     Priority.DEFAULT, rule.tags(), true);
         }
 
@@ -94,8 +94,8 @@ public final class SourceExtractor implements Extractor {
         int gs = groupStart(matcher, groupName);
         int ge = groupEnd(matcher, groupName);
         if (gs >= 0 && ge > gs) {
-            ctx.matches.add(new Match(MatchName.OTHER, value, new Span(gs, ge, input.substring(gs, ge)),
-                    Priority.DEFAULT, Set.of(MatchTag.COEXIST.getYamlValue(), MatchTag.DERIVED_FROM_SOURCE.getYamlValue()), false));
+            ctx.matches.add(new Match.StringMatch(MatchName.OTHER, value, new Span(gs, ge, input.substring(gs, ge)),
+                    Priority.DEFAULT, Set.of(MatchTag.COEXIST.getValue(), MatchTag.DERIVED_FROM_SOURCE.getValue()), false));
         }
     }
 
@@ -163,7 +163,7 @@ public final class SourceExtractor implements Extractor {
                 .toList();
 
         ctx.matches.named(MatchName.SOURCE)
-                .filter(m -> VAL_BLU_RAY.equals(m.value()))
+                .filter(m -> m instanceof Match.StringMatch sm && VAL_BLU_RAY.equals(sm.value()))
                 .toList()
                 .forEach(bd -> pathMarkers.stream()
                         .filter(fp -> fp.covers(bd.span()))
@@ -190,18 +190,18 @@ public final class SourceExtractor implements Extractor {
 
         if (uhdOther != null) ctx.matches.remove(uhdOther);
 
-        ctx.matches.replace(bd, new Match(MatchName.SOURCE, VAL_ULTRA_HD_BLURAY,
+        ctx.matches.replace(bd, new Match.StringMatch(MatchName.SOURCE, VAL_ULTRA_HD_BLURAY,
                 bd.span(), bd.priority(), bd.tags(), bd.isPrivate()));
     }
 
     private static boolean has2160p(ParseContext ctx, Marker filePart) {
         return ctx.matches.named(MatchName.SCREEN_SIZE)
-                .anyMatch(m -> VAL_2160P.equals(m.value()) && filePart.covers(m.span()));
+                .anyMatch(m -> m instanceof Match.StringMatch sm && VAL_2160P.equals(sm.value()) && filePart.covers(m.span()));
     }
 
     private static Match findUltraHd(ParseContext ctx, Span targetSpan, boolean preferLast) {
         var candidates = ctx.matches.named(MatchName.OTHER)
-                .filter(m -> !m.isPrivate() && VAL_ULTRA_HD.equals(m.value()) && m.span().isInside(targetSpan));
+                .filter(m -> !m.isPrivate() && m instanceof Match.StringMatch sm && VAL_ULTRA_HD.equals(sm.value()) && m.span().isInside(targetSpan));
 
         return preferLast
                 ? candidates.max(Comparator.comparingInt(m -> m.span().end())).orElse(null)

@@ -3,17 +3,19 @@ package io.guessit.engine;
 import io.guessit.api.GuessResultBuilder;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.MatchName;
+import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Span;
 import io.guessit.core.trace.DebugTrace;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class DebugTraceTest {
 
-    private static final Match YEAR_MATCH = Match.of(MatchName.YEAR, 2020, new Span(4, 8, "2020"));
+    private static final Match YEAR_MATCH = Match.integer(MatchName.YEAR, 2020, new Span(4, 8, "2020"), Priority.DEFAULT, Set.of(), false);
 
     @Test
     void inputHeader() {

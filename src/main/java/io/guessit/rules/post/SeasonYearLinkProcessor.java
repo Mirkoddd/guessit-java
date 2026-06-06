@@ -35,20 +35,20 @@ public final class SeasonYearLinkProcessor implements PostProcessor {
         }
 
         ctx.matches.named(MatchName.SEASON)
+                .filter(m -> m instanceof Match.IntegerMatch)
+                .map(m -> (Match.IntegerMatch) m)
                 .filter(SeasonYearLinkProcessor::isValidYearSeason)
                 .findFirst()
                 .ifPresent(s -> promoteToYear(ctx, s));
     }
 
-    private static boolean isValidYearSeason(Match s) {
-        if (!(s.value() instanceof Integer i)) {
-            return false;
-        }
-        return i >= MIN_YEAR && i <= MAX_YEAR;
+    private static boolean isValidYearSeason(Match.IntegerMatch s) {
+        int year = s.value();
+        return year >= MIN_YEAR && year <= MAX_YEAR;
     }
 
-    private static void promoteToYear(ParseContext ctx, Match s) {
-        ctx.matches.add(new Match(
+    private static void promoteToYear(ParseContext ctx, Match.IntegerMatch s) {
+        ctx.matches.add(Match.integer(
                 MatchName.YEAR,
                 s.value(),
                 s.span(),

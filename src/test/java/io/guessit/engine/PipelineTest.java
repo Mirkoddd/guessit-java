@@ -5,10 +5,12 @@ import io.guessit.core.pipeline.contracts.Extractor;
 import io.guessit.core.pipeline.phases.*;
 import io.guessit.core.pipeline.state.Match;
 import io.guessit.core.pipeline.state.ParseContext;
+import io.guessit.core.pipeline.state.Priority;
 import io.guessit.core.text.Span;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Set;
 
 import static io.guessit.api.Options.defaults;
 import static io.guessit.config.OptionsConfig.empty;
@@ -23,7 +25,7 @@ class PipelineTest {
     void runsPhasesInOrder() {
         var trace = new ArrayList<String>();
         var pipeline = new Pipeline(of(
-                new MarkerPhase(of(c -> trace.add("marker"))),
+                new MarkerPhase(of(_ -> trace.add("marker"))),
                 new ExtractorPhase(of(new Extractor() {
                     public String name() {
                         return "test";
@@ -31,11 +33,11 @@ class PipelineTest {
 
                     public void extract(ParseContext c) {
                         trace.add("extract");
-                        c.matches.add(Match.of(EDITION, "x", new Span(0, 1, "x")));
+                        c.matches.add(Match.string(EDITION, "x", new Span(0, 1, "x"), Priority.DEFAULT, Set.of(), false));
                     }
                 })),
                 new ConflictPhase(),
-                new PostPhase(of(c -> trace.add("post"))),
+                new PostPhase(of(_ -> trace.add("post"))),
                 new OutputPhase(c -> {
                     trace.add("output");
                     c.result = c.resultBuilder.build();

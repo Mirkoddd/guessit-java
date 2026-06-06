@@ -51,9 +51,11 @@ public final class EpisodeNumberSeparatorRange implements PostProcessor {
     @Override
     public void process(ParseContext ctx) {
         var eps = ctx.matches.named(EPISODE)
-                .filter(m -> !m.isPrivate() && m.value() instanceof Integer)
+                .filter(m -> !m.isPrivate() && m instanceof Match.IntegerMatch)
+                .map(m -> (Match.IntegerMatch) m)
                 .sorted(Comparator.comparingInt(m -> m.span().start()))
                 .toList();
+
         var fills = new ArrayList<Match>();
         for (var a : eps) tryExtendRange(ctx, a, fills);
         for (var m : fills) ctx.matches.add(m);
@@ -61,8 +63,8 @@ public final class EpisodeNumberSeparatorRange implements PostProcessor {
 
     private record RangeNumber(int value, Span span) {}
 
-    private static void tryExtendRange(ParseContext ctx, Match a, java.util.List<Match> fills) {
-        int va = (Integer) a.value();
+    private static void tryExtendRange(ParseContext ctx, Match.IntegerMatch a, java.util.List<Match> fills) {
+        int va = a.value();
         int scanFrom = a.span().end();
         if (scanFrom >= ctx.input.length()) return;
 
@@ -77,11 +79,11 @@ public final class EpisodeNumberSeparatorRange implements PostProcessor {
         if (alreadyFilled(ctx, a, rn.span().end())) return;
 
         // Add vb itself as an episode match.
-        fills.add(new Match(EPISODE, rn.value(), rn.span(), Priority.DEFAULT, Set.of(MatchTag.RANGE_FILL.getYamlValue()), false));
+        fills.add(Match.integer(EPISODE, rn.value(), rn.span(), Priority.DEFAULT, Set.of(MatchTag.RANGE_FILL.getValue()), false));
 
         for (int v = va + 1; v < rn.value(); v++) {
             var emptySpan = new Span(rn.span().start(), rn.span().start(), "");
-            fills.add(new Match(EPISODE, v, emptySpan, Priority.DEFAULT, Set.of(MatchTag.RANGE_FILL.getYamlValue()), false));
+            fills.add(Match.integer(EPISODE, v, emptySpan, Priority.DEFAULT, Set.of(MatchTag.RANGE_FILL.getValue()), false));
         }
     }
 
@@ -105,7 +107,7 @@ public final class EpisodeNumberSeparatorRange implements PostProcessor {
      * RangeFiller already handled it (or will). */
     private static boolean vbAlreadyPresent(ParseContext ctx, RangeNumber rn) {
         return ctx.matches.named(EPISODE)
-                .anyMatch(m -> m.value() instanceof Integer iv && iv == rn.value()
+                .anyMatch(m -> m instanceof Match.IntegerMatch im && im.value() == rn.value()
                         && m.span().isInside(rn.span()));
     }
 

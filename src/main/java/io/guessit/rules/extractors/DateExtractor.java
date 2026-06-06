@@ -47,7 +47,7 @@ public final class DateExtractor implements Extractor {
         DateOrchestrator.search(input, ctx.options.dateYearFirst(), ctx.options.dateDayFirst())
                 .ifPresent(r -> {
                     var span = new Span(r.start(), r.end(), input.substring(r.start(), r.end()));
-                    ctx.matches.add(new Match(MatchName.DATE, r.date(), span, priority(), Set.of(), false));
+                    ctx.matches.add(Match.date(MatchName.DATE, r.date(), span, priority(), Set.of(), false));
                 });
     }
 

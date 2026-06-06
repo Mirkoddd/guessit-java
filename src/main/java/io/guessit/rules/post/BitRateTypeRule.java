@@ -88,7 +88,10 @@ public final class BitRateTypeRule implements PostProcessor {
     /** Audio-codec exception: trailing audio_codec + Kbps or Mbps&lt;10 keeps as audio. */
     private static boolean shouldKeepAsAudio(Match br, Match nextAudioCodec) {
         if (nextAudioCodec == null) return false;
-        if (!(br.value() instanceof BitRate bitRate)) return false;
+
+        if (!(br instanceof Match.BitRateMatch bm)) return false;
+
+        BitRate bitRate = bm.value();
         var fmt = bitRate.format();
         if (fmt.endsWith("Kbps")) return true;
         return fmt.endsWith("Mbps") && bitRate.value() < 10.0;

@@ -53,14 +53,15 @@ public final class WeakDuplicateExtractor implements Extractor {
         var seps = Validators.sepsSurround(input);
         var m = PATTERN.matcher(input);
         var tags = Set.of(
-                MatchTag.WEAK_EPISODE.getYamlValue(),
-                MatchTag.WEAK_DUPLICATE.getYamlValue(),
-                MatchTag.COEXIST.getYamlValue()
+                MatchTag.WEAK_EPISODE.getValue(),
+                MatchTag.WEAK_DUPLICATE.getValue(),
+                MatchTag.COEXIST.getValue()
         );
 
         while (m.find()) {
             var testSpan = new Span(m.start(), m.end(), m.group());
-            var weakMatch = new Match(MatchName.WEAK, null, testSpan, priority(), Set.of(), false);
+
+            var weakMatch = Match.string(MatchName.WEAK, m.group(), testSpan, priority(), Set.of(), false);
 
             if (!seps.test(weakMatch)) continue;
 
@@ -68,10 +69,10 @@ public final class WeakDuplicateExtractor implements Extractor {
             int e = Integer.parseInt(m.group(GRP_E));
 
             var seasonSpan = new Span(m.start(GRP_S), m.end(GRP_S), m.group(GRP_S));
-            ctx.matches.add(new Match(SEASON, s, seasonSpan, priority(), tags, false));
+            ctx.matches.add(Match.integer(SEASON, s, seasonSpan, priority(), tags, false));
 
             var episodeSpan = new Span(m.start(GRP_E), m.end(GRP_E), m.group(GRP_E));
-            ctx.matches.add(new Match(EPISODE, e, episodeSpan, priority(), tags, false));
+            ctx.matches.add(Match.integer(EPISODE, e, episodeSpan, priority(), tags, false));
         }
     }
 
@@ -139,7 +140,7 @@ public final class WeakDuplicateExtractor implements Extractor {
             var a = weakEpisodes.get(i);
             var b = weakEpisodes.get(i + 1);
 
-            if (a.value() instanceof Integer va && b.value() instanceof Integer vb && vb > va
+            if (a instanceof Match.IntegerMatch ia && b instanceof Match.IntegerMatch ib && ib.value() > ia.value()
                     && isRangeGap(ctx.input.substring(a.span().end(), b.span().start()))) {
 
                 var searchSpan = new Span(a.span().start(), b.span().end(), "");
